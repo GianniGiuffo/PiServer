@@ -1,6 +1,6 @@
-# Raspberry Pi 5 home server
+# Raspberry Pi 4 (4 GB) home server
 
-This repository is the reproducible configuration for a Raspberry Pi 5 (8 GB) that provides:
+This repository is the reproducible configuration for a Raspberry Pi 4 with 4 GB RAM that provides:
 
 - a private remote network using **Tailscale** (WireGuard-based);
 - network-wide DNS blocking through **Pi-hole**, on the home LAN and Tailnet;
@@ -9,6 +9,9 @@ This repository is the reproducible configuration for a Raspberry Pi 5 (8 GB) th
 - a private photo/video cloud using **Nextcloud**, reachable only through Tailscale.
 
 It is intentionally designed so that only Caddy's public web ports (`80` and `443`) and Pi-hole DNS on the private LAN/Tailnet are reachable. Nextcloud and the Pi-hole dashboard are bound to loopback and exposed privately by Tailscale Serve.
+
+> [!NOTE]
+> A Pi 4 with 4 GB is sufficient for this personal, low-traffic setup when the application state is on an SSD. Do not add video transcoding, AI photo recognition, Collabora/OnlyOffice, or other heavy services. Keep one or two simultaneous Nextcloud users in mind; direct playback is fine when the client supports the original video format.
 
 > [!IMPORTANT]
 > GitHub must contain configuration and documentation, **not** passwords, Vaultwarden data, databases, photos, videos, TLS certificates, or backups. The application state lives on the SSD and is backed up, encrypted, with Restic. Without a tested off-device backup, an OS rebuild is not a recovery plan.

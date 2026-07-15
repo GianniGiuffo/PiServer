@@ -4,7 +4,7 @@ Follow these steps in order. Commands in this document run on the Raspberry Pi, 
 
 ## 1. Prepare the hardware and operating system
 
-Use Raspberry Pi Imager to install **Raspberry Pi OS Lite 64-bit** onto an SSD. In the Imager advanced settings:
+Use Raspberry Pi Imager to install **Raspberry Pi OS Lite 64-bit** onto an SSD. This is particularly important on a Raspberry Pi 4 with 4 GB RAM: do not place Docker, databases, or Nextcloud data on a microSD card. In the Imager advanced settings:
 
 - set a unique hostname, for example `rpi-server`;
 - create a named non-root administrator user;
@@ -92,6 +92,8 @@ tailscale serve status
 Open the Tailnet HTTPS address in a browser. Its root is Nextcloud and `https://YOUR-TAILSCALE-FQDN/admin/` is the Pi-hole dashboard. Both remain inaccessible from the public Internet. The two sites and Vaultwarden become reachable after public DNS has propagated and Caddy has obtained certificates.
 
 Complete initial Nextcloud setup only through its Tailnet URL. Create a normal daily user after the initial administrator account; use the desktop/mobile Nextcloud clients for large photo and video uploads.
+
+On this 4 GB Pi, keep Nextcloud lean: do not enable Office integration, AI/photo-recognition apps or server-side video transcoding. Configure the mobile client to upload original media; use a device capable of playing the original video codec.
 
 ## 7. Configure the two static-site deployments
 

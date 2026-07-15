@@ -4,6 +4,7 @@ services:
   caddy:
     image: ${CADDY_IMAGE:?Set CADDY_IMAGE in .env}
     restart: unless-stopped
+    mem_limit: 128m
     ports:
       - "80:80/tcp"
       - "443:443/tcp"
@@ -26,6 +27,7 @@ services:
   pihole:
     image: ${PIHOLE_IMAGE:?Set PIHOLE_IMAGE in .env}
     restart: unless-stopped
+    mem_limit: 256m
     ports:
       # DNS must be reachable from the home LAN and from Tailnet clients.
       # Never forward port 53 from the Internet in the router.
@@ -49,6 +51,7 @@ services:
   vaultwarden:
     image: ${VAULTWARDEN_IMAGE:?Set VAULTWARDEN_IMAGE in .env}
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       DOMAIN: https://${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
       SIGNUPS_ALLOWED: "false"
@@ -64,6 +67,19 @@ services:
   postgres:
     image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE in .env}
     restart: unless-stopped
+    mem_limit: 512m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - max_connections=30
     environment:
       POSTGRES_DB: nextcloud
       POSTGRES_USER: nextcloud
@@ -78,7 +94,10 @@ services:
   redis:
     image: ${REDIS_IMAGE:?Set REDIS_IMAGE in .env}
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    # Redis is only a cache/lock service for Nextcloud: keeping it in RAM avoids
+    # unnecessary SSD writes and gives it a firm ceiling on a 4 GB Pi.
+    mem_limit: 128m
+    command: redis-server --appendonly no --maxmemory 128mb --maxmemory-policy noeviction
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/redis:/data
     networks:
@@ -89,6 +108,7 @@ services:
   nextcloud:
     image: ${NEXTCLOUD_IMAGE:?Set NEXTCLOUD_IMAGE in .env}
     restart: unless-stopped
+    mem_limit: 1024m
     depends_on:
       - postgres
       - redis
@@ -105,8 +125,10 @@ services:
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?Set NEXTCLOUD_ADMIN_USER in .env}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set NEXTCLOUD_ADMIN_PASSWORD in .env}
       NEXTCLOUD_TRUSTED_DOMAINS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
-      PHP_MEMORY_LIMIT: 1024M
-      PHP_UPLOAD_LIMIT: 16G
+      # Conservative limits for a Raspberry Pi 4 with 4 GB RAM. Nextcloud
+      # uploads in chunks, so the size limit is not a per-upload RAM allocation.
+      PHP_MEMORY_LIMIT: 512M
+      PHP_UPLOAD_LIMIT: 8G
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/html:/var/www/html
     networks:
@@ -118,6 +140,7 @@ services:
   nextcloud-cron:
     image: ${NEXTCLOUD_IMAGE:?Set NEXTCLOUD_IMAGE in .env}
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
       - nextcloud
     entrypoint: /cron.sh
