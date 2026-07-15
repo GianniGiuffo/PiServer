@@ -8,7 +8,7 @@ This repository is the reproducible configuration for a Raspberry Pi 4 with 4 GB
 - two public static websites served by Caddy, refreshed automatically from GitHub;
 - a private photo/video cloud using **Nextcloud**, reachable only through Tailscale.
 
-It is intentionally designed so that only Caddy's public web ports (`80` and `443`) and Pi-hole DNS on the private LAN/Tailnet are reachable. Nextcloud and the Pi-hole dashboard are bound to loopback and exposed privately by Tailscale Serve.
+It is intentionally designed so that Caddy has no host ports and receives public web traffic only through an outbound Cloudflare Tunnel. Pi-hole DNS stays private to the LAN/Tailnet; Nextcloud and the Pi-hole dashboard are bound to loopback and exposed privately by Tailscale Serve.
 
 > [!NOTE]
 > A Pi 4 with 4 GB is sufficient for this personal, low-traffic setup when the application state is on an SSD. Do not add video transcoding, AI photo recognition, Collabora/OnlyOffice, or other heavy services. Keep one or two simultaneous Nextcloud users in mind; direct playback is fine when the client supports the original video format.
@@ -19,7 +19,7 @@ It is intentionally designed so that only Caddy's public web ports (`80` and `44
 ## Architecture
 
 ```text
-Internet ── router :80/:443 ── Caddy ── static site 1 / static site 2 / Vaultwarden
+Internet ── Cloudflare HTTPS ── outbound tunnel ── Caddy ── static site 1 / static site 2 / Vaultwarden
 
 Home LAN + Tailnet ── DNS :53 ── Pi-hole ── upstream resolvers
 Tailnet only ── Tailscale Serve (HTTPS) ── Nextcloud + Pi-hole dashboard
@@ -33,7 +33,7 @@ SSD ── Nextcloud files, PostgreSQL, Vaultwarden, Pi-hole, Caddy certificates
 
 1. A Raspberry Pi OS Lite **64-bit** installation on an SSD (not a microSD for this workload), with SSH enabled and a non-root user.
 2. A fixed DHCP lease for the Pi in the router; an external SSD in `ext4`, mounted persistently at `/srv`.
-3. Three DNS names: one for each site and one for Vaultwarden. To serve public sites, the ISP/router must allow inbound `80` and `443`; point their A/AAAA records at the home connection. If the connection uses CGNAT, use a small VPS or a tunnel provider for the public services instead.
+3. A Cloudflare account and the existing domain added to it. This deployment uses Cloudflare Tunnel, so it also works behind CGNAT and does not expose router ports. See [docs/cloudflare-tunnel.md](docs/cloudflare-tunnel.md).
 4. A Tailscale account and the Tailscale app installed on every device that should access the NAS, Pi-hole dashboard, or administration remotely.
 5. An off-device Restic repository (another disk stored elsewhere, S3-compatible storage, or a backup host) and its encryption password stored in your password manager.
 
@@ -62,8 +62,8 @@ Do not run the sample command until `docs/first-boot.md` is complete: the script
 
 ## Security boundaries
 
-- Never expose port `53`, PostgreSQL, Redis, SMB, SSH or the Pi-hole dashboard to the public Internet.
-- Enable two-factor authentication in Vaultwarden before putting credentials in it. Keep registration disabled (already set in `compose.yaml`).
+- Never expose port `53`, PostgreSQL, Redis, SMB, SSH or the Pi-hole dashboard to the public Internet. With the tunnel configuration, do not create router forwards for `80` or `443` either.
+- Enable two-factor authentication in Vaultwarden before putting credentials in it. Enable registration only for the initial account, then set `VAULTWARDEN_SIGNUPS_ALLOWED=false` in `.env` and redeploy Vaultwarden.
 - Give every Tailnet device a personal account; do not share the account. Restrict access with Tailnet ACLs if more people join.
 - Pi-hole blocks DNS-known advertising and tracking domains. It cannot reliably remove ads served from the same domain as the content (notably many YouTube/social ads), and a device that bypasses your DNS or uses encrypted DNS can evade it.
 

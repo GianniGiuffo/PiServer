@@ -5,10 +5,6 @@ services:
     image: ${CADDY_IMAGE:?Set CADDY_IMAGE in .env}
     restart: unless-stopped
     mem_limit: 128m
-    ports:
-      - "80:80/tcp"
-      - "443:443/tcp"
-      - "443:443/udp"
     environment:
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
@@ -19,6 +15,21 @@ services:
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/config:/config
       - ${SITES_DIR:?Set SITES_DIR in .env}:/srv/sites:ro
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  # Public HTTPS reaches Caddy through an outbound-only Cloudflare Tunnel.
+  # Caddy intentionally has no host ports: it is reachable only on the Docker
+  # `web` network by this connector.
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:?Set CLOUDFLARED_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 128m
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      - caddy
     networks:
       - web
     security_opt:
@@ -54,7 +65,7 @@ services:
     mem_limit: 256m
     environment:
       DOMAIN: https://${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
-      SIGNUPS_ALLOWED: "false"
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
       WEBSOCKET_ENABLED: "true"
       ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:?Set VAULTWARDEN_ADMIN_TOKEN in .env}
     volumes:

@@ -19,7 +19,7 @@ Do not add port forwarding for a service merely to make an app work remotely. In
 Vaultwarden is a third-party Bitwarden-compatible server; it is not the official Bitwarden self-hosted product. It is suitable for a personal deployment when treated as a critical service:
 
 1. Use a dedicated `vault.example.com` HTTPS name; do not use an IP address or plain HTTP.
-2. Keep `SIGNUPS_ALLOWED=false`. Create the initial account, then enable two-factor authentication on it immediately.
+2. Set `VAULTWARDEN_SIGNUPS_ALLOWED=true` only for the initial account, then change it to `false`, redeploy Vaultwarden, and enable two-factor authentication on the account immediately.
 3. Use a long master password which is not stored in the vault itself. Save the recovery information separately.
 4. Keep the `/admin` token as an Argon2 hash in `.env`. The `/admin` panel is optional; remove `ADMIN_TOKEN` from the configuration if it is not needed.
 5. Verify a restore of the Vaultwarden data before relying on it. A password manager without a restore test is a single point of failure.

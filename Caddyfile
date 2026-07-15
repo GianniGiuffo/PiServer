@@ -1,24 +1,29 @@
 {
-	email {$ACME_EMAIL}
-	# Caddy obtains/renews certificates and redirects HTTP to HTTPS automatically.
+	# Cloudflare provides public HTTPS. Caddy receives private HTTP only from the
+	# cloudflared container, so it must not attempt ACME certificates or redirects.
+	auto_https off
 }
 
-{$SITE_1_DOMAIN} {
+http://{$SITE_1_DOMAIN} {
 	encode zstd gzip
 	root * /srv/sites/site-1/current
 	file_server
 	header -Server
 }
 
-{$SITE_2_DOMAIN} {
+http://{$SITE_2_DOMAIN} {
 	encode zstd gzip
 	root * /srv/sites/site-2/current
 	file_server
 	header -Server
 }
 
-{$VAULTWARDEN_DOMAIN} {
+http://{$VAULTWARDEN_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy vaultwarden:80
+	reverse_proxy vaultwarden:80 {
+		# The browser connected to Cloudflare with HTTPS; preserve that fact for
+		# Vaultwarden even though the final Docker-network hop uses HTTP.
+		header_up X-Forwarded-Proto https
+	}
 	header -Server
 }

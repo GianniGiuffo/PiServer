@@ -40,11 +40,16 @@ sudo tailscale up --ssh --hostname=rpi-server
 tailscale status
 tailscale ip -4
 tailscale status --json | jq -r '.Self.DNSName'
+# The Pi is the future DNS server, so it must keep using the router's DNS while
+# Pi-hole is not running. This does not disable MagicDNS for the Tailnet.
+sudo tailscale set --accept-dns=false
 ```
 
-Install Tailscale on the phone, laptop and tablet that should reach the NAS. In the Tailnet DNS settings, add the IP returned by `tailscale ip -4` as a global nameserver, and enable the override option only if you want every DNS query made while connected to Tailscale to pass through Pi-hole.
+Install Tailscale on the phone, laptop and tablet that should reach the NAS. Remote DNS is configured later, after Pi-hole has started successfully.
 
-For the home LAN, set the Pi's *LAN* address as the DNS server offered by the router's DHCP service. Do **not** use Pi-hole as the DHCP server initially, and do not forward `53/tcp` or `53/udp` at the router.
+Do **not** configure the Pi-hole IP as a Tailscale global nameserver yet: Pi-hole is not running until step 6, and enabling a DNS override before then can prevent Tailnet devices from resolving any public name. Keep MagicDNS enabled; it is independent of Pi-hole and provides names such as `rpi-server.your-tailnet.ts.net`.
+
+`tailscale set --accept-dns=false` applies only to the Raspberry Pi. It prevents the future DNS server from using its own Tailnet DNS configuration and avoids a bootstrap DNS loop. Other Tailnet devices continue to use MagicDNS and, later, the Pi-hole global nameserver.
 
 ## 4. Create runtime configuration and secrets
 
@@ -61,21 +66,25 @@ Fill every `CHANGE_ME` value. Use unique random values, for example:
 openssl rand -base64 48
 ```
 
-Set `TAILSCALE_FQDN` to the value printed above, without a trailing dot. For the optional Vaultwarden admin page, generate an Argon2 hash interactively and place the complete resulting hash in `VAULTWARDEN_ADMIN_TOKEN`, enclosed in single quotes (the `$` characters are significant):
+Set `TAILSCALE_FQDN` to the value printed above, without a trailing dot. For the optional Vaultwarden `/admin` page, create a new long, random **admin password** now. It is not the Bitwarden master password you will create later for your vault.
 
 ```bash
 docker run --rm -it vaultwarden/server:latest /vaultwarden hash
 ```
 
-Keep a second copy of the secret values in your password manager. Do not put `.env` in GitHub, in an issue, or in a GitHub Actions secret intended for website builds.
+The command asks you to type the new admin password twice, then prints one long line beginning with `$argon2id$`. Copy that whole output into `.env` like this, preserving the single quotes:
 
-Before deploying, replace the image tags in `.env` with immutable multi-architecture manifest digests. Record a reviewed digest in Git (for example in a future `images.lock.env`) before upgrading it. This makes an OS rebuild repeat the same application versions instead of silently using a newer tag.
+```dotenv
+VAULTWARDEN_ADMIN_TOKEN='$argon2id$...the-entire-output...'
+```
 
-## 5. Make only public services public
+When you later visit `/admin`, log in with the password you typed into the command, **not** with the displayed `$argon2id...` hash. Store the password in your password manager. Keep a second copy of the other secret values there too. Do not put `.env` in GitHub, in an issue, or in a GitHub Actions secret intended for website builds.
 
-At your DNS provider, create records for `SITE_1_DOMAIN`, `SITE_2_DOMAIN` and `VAULTWARDEN_DOMAIN` pointing to the public IP of the home connection. Forward only `80/tcp` and `443/tcp` from the router to the Pi's fixed LAN address. If available, forward `443/udp` too for HTTP/3.
+For this first deployment, leave the `*_IMAGE` lines in `.env` unchanged. After the server works and its backup is tested, we can pin the images to reviewed immutable digests before future upgrades.
 
-If your provider uses CGNAT, public DNS records cannot directly reach the Pi. Do not work around that by exposing random management ports. Keep Tailscale for private access and use either a reverse tunnel service or a small VPS as the public HTTPS edge.
+## 5. Publish public hostnames through Cloudflare Tunnel
+
+This connection uses CGNAT, so router port forwarding cannot work. Follow [cloudflare-tunnel.md](cloudflare-tunnel.md) to move DNS safely to Cloudflare, create the tunnel, add its token to `.env`, and publish the root site, second site and Vaultwarden hostnames. Do not create any router port-forwarding rule.
 
 ## 6. Start and verify the stack
 
@@ -89,11 +98,30 @@ sudo bash scripts/configure-tailscale-serve.sh
 tailscale serve status
 ```
 
-Open the Tailnet HTTPS address in a browser. Its root is Nextcloud and `https://YOUR-TAILSCALE-FQDN/admin/` is the Pi-hole dashboard. Both remain inaccessible from the public Internet. The two sites and Vaultwarden become reachable after public DNS has propagated and Caddy has obtained certificates.
+Open the Tailnet HTTPS address in a browser. Its root is Nextcloud and `https://YOUR-TAILSCALE-FQDN/admin/` is the Pi-hole dashboard. Both remain inaccessible from the public Internet. The two sites and Vaultwarden become reachable after the Cloudflare Tunnel routes are active.
+
+Only after the Pi-hole dashboard works, configure remote DNS in a browser on the Tailscale admin console:
+
+1. Open `https://login.tailscale.com/admin/dns` and leave **MagicDNS enabled**.
+2. Under **Nameservers**, choose **Add nameserver** > **Custom** and enter the Pi's Tailnet IPv4 address returned earlier by `tailscale ip -4` (normally `100.x.y.z`). Save it as a global nameserver.
+3. Enable **Override local DNS** only if you want every connected Tailscale device to use Pi-hole for all its DNS while remote. Leave it off if you only want MagicDNS and prefer each device's local DNS.
+
+The Tailscale phone app does not create Tailnet-wide DNS settings; it receives them from this browser-based admin console. With the app connected, it will use the selected setting automatically. Do not forward port 53 on the router.
+
+For the home LAN, now set the Pi's *LAN* address as the DNS server offered by the router's DHCP service. Do **not** use Pi-hole as the DHCP server initially.
 
 Complete initial Nextcloud setup only through its Tailnet URL. Create a normal daily user after the initial administrator account; use the desktop/mobile Nextcloud clients for large photo and video uploads.
 
 On this 4 GB Pi, keep Nextcloud lean: do not enable Office integration, AI/photo-recognition apps or server-side video transcoding. Configure the mobile client to upload original media; use a device capable of playing the original video codec.
+
+For Vaultwarden, `VAULTWARDEN_SIGNUPS_ALLOWED=true` permits the one initial registration. Open `https://VAULTWARDEN_DOMAIN`, create your account with a unique master password, and enable two-factor authentication. Then immediately close registration:
+
+```bash
+cd /opt/raspberry-server
+nano .env
+# change VAULTWARDEN_SIGNUPS_ALLOWED=true to VAULTWARDEN_SIGNUPS_ALLOWED=false
+docker compose up -d vaultwarden
+```
 
 ## 7. Configure the two static-site deployments
 
