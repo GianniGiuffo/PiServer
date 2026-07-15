@@ -1,0 +1,24 @@
+{
+	email {$ACME_EMAIL}
+	# Caddy obtains/renews certificates and redirects HTTP to HTTPS automatically.
+}
+
+{$SITE_1_DOMAIN} {
+	encode zstd gzip
+	root * /srv/sites/site-1/current
+	file_server
+	header -Server
+}
+
+{$SITE_2_DOMAIN} {
+	encode zstd gzip
+	root * /srv/sites/site-2/current
+	file_server
+	header -Server
+}
+
+{$VAULTWARDEN_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy vaultwarden:80
+	header -Server
+}

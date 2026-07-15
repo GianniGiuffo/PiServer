@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly encrypted Raspberry Pi backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=30min
+Persistent=true
+Unit=backup.service
+
+[Install]
+WantedBy=timers.target

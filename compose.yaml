@@ -1,0 +1,134 @@
+name: raspberry-server
+
+services:
+  caddy:
+    image: ${CADDY_IMAGE:?Set CADDY_IMAGE in .env}
+    restart: unless-stopped
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+      SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
+      SITE_2_DOMAIN: ${SITE_2_DOMAIN:?Set SITE_2_DOMAIN in .env}
+      VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
+      - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/config:/config
+      - ${SITES_DIR:?Set SITES_DIR in .env}:/srv/sites:ro
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  pihole:
+    image: ${PIHOLE_IMAGE:?Set PIHOLE_IMAGE in .env}
+    restart: unless-stopped
+    ports:
+      # DNS must be reachable from the home LAN and from Tailnet clients.
+      # Never forward port 53 from the Internet in the router.
+      - "53:53/tcp"
+      - "53:53/udp"
+      # The dashboard stays host-local and is exposed privately with Tailscale Serve.
+      - "127.0.0.1:8081:80/tcp"
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD:?Set PIHOLE_PASSWORD in .env}
+      FTLCONF_dns_listeningMode: ALL
+      # Quad9 with malware blocking; change only after understanding the privacy trade-off.
+      FTLCONF_dns_upstreams: 9.9.9.9;149.112.112.112
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/pihole:/etc/pihole
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  vaultwarden:
+    image: ${VAULTWARDEN_IMAGE:?Set VAULTWARDEN_IMAGE in .env}
+    restart: unless-stopped
+    environment:
+      DOMAIN: https://${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
+      SIGNUPS_ALLOWED: "false"
+      WEBSOCKET_ENABLED: "true"
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:?Set VAULTWARDEN_ADMIN_TOKEN in .env}
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/vaultwarden:/data
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE in .env}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?Set NEXTCLOUD_DB_PASSWORD in .env}
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/postgres:/var/lib/postgresql/data
+    networks:
+      - database
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: ${REDIS_IMAGE:?Set REDIS_IMAGE in .env}
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/redis:/data
+    networks:
+      - database
+    security_opt:
+      - no-new-privileges:true
+
+  nextcloud:
+    image: ${NEXTCLOUD_IMAGE:?Set NEXTCLOUD_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      # Nextcloud is deliberately not exposed to the LAN or Internet.
+      # Tailscale Serve publishes it privately with a valid HTTPS certificate.
+      - "127.0.0.1:8082:80/tcp"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?Set NEXTCLOUD_DB_PASSWORD in .env}
+      REDIS_HOST: redis
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?Set NEXTCLOUD_ADMIN_USER in .env}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set NEXTCLOUD_ADMIN_PASSWORD in .env}
+      NEXTCLOUD_TRUSTED_DOMAINS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
+      PHP_MEMORY_LIMIT: 1024M
+      PHP_UPLOAD_LIMIT: 16G
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/html:/var/www/html
+    networks:
+      - web
+      - database
+    security_opt:
+      - no-new-privileges:true
+
+  nextcloud-cron:
+    image: ${NEXTCLOUD_IMAGE:?Set NEXTCLOUD_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      - nextcloud
+    entrypoint: /cron.sh
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/html:/var/www/html
+    networks:
+      - database
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  web:
+  database:
+    internal: true

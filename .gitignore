@@ -1,0 +1,13 @@
+# Runtime configuration and secrets: keep in a password manager, never in Git.
+.env
+secrets/
+
+# Application state, media, databases, backups and transient site clones.
+data/
+sites/
+backups/
+staging/
+
+# Local editor/OS files.
+.DS_Store
+Thumbs.db
