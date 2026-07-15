@@ -123,23 +123,26 @@ nano .env
 docker compose up -d vaultwarden
 ```
 
-## 7. Configure the two static-site deployments
+## 7. Configure the static-site deployments
 
 The system timer polls every minute after boot. It only runs code chosen in these administrator-owned files, so configure them before enabling the timer:
 
+Build the image required by the first Hugo/Tailwind site, then configure and deploy it:
+
 ```bash
+cd /opt/raspberry-server
+docker build --tag raspberry-server/hugo-builder:0.163.3 \
+  --file docker/hugo-builder.Dockerfile docker
 sudo install -m 0640 -o root -g "$USER" \
   config/sites/site-1.env.example /etc/raspberry-server/sites/site-1.env
-sudo install -m 0640 -o root -g "$USER" \
-  config/sites/site-2.env.example /etc/raspberry-server/sites/site-2.env
-sudo nano /etc/raspberry-server/sites/site-1.env
-sudo nano /etc/raspberry-server/sites/site-2.env
 sudo systemctl enable --now site-deploy.timer
 sudo systemctl start site-deploy.service
 sudo journalctl -u site-deploy.service -n 100 --no-pager
 ```
 
-`BUILD_IMAGE`, `BUILD_COMMAND` and `PUBLISH_DIR` must match each site. The examples fit a Node static site that writes to `dist`; a Hugo site might use `BUILD_IMAGE=klakegg/hugo:ext-alpine` and `BUILD_COMMAND=hugo --minify`, with `PUBLISH_DIR=public`.
+The first site's template already contains its public GitHub repository, branch and Hugo build command. The deployment service checks GitHub every minute, but only builds when a new commit exists. Its output becomes the active Caddy site atomically.
+
+Do not create `/etc/raspberry-server/sites/site-2.env` until the second site exists. The timer skips an unconfigured site. When it does, copy `config/sites/site-2.env.example` and set `REPOSITORY`, `BRANCH`, `BUILD_IMAGE`, `BUILD_COMMAND` and `PUBLISH_DIR` for that project.
 
 For a private GitHub repository, create one read-only deploy key for the Pi and add its **public** half in the repository's *Deploy keys*. Store the private half at `~/.ssh/id_ed25519` for the Linux user running the timer, mode `0600`, and add GitHub's verified SSH host key to `~/.ssh/known_hosts`. Do not give the key write access.
 

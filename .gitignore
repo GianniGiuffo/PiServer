@@ -5,6 +5,11 @@ secrets/
 # Application state, media, databases, backups and transient site clones.
 data/
 sites/
+# Keep site deployment templates in Git; only their runtime copies under
+# /etc and the generated content under /srv stay outside the repository.
+!config/
+!config/sites/
+!config/sites/*.env.example
 backups/
 staging/
 

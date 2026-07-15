@@ -53,6 +53,16 @@ fi
 
 REVISION=$(git -C "${CHECKOUT}" rev-parse --short=12 HEAD)
 RELEASE="${RELEASES}/${REVISION}"
+
+# The timer polls GitHub frequently, but a build is needed only for a new
+# commit. This keeps the Pi idle between pushes instead of rebuilding on every
+# timer run.
+CURRENT_RELEASE=$(readlink -f -- "${SITE_ROOT}/current" 2>/dev/null || true)
+if [[ ${CURRENT_RELEASE} == "${RELEASE}" && -d ${RELEASE} ]]; then
+  echo "${SITE} is already deployed at ${REVISION}."
+  exit 0
+fi
+
 rm -rf "${RELEASE}"
 mkdir -p "${RELEASE}"
 
@@ -60,9 +70,12 @@ mkdir -p "${RELEASE}"
 # need to be installed on the Pi host. Images and commands are chosen per site.
 docker run --rm --init \
   --user "$(id -u):$(id -g)" \
+  --env HOME=/tmp \
+  --env npm_config_cache=/tmp/npm-cache \
   --volume "${CHECKOUT}:/work" \
   --workdir /work \
-  "${BUILD_IMAGE}" /bin/sh -lc "${BUILD_COMMAND}"
+  --entrypoint /bin/sh \
+  "${BUILD_IMAGE}" -lc "${BUILD_COMMAND}"
 
 if [[ ! -d ${CHECKOUT}/${PUBLISH_DIR} ]]; then
   echo "Build succeeded but ${PUBLISH_DIR} was not produced." >&2
