@@ -5,10 +5,10 @@
 The backup script takes an encrypted Restic snapshot of:
 
 - the runtime `.env` file (domains and secrets);
-- Pi-hole configuration, Vaultwarden data, Nextcloud files/configuration, PostgreSQL and Redis state from `DATA_DIR`;
+- Pi-hole configuration, Vaultwarden data, Nextcloud files/configuration and Caddy state from `DATA_DIR`;
 - a PostgreSQL dump made while Nextcloud is in maintenance mode.
 
-Vaultwarden is stopped briefly so its SQLite database is copied consistently. Nextcloud is in maintenance mode for the duration of the snapshot. The backup is not complete until it exists outside the Pi and can be restored.
+Vaultwarden is stopped briefly so its SQLite database is copied consistently. Nextcloud is in maintenance mode for the duration of the snapshot. PostgreSQL's live data directory is intentionally not copied; the dump is the consistent restore source. Redis is only a cache and is not backed up. The backup is not complete until it exists outside the Pi and can be restored.
 
 ## Configure Restic
 
@@ -56,7 +56,7 @@ sudo RESTIC_REPOSITORY=/mnt/offsite-backup/restic-rpi-server \
 sudo systemctl start docker
 ```
 
-5. Copy the restored `.env` to `/opt/raspberry-server/.env` (mode `0600`) and the restored data tree to `/srv/raspberry-server/data`. Use the captured `nextcloud.sql` dump if PostgreSQL needs recovery; do not mix a database dump from one snapshot with files from another.
+5. Copy the restored `.env` to `/opt/raspberry-server/.env` (mode `0600`) and the restored Pi-hole, Vaultwarden, Nextcloud and Caddy directories to `/srv/raspberry-server/data`. Restore PostgreSQL only from the captured `nextcloud.sql` file from that same snapshot; do not mix a database dump from one snapshot with files from another.
 6. Run `docker compose config --quiet`, then `docker compose up -d`, reapply Tailscale Serve, and verify login, photos and a Vaultwarden entry before declaring the recovery complete.
 
 Practice restoring an unimportant test file now. A written restore procedure that has never been exercised is only a hypothesis.

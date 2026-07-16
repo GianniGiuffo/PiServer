@@ -47,9 +47,15 @@ NEXTCLOUD_MAINTENANCE=true
 "${COMPOSE[@]}" stop vaultwarden
 VAULTWARDEN_STOPPED=true
 
+# PostgreSQL is deliberately excluded: its files are not safe to copy while the
+# server is running. The consistent SQL dump above is the recovery source for
+# Nextcloud's database. Redis is a cache and needs no backup.
 restic backup --tag raspberry-server \
   "${REPO_DIR}/.env" \
-  "${DATA_DIR}" \
+  "${DATA_DIR}/pihole" \
+  "${DATA_DIR}/vaultwarden" \
+  "${DATA_DIR}/nextcloud" \
+  "${DATA_DIR}/caddy" \
   "${STAGING_DIR}"
 restic forget --prune --tag raspberry-server \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12
