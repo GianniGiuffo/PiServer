@@ -9,16 +9,46 @@ fi
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 BACKUP_ENV=/etc/raspberry-server/backup.env
+STACK_ENV=${REPO_DIR}/.env
 
 if [[ ! -r ${BACKUP_ENV} ]]; then
   echo "Missing ${BACKUP_ENV}; see docs/backup-and-restore.md." >&2
   exit 1
 fi
+if [[ ! -r ${STACK_ENV} ]]; then
+  echo "Missing ${STACK_ENV}." >&2
+  exit 1
+fi
+
+# Docker Compose accepts values which are not valid Bash assignments. This
+# script only needs these two non-secret paths, so never source the whole
+# stack .env file (which contains passwords and tokens).
+read_stack_path() {
+  local key=${1:?key is required}
+  local line value
+  line=$(grep -m 1 -E "^${key}=" "${STACK_ENV}" || true)
+  value=${line#*=}
+  value=${value%$'\r'}
+
+  # Accept the ordinary single- or double-quoted Compose forms as well.
+  if [[ ${value} == \"*\" && ${value} == *\" ]]; then
+    value=${value:1:-1}
+  elif [[ ${value} == \'*\' && ${value} == *\' ]]; then
+    value=${value:1:-1}
+  fi
+
+  if [[ -z ${value} ]]; then
+    echo "Missing ${key} in ${STACK_ENV}." >&2
+    exit 1
+  fi
+  printf '%s\n' "${value}"
+}
 
 set -a
-source "${REPO_DIR}/.env"
 source "${BACKUP_ENV}"
 set +a
+DATA_DIR=$(read_stack_path DATA_DIR)
+STAGING_DIR=$(read_stack_path STAGING_DIR)
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is required in ${BACKUP_ENV}}"
 : "${RESTIC_PASSWORD_FILE:?RESTIC_PASSWORD_FILE is required in ${BACKUP_ENV}}"
 
