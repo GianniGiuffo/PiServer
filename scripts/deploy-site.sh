@@ -7,10 +7,17 @@ case "${SITE}" in
   *) echo "Unknown site '${SITE}'." >&2; exit 1 ;;
 esac
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
+STACK_ENV=${REPO_DIR}/.env
 CONFIG="/etc/raspberry-server/sites/${SITE}.env"
 if [[ ! -r ${CONFIG} ]]; then
   echo "Skipping ${SITE}: ${CONFIG} does not exist or is unreadable." >&2
   exit 0
+fi
+if [[ ! -r ${STACK_ENV} ]]; then
+  echo "Missing ${STACK_ENV}." >&2
+  exit 1
 fi
 
 # Site configuration is administrator-owned. It intentionally holds BUILD_COMMAND,
@@ -28,12 +35,31 @@ if [[ ${PUBLISH_DIR} = /* || ${PUBLISH_DIR} == *".."* ]]; then
   exit 1
 fi
 
-set -a
-# shellcheck disable=SC1091
-source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/.env"
-set +a
+# Docker Compose accepts values which are not valid Bash assignments. The
+# deploy only needs SITES_DIR, so never source passwords and tokens from the
+# whole stack .env file.
+read_stack_path() {
+  local key=${1:?key is required}
+  local line value
+  line=$(grep -m 1 -E "^${key}=" "${STACK_ENV}" || true)
+  value=${line#*=}
+  value=${value%$'\r'}
 
-SITE_ROOT="${SITES_DIR:?SITES_DIR is missing from .env}/${SITE}"
+  if [[ ${value} == \"*\" && ${value} == *\" ]]; then
+    value=${value:1:-1}
+  elif [[ ${value} == \'*\' && ${value} == *\' ]]; then
+    value=${value:1:-1}
+  fi
+
+  if [[ -z ${value} ]]; then
+    echo "Missing ${key} in ${STACK_ENV}." >&2
+    exit 1
+  fi
+  printf '%s\n' "${value}"
+}
+
+SITES_DIR=$(read_stack_path SITES_DIR)
+SITE_ROOT="${SITES_DIR}/${SITE}"
 CHECKOUT="${SITE_ROOT}/checkout"
 RELEASES="${SITE_ROOT}/releases"
 LOCK="/tmp/raspberry-server-${SITE}.lock"

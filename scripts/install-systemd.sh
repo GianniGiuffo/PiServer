@@ -16,6 +16,11 @@ TARGET_GROUP=${2:-$(id -gn "${TARGET_USER}")}
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 
+# The deploy service runs as TARGET_USER and must be able to traverse the
+# configuration directory. Files such as backup.env can remain root-only.
+install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server
+install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server/sites
+
 for unit in site-deploy.service site-deploy.timer backup.service backup.timer; do
   sed \
     -e "s|__RPI_USER__|${TARGET_USER}|g" \
