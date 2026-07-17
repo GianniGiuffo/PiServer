@@ -9,5 +9,5 @@ User=__RPI_USER__
 Group=__RPI_GROUP__
 WorkingDirectory=__REPO_DIR__
 Environment=HOME=/home/__RPI_USER__
-ExecStart=__REPO_DIR__/scripts/deploy-sites.sh
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/deploy-sites.sh
 Nice=10
