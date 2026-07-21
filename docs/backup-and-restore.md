@@ -8,6 +8,12 @@ The backup script takes an encrypted Restic snapshot of:
 - Pi-hole configuration, Vaultwarden data, Nextcloud configuration/custom apps and Caddy state from `DATA_DIR`;
 - a PostgreSQL dump made while Nextcloud is in maintenance mode.
 
+When the optional mini-PC automation stack is enabled, the same snapshot also
+contains n8n's settings directory and a consistent dump of its dedicated
+PostgreSQL database. The model files downloaded by Ollama are deliberately not
+backed up: they are large, reproducible downloads and contain neither workflows
+nor secrets.
+
 Vaultwarden is stopped briefly so its SQLite database is copied consistently. Nextcloud is in maintenance mode for the duration of the snapshot. PostgreSQL's live data directory is intentionally not copied; the dump is the consistent restore source. Redis is only a cache and is not backed up. Nextcloud's `data` directory, containing photos and videos on a separate disk, is deliberately excluded. The backup is not complete until it exists outside the Pi and can be restored.
 
 ## Configure Restic
@@ -27,6 +33,8 @@ sudo tee /etc/raspberry-server/backup.env >/dev/null <<'EOF'
 RESTIC_REPOSITORY=/mnt/rpi-backup/restic-rpi-server
 RESTIC_PASSWORD_FILE=/etc/restic/password
 RESTIC_MOUNTPOINT=/mnt/rpi-backup
+# Add this line only on the mini PC after n8n has been enabled.
+# AUTOMATION_COMPOSE_FILE=/opt/raspberry-server/compose.automation.yaml
 EOF
 sudo chmod 600 /etc/raspberry-server/backup.env
 sudo RESTIC_REPOSITORY=/mnt/offsite-backup/restic-rpi-server \
@@ -68,6 +76,7 @@ sudo systemctl start docker
 ```
 
 5. Copy the restored `.env` to `/opt/raspberry-server/.env` (mode `0600`) and the restored Pi-hole, Vaultwarden, Nextcloud configuration/custom-apps and Caddy directories to `/srv/raspberry-server/data`. Restore PostgreSQL only from the captured `nextcloud.sql` file from that same snapshot; do not mix a database dump from one snapshot with files from another. Nextcloud's excluded `data` directory must be restored separately from the photo/video disk backup.
-6. Run `docker compose config --quiet`, then `docker compose up -d`, reapply Tailscale Serve, and verify login, photos and a Vaultwarden entry before declaring the recovery complete.
+6. If the snapshot contains `n8n.sql`, first restore `/srv/raspberry-server/data/n8n/n8n` and retain the restored `N8N_ENCRYPTION_KEY` in `.env`; then restore that dump into the `n8n-postgres` service from the same snapshot. Do not generate a replacement encryption key.
+7. Run `docker compose config --quiet`, then `docker compose up -d`, reapply Tailscale Serve, and verify login, photos and a Vaultwarden entry before declaring the recovery complete. On the mini PC, also validate and start the optional automation Compose file as described in [n8n-ollama.md](n8n-ollama.md).
 
 Practice restoring an unimportant test file now. A written restore procedure that has never been exercised is only a hypothesis.

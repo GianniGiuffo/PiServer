@@ -1,6 +1,6 @@
 # First boot and deployment
 
-Follow these steps in order. Commands in this document run on the Raspberry Pi, not on the Windows computer used to edit this repository.
+Follow these steps in order. Commands in this document run on the Raspberry Pi, not on the Windows computer used to edit this repository. When the mini PC arrives, use [minipc-migration.md](minipc-migration.md) rather than applying this Raspberry-Pi-specific guide verbatim.
 
 ## 1. Prepare the hardware and operating system
 

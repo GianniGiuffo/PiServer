@@ -10,6 +10,10 @@ services:
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:?Set SITE_2_DOMAIN in .env}
       VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
+      # These two names are harmless placeholders until the optional n8n
+      # compose file is enabled on the mini PC.
+      N8N_DOMAIN: ${N8N_DOMAIN:-n8n.invalid}
+      N8N_WEBHOOK_DOMAIN: ${N8N_WEBHOOK_DOMAIN:-hooks.invalid}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data

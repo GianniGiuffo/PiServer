@@ -1,0 +1,81 @@
+# Optional automation stack for the Debian amd64 mini PC.
+#
+# It is deliberately separate from compose.yaml: the active Raspberry Pi does
+# not need n8n/Ollama images, memory, secrets, or database. Start it only with:
+# docker compose -f compose.yaml -f compose.automation.yaml up -d
+
+services:
+  n8n-postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: n8n
+      POSTGRES_USER: n8n
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD:?Set N8N_DB_PASSWORD in .env}
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/n8n/postgres:/var/lib/postgresql/data
+    networks:
+      - automation
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  ollama:
+    image: ${OLLAMA_IMAGE:?Set OLLAMA_IMAGE in .env}
+    restart: unless-stopped
+    # The i5-7500 has no suitable GPU. Do not publish port 11434: only n8n on
+    # the internal network can call the local model service.
+    cpus: 3.5
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/ollama:/root/.ollama
+    networks:
+      - automation
+    security_opt:
+      - no-new-privileges:true
+
+  n8n:
+    image: ${N8N_IMAGE:?Set N8N_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 1024m
+    depends_on:
+      n8n-postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      GENERIC_TIMEZONE: ${TZ:-Europe/Rome}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?Set N8N_DB_PASSWORD in .env}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Set N8N_ENCRYPTION_KEY in .env}
+      N8N_HOST: ${N8N_DOMAIN:?Set N8N_DOMAIN in .env}
+      N8N_PROTOCOL: https
+      N8N_PORT: 5678
+      N8N_EDITOR_BASE_URL: https://${N8N_DOMAIN:?Set N8N_DOMAIN in .env}/
+      WEBHOOK_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}/
+      N8N_PROXY_HOPS: 1
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 336
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/n8n/n8n:/home/node/.n8n
+    networks:
+      - web
+      - automation
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  automation:
+    internal: true

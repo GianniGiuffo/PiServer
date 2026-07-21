@@ -6,6 +6,9 @@
 | --- | --- | --- |
 | Public sites | Caddy HTTPS | Yes, port 443 only |
 | Vaultwarden | Caddy HTTPS | Yes, port 443 only |
+| n8n editor (mini PC) | Caddy HTTPS + Cloudflare Access | Yes, only after Access policy |
+| n8n webhooks (mini PC) | Caddy HTTPS | Only when a workflow needs a public webhook |
+| Ollama | Private Docker `automation` network | No |
 | Nextcloud / photo NAS | Tailscale Serve HTTPS | No |
 | Pi-hole DNS | Home LAN and Tailnet | No |
 | Pi-hole dashboard | Tailscale Serve HTTPS | No |
@@ -13,6 +16,28 @@
 | PostgreSQL / Redis | Docker internal network | No |
 
 Do not add port forwarding for a service merely to make an app work remotely. Install Tailscale on the client instead.
+
+## n8n and Ollama
+
+The optional automation stack is intended for the mini PC, not the 4 GB
+Raspberry Pi. It has three important boundaries:
+
+1. `n8n.example.com` is the editor and control plane. Publish it through the
+   existing Cloudflare Tunnel only after a Cloudflare Access application allows
+   just your own identity. n8n's own account password is still required; Access
+   is an additional boundary, not a replacement for it.
+2. `hooks.example.com` is deliberately separate. Do not create it until a
+   workflow genuinely needs an external webhook. Never put the same Access
+   policy in front of it, because third-party webhook senders cannot complete an
+   interactive Access login. Protect every public workflow with its native
+   secret, signature verification, or an explicit authentication step.
+3. Ollama has no host port and is attached only to the Docker-internal
+   `automation` network. In n8n, its URL is `http://ollama:11434`, never a LAN
+   IP or a public URL.
+
+`N8N_ENCRYPTION_KEY` decrypts stored n8n credentials. Generate it once, keep it
+in the password manager and encrypted Restic backup, and never replace it on a
+running instance. Losing it makes existing API credentials unrecoverable.
 
 ## Vaultwarden
 

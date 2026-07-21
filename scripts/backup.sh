@@ -47,6 +47,7 @@ read_stack_path() {
 set -a
 source "${BACKUP_ENV}"
 set +a
+umask 077
 DATA_DIR=$(read_stack_path DATA_DIR)
 STAGING_DIR=$(read_stack_path STAGING_DIR)
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is required in ${BACKUP_ENV}}"
@@ -61,10 +62,31 @@ fi
 
 mkdir -p "${STAGING_DIR}"
 COMPOSE=(docker compose --project-directory "${REPO_DIR}" -f "${REPO_DIR}/compose.yaml")
+AUTOMATION_COMPOSE=()
 NEXTCLOUD_MAINTENANCE=false
 VAULTWARDEN_STOPPED=false
+N8N_STOPPED=false
+N8N_ACTIVE=false
+
+# n8n is optional and lives in a separate Compose file so the current
+# Raspberry Pi stack never needs its secrets. Enable this only on the mini PC
+# by setting AUTOMATION_COMPOSE_FILE in /etc/raspberry-server/backup.env.
+if [[ -n ${AUTOMATION_COMPOSE_FILE:-} ]]; then
+  if [[ ! -r ${AUTOMATION_COMPOSE_FILE} ]]; then
+    echo "AUTOMATION_COMPOSE_FILE is not readable: ${AUTOMATION_COMPOSE_FILE}" >&2
+    exit 1
+  fi
+  AUTOMATION_COMPOSE=(docker compose --project-directory "${REPO_DIR}" \
+    -f "${REPO_DIR}/compose.yaml" -f "${AUTOMATION_COMPOSE_FILE}")
+  if "${AUTOMATION_COMPOSE[@]}" ps --services --status running | grep -qx n8n; then
+    N8N_ACTIVE=true
+  fi
+fi
 
 cleanup() {
+  if [[ ${N8N_STOPPED} == true ]]; then
+    "${AUTOMATION_COMPOSE[@]}" start n8n || true
+  fi
   if [[ ${VAULTWARDEN_STOPPED} == true ]]; then
     "${COMPOSE[@]}" start vaultwarden || true
   fi
@@ -73,6 +95,15 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+# n8n stores workflows, executions and encrypted credentials in its dedicated
+# PostgreSQL database. Stop it before dumping the database and copying its
+# settings directory, so this snapshot is a consistent restore point.
+if [[ ${N8N_ACTIVE} == true ]]; then
+  "${AUTOMATION_COMPOSE[@]}" stop n8n
+  N8N_STOPPED=true
+  "${AUTOMATION_COMPOSE[@]}" exec -T n8n-postgres pg_dump -U n8n n8n > "${STAGING_DIR}/n8n.sql"
+fi
 
 # A database dump plus maintenance mode gives a coherent Nextcloud restore point.
 "${COMPOSE[@]}" exec -T --user www-data nextcloud php occ maintenance:mode --on
@@ -102,10 +133,13 @@ for nextcloud_path in \
   "${DATA_DIR}/nextcloud/html/themes"; do
   [[ -e ${nextcloud_path} ]] && BACKUP_PATHS+=("${nextcloud_path}")
 done
+if [[ ${N8N_ACTIVE} == true && -e ${DATA_DIR}/n8n/n8n ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/n8n/n8n")
+fi
 
 restic backup --tag raspberry-server "${BACKUP_PATHS[@]}"
 restic forget --prune --tag raspberry-server \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12
 
-rm -f "${STAGING_DIR}/nextcloud.sql"
+rm -f "${STAGING_DIR}/nextcloud.sql" "${STAGING_DIR}/n8n.sql"
 echo "Encrypted backup completed."

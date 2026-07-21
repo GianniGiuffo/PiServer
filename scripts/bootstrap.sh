@@ -6,12 +6,13 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
-if [[ $(dpkg --print-architecture) != "arm64" ]]; then
-  echo "This setup requires 64-bit Raspberry Pi OS (arm64)." >&2
+ARCH=$(dpkg --print-architecture)
+if [[ ${ARCH} != "arm64" && ${ARCH} != "amd64" ]]; then
+  echo "This setup supports only Debian-family arm64 or amd64 hosts." >&2
   exit 1
 fi
 
-TARGET_USER=${SUDO_USER:-${RPI_USER:-}}
+TARGET_USER=${SUDO_USER:-${SERVER_USER:-${RPI_USER:-}}}
 if [[ -z ${TARGET_USER} || ${TARGET_USER} == "root" ]]; then
   echo "Run through sudo from the normal Raspberry Pi user, or set RPI_USER." >&2
   exit 1
@@ -40,7 +41,7 @@ install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
 cat > /etc/apt/sources.list.d/docker.list <<EOF
-deb [arch=arm64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian ${CODENAME} stable
+deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian ${CODENAME} stable
 EOF
 
 curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.noarmor.gpg" \
@@ -56,6 +57,9 @@ usermod -aG docker "${TARGET_USER}"
 # Put state on the SSD mounted at /srv. Configuration remains in Git; state does not.
 install -d -m 0750 /srv/raspberry-server/data
 install -d -m 0750 /srv/raspberry-server/staging
+# n8n runs as the non-root `node` user (UID 1000). Creating this directory
+# now keeps the optional mini-PC service writable without making DATA_DIR broad.
+install -d -m 0750 -o 1000 -g 1000 /srv/raspberry-server/data/n8n/n8n
 install -d -m 0755 -o "${TARGET_USER}" -g "${TARGET_GROUP}" /srv/raspberry-server/sites
 install -d -m 0755 /etc/raspberry-server/sites
 
