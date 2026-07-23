@@ -21,7 +21,7 @@ http://{$SITE_1_DOMAIN} {
 }
 
 # This listener is mapped only to the host loopback address. Tailscale Serve
-# exposes the selected paths within the tailnet; Cloudflare never reaches it.
+# exposes it on a dedicated tailnet-only HTTPS port; Cloudflare never reaches it.
 http://:8083 {
 	encode zstd gzip
 	root * /srv/sites/site-1/current
