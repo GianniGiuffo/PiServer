@@ -98,7 +98,7 @@ sudo bash scripts/configure-tailscale-serve.sh
 tailscale serve status
 ```
 
-Open the Tailnet HTTPS address in a browser. Its root is Nextcloud and `https://YOUR-TAILSCALE-FQDN/admin/` is the Pi-hole dashboard. The private static site uses the dedicated tailnet-only address `https://YOUR-TAILSCALE-FQDN:8443/`, with its private section at `/private/`; the public-domain equivalent returns `404`. These services remain inaccessible from the public Internet. The two public sites and Vaultwarden become reachable after the Cloudflare Tunnel routes are active.
+Open the Tailnet HTTPS address in a browser. Its root is Nextcloud and `https://YOUR-TAILSCALE-FQDN/admin/` is the Pi-hole dashboard. The private static site uses the dedicated tailnet-only address `https://YOUR-TAILSCALE-FQDN:8443/`, with its private section at `/private/`. On the public domain, `/private/` redirects to an informational page while every private document URL still returns `404`. These services remain inaccessible from the public Internet. The two public sites and Vaultwarden become reachable after the Cloudflare Tunnel routes are active.
 
 Only after the Pi-hole dashboard works, configure remote DNS in a browser on the Tailscale admin console:
 

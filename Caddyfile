@@ -8,9 +8,13 @@ http://{$SITE_1_DOMAIN} {
 	encode zstd gzip
 	root * /srv/sites/site-1/current
 
-	# Private pages are available only through the separate loopback listener
-	# below, which is published exclusively with Tailscale Serve.
-	@private_site path /private /private/* /en/private /en/private/*
+	# The public section entry explains how to connect through Tailscale. Actual
+	# private documents remain unavailable through the public domain.
+	@private_entry path /private /private/ /en/private /en/private/
+	handle @private_entry {
+		redir /accesso-privato/ 302
+	}
+	@private_site path /private/* /en/private/*
 	handle @private_site {
 		respond 404
 	}
