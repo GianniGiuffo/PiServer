@@ -19,6 +19,10 @@ services:
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/config:/config
       - ${SITES_DIR:?Set SITES_DIR in .env}:/srv/sites:ro
+    ports:
+      # Private static pages reach Caddy only through Tailscale Serve.
+      # Binding to loopback keeps this listener off both LAN and Internet.
+      - "127.0.0.1:8083:8083/tcp"
     networks:
       - web
     security_opt:

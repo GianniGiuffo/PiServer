@@ -7,6 +7,24 @@
 http://{$SITE_1_DOMAIN} {
 	encode zstd gzip
 	root * /srv/sites/site-1/current
+
+	# Private pages are available only through the separate loopback listener
+	# below, which is published exclusively with Tailscale Serve.
+	@private_site path /private /private/* /en/private /en/private/*
+	handle @private_site {
+		respond 404
+	}
+	handle {
+		file_server
+	}
+	header -Server
+}
+
+# This listener is mapped only to the host loopback address. Tailscale Serve
+# exposes the selected paths within the tailnet; Cloudflare never reaches it.
+http://:8083 {
+	encode zstd gzip
+	root * /srv/sites/site-1/current
 	file_server
 	header -Server
 }

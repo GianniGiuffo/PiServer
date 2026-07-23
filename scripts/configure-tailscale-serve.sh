@@ -16,6 +16,8 @@ fi
 tailscale serve reset
 tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:8082
 tailscale serve --bg --https=443 --set-path=/admin http://127.0.0.1:8081
+tailscale serve --bg --https=443 --set-path=/private/ http://127.0.0.1:8083
+tailscale serve --bg --https=443 --set-path=/en/private/ http://127.0.0.1:8083
 
 echo
 echo "Private services configured. Confirm with: tailscale serve status"
