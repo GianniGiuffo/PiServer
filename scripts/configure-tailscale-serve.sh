@@ -15,7 +15,9 @@ fi
 # collide with Caddy's public port 443. The longest matching path wins.
 tailscale serve reset
 tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:8082
-tailscale serve --bg --https=443 --set-path=/admin http://127.0.0.1:8081
+# Pi-hole uses root-relative /admin/ links, so it needs its own HTTPS port
+# rather than a subpath alongside Nextcloud.
+tailscale serve --bg --https=8444 --set-path=/ http://127.0.0.1:8081
 # Hugo generates root-relative links such as /posts/... and /css/.... Serving
 # the static site on its own HTTPS port keeps all of those links on Caddy
 # instead of falling through to Nextcloud on port 443.
