@@ -1,0 +1,68 @@
+- Servizi principali:
+    - Sito:
+        icon: mdi-web
+        href: https://{{HOMEPAGE_VAR_SITE_DOMAIN}}
+        siteMonitor: https://{{HOMEPAGE_VAR_SITE_DOMAIN}}
+        description: Sito pubblico
+        server: local
+        container: raspberry-server-caddy-1
+    - Vaultwarden:
+        icon: vaultwarden.png
+        href: https://{{HOMEPAGE_VAR_VAULTWARDEN_DOMAIN}}
+        siteMonitor: http://vaultwarden
+        description: Password manager pubblico
+        server: local
+        container: raspberry-server-vaultwarden-1
+    - Pi-hole:
+        icon: pi-hole.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8444/admin/
+        siteMonitor: http://pihole/admin/
+        description: DNS LAN e Tailnet
+        server: local
+        container: raspberry-server-pihole-1
+    - Area privata:
+        icon: mdi-lock
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8443/
+        siteMonitor: http://caddy:8083/
+        description: Sezione privata del sito
+        server: local
+        container: raspberry-server-caddy-1
+
+- Media e file:
+    - Nextcloud:
+        icon: nextcloud.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8445/
+        siteMonitor: http://nextcloud/
+        description: File personali
+        server: local
+        container: raspberry-server-nextcloud-1
+    - Jellyfin:
+        icon: jellyfin.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8446/
+        siteMonitor: http://jellyfin:8096/
+        description: Film, serie e musica
+        server: local
+        container: raspberry-server-jellyfin-1
+    - Immich:
+        icon: immich.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/
+        siteMonitor: http://immich-server:2283/
+        description: Foto e video
+        server: local
+        container: raspberry-server-immich-server-1
+
+- Automazione e controllo:
+    - n8n:
+        icon: n8n.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8449/
+        siteMonitor: http://n8n:5678/
+        description: Automazioni
+        server: local
+        container: raspberry-server-n8n-1
+    - Uptime Kuma:
+        icon: uptime-kuma.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8448/
+        siteMonitor: http://uptime-kuma:3001/
+        description: Stato dei servizi
+        server: local
+        container: raspberry-server-uptime-kuma-1

@@ -1,84 +1,111 @@
-# Portable home server: Raspberry Pi 4 today, Debian mini PC tomorrow
+# PiServer sul Dell OptiPlex 7050 Tiny
 
-This repository is the reproducible configuration for the current Raspberry Pi
-4 and the future Debian amd64 mini PC. It provides:
+Configurazione riproducibile per un home server Debian 13 con Docker Compose.
+La repo contiene configurazione, script di bootstrap, unità systemd, backup
+Restic e procedura di disaster recovery. Password, database e dati utente non
+vengono salvati in Git.
 
-- a private remote network using **Tailscale** (WireGuard-based);
-- network-wide DNS blocking through **Pi-hole**, on the home LAN and Tailnet;
-- **Vaultwarden**, a Bitwarden-compatible self-hosted server, under its own public HTTPS name;
-- two public static websites served by Caddy, refreshed automatically from GitHub;
-- a private photo/video cloud using **Nextcloud**, reachable only through Tailscale;
-- an optional **n8n + PostgreSQL + Ollama** automation stack for the mini PC.
+Hardware di riferimento:
 
-It is intentionally designed so that Caddy has no host ports and receives public web traffic only through an outbound Cloudflare Tunnel. Pi-hole DNS stays private to the LAN/Tailnet; Nextcloud and the Pi-hole dashboard are bound to loopback and exposed privately by Tailscale Serve.
+- Dell OptiPlex 7050 Tiny;
+- Intel i5-7500 con Intel HD 630 e `/dev/dri/renderD128`;
+- 16 GB di RAM;
+- SSD interno da 240 GB per sistema, configurazioni e database;
+- disco da circa 4 TB condiviso in LAN e montato in `/srv/media`.
 
-> [!NOTE]
-> A Pi 4 with 4 GB is sufficient for this personal, low-traffic setup when the application state is on an SSD. Do not add video transcoding, AI photo recognition, Collabora/OnlyOffice, or other heavy services. Keep one or two simultaneous Nextcloud users in mind; direct playback is fine when the client supports the original video format.
+## Servizi
 
-> [!TIP]
-> The base `compose.yaml` remains compatible with the live Raspberry Pi. The
-> mini-PC-only n8n/Ollama stack is in `compose.automation.yaml`, so it cannot
-> consume RAM or require new secrets until it is explicitly enabled.
+| Servizio | Accesso | Dati |
+| --- | --- | --- |
+| Sito statico | pubblico, Cloudflare Tunnel | build riproducibile dalla repo del sito |
+| Vaultwarden | pubblico, Cloudflare Tunnel | SSD locale + Restic |
+| Pi-hole DNS | LAN e Tailnet | SSD locale + Restic |
+| Homepage | Tailnet, porta 443 | configurazione in Git |
+| Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
+| Nextcloud | Tailnet, porta 8445 | DB/config su SSD, file su `/srv/media` |
+| Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
+| Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
+| n8n | Tailnet, porta 8449 | SSD locale + Restic |
+| Ollama | solo rete Docker | modelli riproducibili, non salvati |
+| Area privata del sito | Tailnet, porta 8443 | build del sito |
 
-> [!IMPORTANT]
-> GitHub must contain configuration and documentation, **not** passwords, Vaultwarden data, databases, photos, videos, TLS certificates, or backups. The application state lives on the SSD and is backed up, encrypted, with Restic. Without a tested off-device backup, an OS rebuild is not a recovery plan.
+Tailscale è installato sull'host, non in Docker. Cloudflare espone soltanto il
+sito, Vaultwarden e, in futuro, eventuali webhook n8n. Nessuna porta del router
+deve essere inoltrata.
 
-## Architecture
+## Tre stack indipendenti
 
-```text
-Internet ── Cloudflare HTTPS ── outbound tunnel ── Caddy ── static site 1 / static site 2 / Vaultwarden
+- `compose.yaml`: servizi core, sempre disponibili e senza dati utente sul NAS;
+- `compose.media.yaml`: Nextcloud, Jellyfin e Immich; parte solo dopo la verifica
+  del mount `/srv/media`;
+- `compose.automation.yaml`: n8n, PostgreSQL e Ollama.
 
-Home LAN + Tailnet ── DNS :53 ── Pi-hole ── upstream resolvers
-Tailnet only ── Tailscale Serve (HTTPS) ── Nextcloud + Pi-hole dashboard
+Le unità `core-stack.service`, `media-stack.service` e
+`automation-stack.service` li avviano automaticamente e in ordine. I servizi
+media usano `restart: on-failure` anziché avviarsi direttamente con Docker:
+questo impedisce loro di precedere il mount di rete durante il boot.
 
-SSD ── Nextcloud files, PostgreSQL, Vaultwarden, Pi-hole, Caddy certificates
-                         │
-                    Restic encrypted backup (off-device)
-```
+## Installazione sintetica
 
-## What you need before deploying
-
-1. A Raspberry Pi OS Lite **64-bit** installation on an SSD (not a microSD for this workload), or Debian stable **64-bit** on the mini PC, with SSH enabled and a non-root user.
-2. A fixed DHCP lease for the Pi in the router; an external SSD in `ext4`, mounted persistently at `/srv`.
-3. A Cloudflare account and the existing domain added to it. This deployment uses Cloudflare Tunnel, so it also works behind CGNAT and does not expose router ports. See [docs/cloudflare-tunnel.md](docs/cloudflare-tunnel.md).
-4. A Tailscale account and the Tailscale app installed on every device that should access the NAS, Pi-hole dashboard, or administration remotely.
-5. An off-device Restic repository (another disk stored elsewhere, S3-compatible storage, or a backup host) and its encryption password stored in your password manager.
-
-## First deployment and migration
-
-The complete, ordered procedure is in [docs/first-boot.md](docs/first-boot.md). The short version, to run on the Pi, is:
+La procedura completa è in [docs/first-boot.md](docs/first-boot.md).
 
 ```bash
-git clone https://github.com/YOUR_ACCOUNT/raspberry-server.git /opt/raspberry-server
+sudo git clone https://github.com/GianniGiuffo/PiServer.git /opt/raspberry-server
+sudo chown -R "$USER:$USER" /opt/raspberry-server
 cd /opt/raspberry-server
-sudo bash ./scripts/bootstrap.sh
+sudo bash scripts/bootstrap.sh
+
+sudo tailscale up --ssh --hostname=mini-pc
+sudo tailscale set --accept-dns=false
+
 cp .env.example .env
 chmod 600 .env
-# edit .env with real domains and secrets
-docker compose config --quiet
-docker compose up -d
-sudo ./scripts/configure-tailscale-serve.sh
+nano .env
+bash scripts/preflight.sh
+
+docker compose up -d caddy pihole vaultwarden docker-socket-proxy homepage uptime-kuma
+sudo bash scripts/configure-tailscale-serve.sh
 ```
 
-Do not run the sample command until `docs/first-boot.md` is complete: the script installs packages and creates the runtime directories. For the mini PC, follow [docs/minipc-migration.md](docs/minipc-migration.md) instead; it prevents a second unfinished machine from receiving live Cloudflare traffic.
+Durante la migrazione non avviare ancora `cloudflared`: prima ripristinare e
+verificare Vaultwarden, poi seguire il cutover in
+[docs/first-boot.md](docs/first-boot.md).
 
-## Two different kinds of “automatic update”
+Non abilitare `media-stack.service` finché il disco di rete non è montato,
+contiene il marker `.piserver-media` e supera
+`scripts/check-media-mount.sh`. Vedi [docs/storage.md](docs/storage.md).
 
-- The two **websites** are pulled and built every minute by a systemd timer. This needs no inbound webhook, no open SSH port and no GitHub runner with control of the Pi. Configure the two source repositories in `config/sites/`.
-- **Container image updates** are deliberately manual and reviewed. Pin images to digests after verifying them, back up first, then run `docker compose pull && docker compose up -d`. Automatic unreviewed upgrades of a password manager or a NAS are not a good default.
-- Services configured with `restart: unless-stopped` are restarted automatically by Docker after a host reboot. The systemd timers then resume website deployment and Restic backup. The optional automation services get the same behavior after their first explicit `up -d`.
+## Aggiornamenti
 
-## Security boundaries
+Il sito viene controllato ogni minuto e ricostruito soltanto quando cambia il
+commit remoto. Le immagini dei servizi non vengono aggiornate automaticamente.
 
-- Never expose port `53`, PostgreSQL, Redis, SMB, SSH or the Pi-hole dashboard to the public Internet. With the tunnel configuration, do not create router forwards for `80` or `443` either.
-- Enable two-factor authentication in Vaultwarden before putting credentials in it. Enable registration only for the initial account, then set `VAULTWARDEN_SIGNUPS_ALLOWED=false` in `.env` and redeploy Vaultwarden.
-- Give every Tailnet device a personal account; do not share the account. Restrict access with Tailnet ACLs if more people join.
-- Pi-hole blocks DNS-known advertising and tracking domains. It cannot reliably remove ads served from the same domain as the content (notably many YouTube/social ads), and a device that bypasses your DNS or uses encrypted DNS can evade it.
+```bash
+sudo systemctl start backup.service
+bash scripts/update-images.sh core
+sudo systemctl restart core-stack.service
+```
 
-See [docs/security.md](docs/security.md) and [docs/backup-and-restore.md](docs/backup-and-restore.md) before storing important data.
+Ripetere con `media` o `automation` dopo avere letto le note di rilascio.
+`update-images.sh` scarica esclusivamente le versioni selezionate in `.env`.
 
-## Mini-PC additions
+## Backup
 
-- [n8n and local Ollama](docs/n8n-ollama.md): remote editor protected with Cloudflare Access, a separate webhook hostname, a dedicated PostgreSQL database, and no public AI endpoint.
-- [Mini-PC migration](docs/minipc-migration.md): install Debian, restore the stack safely, then switch the live tunnel once.
-- [Email with the custom domain](docs/email-options.md): choose routing, a managed mailbox, or a fully self-hosted mail system before changing MX records.
+Restic salva `.env`, configurazioni, database SQLite coerenti e dump PostgreSQL.
+Non salva foto, video, file Nextcloud, media Jellyfin, cache, thumbnail o modelli
+Ollama. Il disco da 4 TB richiede quindi una politica di backup separata se in
+futuro quei file dovranno essere recuperabili dopo la sua rottura.
+
+La procedura completa e i comandi di restore sono in
+[docs/backup-and-restore.md](docs/backup-and-restore.md).
+
+## Documentazione
+
+- [Prima installazione](docs/first-boot.md)
+- [Storage di rete e struttura delle directory](docs/storage.md)
+- [Migrazione dal Raspberry Pi](docs/minipc-migration.md)
+- [Backup e ripristino](docs/backup-and-restore.md)
+- [Accesso remoto e sicurezza](docs/security.md)
+- [Configurazione iniziale dei servizi](docs/service-setup.md)
+- [Cloudflare Tunnel](docs/cloudflare-tunnel.md)
+- [n8n e Ollama](docs/n8n-ollama.md)

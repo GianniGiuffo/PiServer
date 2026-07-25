@@ -1,5 +1,5 @@
 [Unit]
-Description=Nightly encrypted Raspberry Pi backup
+Description=Nightly encrypted PiServer backup
 
 [Timer]
 OnCalendar=*-*-* 03:15:00

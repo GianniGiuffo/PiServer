@@ -50,25 +50,13 @@ http://{$VAULTWARDEN_DOMAIN} {
 	header -Server
 }
 
-# n8n itself is declared only in compose.automation.yaml. These routes are
-# inert on the Raspberry Pi because the default hostnames end in .invalid.
-# On the mini PC, the editor and public webhooks intentionally use two
-# different hostnames so Cloudflare Access can protect the editor without
-# blocking third-party webhook calls.
-(n8n_proxy) {
+# The n8n editor is Tailnet-only on port 8449. This route is exclusively for
+# third-party webhooks and remains inert while N8N_WEBHOOK_DOMAIN is
+# hooks.invalid and no matching Cloudflare Tunnel route exists.
+http://{$N8N_WEBHOOK_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy n8n:5678 {
 		header_up X-Forwarded-Proto https
-		header_up X-Forwarded-Host {host}
-		header_up X-Forwarded-For {remote_host}
 	}
 	header -Server
-}
-
-http://{$N8N_DOMAIN} {
-	import n8n_proxy
-}
-
-http://{$N8N_WEBHOOK_DOMAIN} {
-	import n8n_proxy
 }

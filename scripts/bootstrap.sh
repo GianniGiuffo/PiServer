@@ -14,7 +14,7 @@ fi
 
 TARGET_USER=${SUDO_USER:-${SERVER_USER:-${RPI_USER:-}}}
 if [[ -z ${TARGET_USER} || ${TARGET_USER} == "root" ]]; then
-  echo "Run through sudo from the normal Raspberry Pi user, or set RPI_USER." >&2
+  echo "Run through sudo from the normal administrator user, or set SERVER_USER." >&2
   exit 1
 fi
 
@@ -28,14 +28,15 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 chmod 0755 "${SCRIPT_DIR}"/*.sh
 
-# Raspberry Pi OS 64-bit follows Debian arm64 packages. Do not use Docker's
-# convenience script: the apt repository keeps upgrades visible and reviewable.
+# Use Docker's Debian apt repository rather than the convenience script so host
+# upgrades remain visible and reviewable.
 . /etc/os-release
-CODENAME=${VERSION_CODENAME:?Cannot determine the Debian/Raspberry Pi OS codename}
+CODENAME=${VERSION_CODENAME:?Cannot determine the Debian codename}
 
 apt-get update
 apt-get install -y --no-install-recommends \
-  ca-certificates curl git gnupg jq openssh-client restic rsync
+  ca-certificates cifs-utils curl git gnupg intel-gpu-tools jq \
+  nfs-common openssh-client restic rsync
 
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
@@ -54,13 +55,17 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 systemctl enable --now docker tailscaled
 usermod -aG docker "${TARGET_USER}"
 
-# Put state on the SSD mounted at /srv. Configuration remains in Git; state does not.
+# Application state stays on the local SSD. User media is mounted separately at
+# /srv/media and is never created here: doing so could hide a failed NAS mount.
 install -d -m 0750 /srv/raspberry-server/data
 install -d -m 0750 /srv/raspberry-server/staging
-# n8n runs as the non-root `node` user (UID 1000). Creating this directory
-# now keeps the optional mini-PC service writable without making DATA_DIR broad.
 install -d -m 0750 -o 1000 -g 1000 /srv/raspberry-server/data/n8n/n8n
 install -d -m 0755 -o "${TARGET_USER}" -g "${TARGET_GROUP}" /srv/raspberry-server/sites
+install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
+  /srv/raspberry-server/data/jellyfin/config \
+  /srv/raspberry-server/data/jellyfin/cache
+install -d -m 0750 /srv/raspberry-server/data/uptime-kuma
+install -d -m 0755 /srv/media
 install -d -m 0755 /etc/raspberry-server/sites
 
 bash "${SCRIPT_DIR}/install-systemd.sh" "${TARGET_USER}" "${TARGET_GROUP}"
@@ -71,6 +76,7 @@ Base installation complete.
 
 1. Log out and back in so '${TARGET_USER}' receives the docker group.
 2. Copy ${REPO_DIR}/.env.example to ${REPO_DIR}/.env, set values, then chmod 600 it.
-3. Authenticate Tailscale: sudo tailscale up --ssh --hostname=rpi-server
-4. Follow docs/first-boot.md before starting the containers or enabling site deployment.
+3. Authenticate Tailscale: sudo tailscale up --ssh --hostname=mini-pc
+4. Run scripts/preflight.sh and follow docs/first-boot.md.
+5. Do not enable media-stack.service until /srv/media is a verified network mount.
 EOF

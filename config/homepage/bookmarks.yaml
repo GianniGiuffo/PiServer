@@ -1,0 +1,10 @@
+- Amministrazione:
+    - Repository PiServer:
+        - icon: github.png
+          href: https://github.com/GianniGiuffo/PiServer
+    - Tailscale:
+        - icon: tailscale.png
+          href: https://login.tailscale.com/admin/machines
+    - Cloudflare:
+        - icon: cloudflare.png
+          href: https://dash.cloudflare.com/

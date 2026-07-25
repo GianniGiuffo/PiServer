@@ -81,8 +81,8 @@ REVISION=$(git -C "${CHECKOUT}" rev-parse --short=12 HEAD)
 RELEASE="${RELEASES}/${REVISION}"
 
 # The timer polls GitHub frequently, but a build is needed only for a new
-# commit. This keeps the Pi idle between pushes instead of rebuilding on every
-# timer run.
+# commit. This keeps the host idle between pushes instead of rebuilding on
+# every timer run.
 CURRENT_RELEASE=$(readlink -f -- "${SITE_ROOT}/current" 2>/dev/null || true)
 if [[ ${CURRENT_RELEASE} == "${RELEASE}" && -d ${RELEASE} ]]; then
   echo "${SITE} is already deployed at ${REVISION}."
@@ -93,7 +93,7 @@ rm -rf "${RELEASE}"
 mkdir -p "${RELEASE}"
 
 # The build runs in a disposable multi-architecture image; Node/Hugo/etc. do not
-# need to be installed on the Pi host. Images and commands are chosen per site.
+# need to be installed on the host. Images and commands are chosen per site.
 docker run --rm --init \
   --user "$(id -u):$(id -g)" \
   --env HOME=/tmp \

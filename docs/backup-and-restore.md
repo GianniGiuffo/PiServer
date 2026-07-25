@@ -1,82 +1,228 @@
-# Backup and restore
+# Backup e ripristino
 
-## What is protected
+## Cosa viene salvato
 
-The backup script takes an encrypted Restic snapshot of:
+Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 
-- the runtime `.env` file (domains and secrets);
-- Pi-hole configuration, Vaultwarden data, Nextcloud configuration/custom apps and Caddy state from `DATA_DIR`;
-- a PostgreSQL dump made while Nextcloud is in maintenance mode.
+- `.env`;
+- configurazioni reali dei siti e `backup.env`;
+- directory completa di Vaultwarden;
+- Pi-hole e Caddy;
+- database e impostazioni Uptime Kuma;
+- database/configurazione Jellyfin, esclusi log, cache, metadata generati e
+  transcodifiche;
+- configurazione Nextcloud e dump PostgreSQL;
+- dump PostgreSQL Immich;
+- configurazione e dump PostgreSQL n8n.
 
-When the optional mini-PC automation stack is enabled, the same snapshot also
-contains n8n's settings directory and a consistent dump of its dedicated
-PostgreSQL database. The model files downloaded by Ollama are deliberately not
-backed up: they are large, reproducible downloads and contain neither workflows
-nor secrets.
+Vaultwarden, Pi-hole, Uptime Kuma e Jellyfin vengono fermati brevemente per
+rendere coerenti i rispettivi database. Nextcloud entra in maintenance mode.
+n8n e Immich vengono fermati mentre viene creato il loro dump PostgreSQL.
 
-Vaultwarden is stopped briefly so its SQLite database is copied consistently. Nextcloud is in maintenance mode for the duration of the snapshot. PostgreSQL's live data directory is intentionally not copied; the dump is the consistent restore source. Redis is only a cache and is not backed up. Nextcloud's `data` directory, containing photos and videos on a separate disk, is deliberately excluded. The backup is not complete until it exists outside the Pi and can be restored.
+## Cosa non viene salvato
 
-## Configure Restic
+- `/srv/media`, quindi file Nextcloud, foto/video Immich e media Jellyfin;
+- database PostgreSQL live;
+- Redis/Valkey;
+- cache e thumbnail ricostruibili;
+- modelli Ollama;
+- checkout e release del sito.
 
-Choose an off-device Restic repository. The following is a generic local-disk example; substitute an S3-compatible endpoint or an SSH/SFTP repository if preferred.
+Restic protegge la configurazione del server, non il futuro disco dati da 4 TB.
+Se quei dati diventeranno importanti servirà un secondo supporto o repository
+con capacità adeguata.
 
-### Local USB disk
+## Configurazione Restic
 
-Format and mount the chosen USB disk as ext4 before continuing. Add it to `/etc/fstab` by UUID with the `nofail` option so the Pi can still boot if the disk is disconnected. Use a dedicated mount point, for example `/mnt/rpi-backup`. Before formatting, always verify the device name with `lsblk`; formatting erases that whole device.
-
-The backup service checks the mount point before it does anything. It will fail safely if the USB disk is absent instead of writing the repository into the Pi's root filesystem.
+Esempio con disco USB montato in `/mnt/piserver-backup`:
 
 ```bash
-sudo install -d -m 0700 /etc/restic
+sudo install -d -m 0700 /etc/restic /etc/raspberry-server
 sudo sh -c 'umask 077; openssl rand -base64 48 > /etc/restic/password'
 sudo tee /etc/raspberry-server/backup.env >/dev/null <<'EOF'
-RESTIC_REPOSITORY=/mnt/rpi-backup/restic-rpi-server
+RESTIC_REPOSITORY=/mnt/piserver-backup/restic-piserver
 RESTIC_PASSWORD_FILE=/etc/restic/password
-RESTIC_MOUNTPOINT=/mnt/rpi-backup
-# Add this line only on the mini PC after n8n has been enabled.
-# AUTOMATION_COMPOSE_FILE=/opt/raspberry-server/compose.automation.yaml
+RESTIC_MOUNTPOINT=/mnt/piserver-backup
 EOF
-sudo chmod 600 /etc/raspberry-server/backup.env
-sudo RESTIC_REPOSITORY=/mnt/offsite-backup/restic-rpi-server \
-  RESTIC_PASSWORD_FILE=/etc/restic/password restic init
+sudo chmod 600 /etc/raspberry-server/backup.env /etc/restic/password
+
+sudo bash -c '
+  set -a
+  source /etc/raspberry-server/backup.env
+  set +a
+  restic init
+'
 ```
 
-The external disk must be mounted before this configuration is used. With `RESTIC_MOUNTPOINT` set, the script refuses to run if that disk is absent, preventing a backup from being written accidentally to the Pi's root filesystem. A disk permanently connected to the same Pi does not protect against theft, fire, electrical damage or accidental deletion; keep at least one encrypted copy elsewhere.
+Per SFTP/S3 usare il relativo `RESTIC_REPOSITORY` e omettere
+`RESTIC_MOUNTPOINT`. Eventuali credenziali restano in `backup.env`, mode `0600`.
 
-Run the first backup and inspect it:
+La password Restic deve avere almeno due copie indipendenti fuori dal server e
+non deve esistere soltanto dentro Vaultwarden.
+
+## Primo backup e verifica
 
 ```bash
 cd /opt/raspberry-server
 sudo bash scripts/backup.sh
-sudo RESTIC_REPOSITORY=/mnt/rpi-backup/restic-rpi-server \
-  RESTIC_PASSWORD_FILE=/etc/restic/password restic snapshots
+
+sudo bash -c '
+  set -a
+  source /etc/raspberry-server/backup.env
+  set +a
+  restic snapshots --latest 5
+  restic check --read-data-subset=5%
+  restic ls latest --tag pi-server |
+    grep -E "vaultwarden|pihole|uptime-kuma|nextcloud.sql|immich.sql|n8n.sql"
+'
+
 sudo systemctl enable --now backup.timer
 systemctl list-timers backup.timer
 ```
 
-The system timer retains seven daily, four weekly and twelve monthly snapshots. Adjust the retention policy in `scripts/backup.sh` only after deciding how much storage is available.
+La retention è di 7 snapshot giornalieri, 4 settimanali e 12 mensili. I vecchi
+snapshot con tag storico `raspberry-server` non vengono eliminati
+automaticamente dal nuovo tag `pi-server`.
 
-Keep a copy of `/etc/restic/password` outside this Pi and outside the repository itself. Without it, the encrypted snapshots cannot be recovered.
+## Restore test non distruttivo
 
-## Restore after a failed OS or SSD
+```bash
+restore_dir=$(mktemp -d)
+sudo bash -c "
+  set -a
+  source /etc/raspberry-server/backup.env
+  set +a
+  restic restore latest --tag pi-server \
+    --include '/srv/raspberry-server/data/vaultwarden/**' \
+    --target '${restore_dir}'
+"
+sudo find "${restore_dir}" -type f | head
+echo "Test conservato in ${restore_dir}; ispezionarlo prima di eliminarlo."
+```
 
-1. Install Raspberry Pi OS Lite 64-bit on a new disk, mount the data SSD at `/srv`, and clone this repository again to `/opt/raspberry-server`.
-2. Run `sudo bash scripts/bootstrap.sh`, authenticate Tailscale, and recreate the network/router conditions from [first-boot.md](first-boot.md). Do **not** start the containers yet.
-3. Recreate `/etc/restic/password` from the password manager, write `backup.env`, and verify that `restic snapshots` lists the expected backup.
-4. Restore into a clean temporary directory first, inspect it, then copy the contents back to `/opt/raspberry-server` and `/srv/raspberry-server` with correct ownership. For a full recovery, stop Docker before overwriting state:
+Non importare il JSON Vaultwarden sopra un vault già ripristinato: l'import non
+deduplica e creerebbe copie.
+
+## Disaster recovery completo
+
+1. Installare Debian 13, clonare la repo ed eseguire `bootstrap.sh`.
+2. Ricreare `/etc/restic/password` e `backup.env`.
+3. Preparare un nuovo `.env` partendo dalla versione corrente di
+   `.env.example`.
+4. Non avviare ancora gli stack.
+5. Ripristinare in staging:
+
+```bash
+sudo install -d -m 0700 /srv/restore
+sudo bash -c '
+  set -a
+  source /etc/raspberry-server/backup.env
+  set +a
+  restic restore latest --tag pi-server --target /srv/restore
+'
+```
+
+Restic mantiene i percorsi assoluti sotto il target. La vecchia `.env` si trova
+quindi normalmente in:
+
+```text
+/srv/restore/opt/raspberry-server/.env
+```
+
+Confrontarla con il nuovo `.env.example` e copiare domini e segreti. Non
+sostituire i nuovi valori dipendenti dall'host.
+
+## Ripristino dei servizi core
+
+Con Docker fermo:
 
 ```bash
 sudo systemctl stop docker
-mkdir -p /tmp/rpi-restore
-sudo RESTIC_REPOSITORY=/mnt/rpi-backup/restic-rpi-server \
-  RESTIC_PASSWORD_FILE=/etc/restic/password \
-  restic restore latest --target /tmp/rpi-restore
-# Inspect /tmp/rpi-restore before copying data into the live paths.
+sudo rsync -aHAX \
+  /srv/restore/srv/raspberry-server/data/vaultwarden/ \
+  /srv/raspberry-server/data/vaultwarden/
+sudo rsync -aHAX \
+  /srv/restore/srv/raspberry-server/data/pihole/ \
+  /srv/raspberry-server/data/pihole/
+sudo rsync -aHAX \
+  /srv/restore/srv/raspberry-server/data/caddy/ \
+  /srv/raspberry-server/data/caddy/
+sudo rsync -aHAX \
+  /srv/restore/srv/raspberry-server/data/uptime-kuma/ \
+  /srv/raspberry-server/data/uptime-kuma/
 sudo systemctl start docker
+sudo systemctl start core-stack.service
 ```
 
-5. Copy the restored `.env` to `/opt/raspberry-server/.env` (mode `0600`) and the restored Pi-hole, Vaultwarden, Nextcloud configuration/custom-apps and Caddy directories to `/srv/raspberry-server/data`. Restore PostgreSQL only from the captured `nextcloud.sql` file from that same snapshot; do not mix a database dump from one snapshot with files from another. Nextcloud's excluded `data` directory must be restored separately from the photo/video disk backup.
-6. If the snapshot contains `n8n.sql`, first restore `/srv/raspberry-server/data/n8n/n8n` and retain the restored `N8N_ENCRYPTION_KEY` in `.env`; then restore that dump into the `n8n-postgres` service from the same snapshot. Do not generate a replacement encryption key.
-7. Run `docker compose config --quiet`, then `docker compose up -d`, reapply Tailscale Serve, and verify login, photos and a Vaultwarden entry before declaring the recovery complete. On the mini PC, also validate and start the optional automation Compose file as described in [n8n-ollama.md](n8n-ollama.md).
+Per Vaultwarden il restore della directory completa è la via primaria. Il JSON
+sul PC è una seconda via se il database non fosse recuperabile.
 
-Practice restoring an unimportant test file now. A written restore procedure that has never been exercised is only a hypothesis.
+## Ripristino PostgreSQL
+
+Usare dump e configurazioni appartenenti allo stesso snapshot. Eseguire questi
+comandi soltanto su database locali nuovi e vuoti.
+
+Nextcloud:
+
+```bash
+docker compose -f compose.yaml -f compose.media.yaml \
+  up -d nextcloud-postgres
+docker compose -f compose.yaml -f compose.media.yaml \
+  exec -T nextcloud-postgres psql -U nextcloud -d nextcloud \
+  < /srv/restore/srv/raspberry-server/staging/nextcloud.sql
+```
+
+Immich:
+
+```bash
+docker compose -f compose.yaml -f compose.media.yaml \
+  up -d immich-postgres
+docker compose -f compose.yaml -f compose.media.yaml \
+  exec -T immich-postgres psql -U immich -d immich \
+  < /srv/restore/srv/raspberry-server/staging/immich.sql
+```
+
+n8n:
+
+```bash
+sudo rsync -aHAX \
+  /srv/restore/srv/raspberry-server/data/n8n/n8n/ \
+  /srv/raspberry-server/data/n8n/n8n/
+docker compose -f compose.yaml -f compose.automation.yaml \
+  up -d n8n-postgres
+docker compose -f compose.yaml -f compose.automation.yaml \
+  exec -T n8n-postgres psql -U n8n -d n8n \
+  < /srv/restore/srv/raspberry-server/staging/n8n.sql
+```
+
+Il valore `N8N_ENCRYPTION_KEY` deve essere quello dello stesso snapshot.
+
+## Ripristino media
+
+Il restore delle configurazioni non ricrea i file esclusi. Prima di avviare lo
+stack media:
+
+```bash
+mountpoint /srv/media
+test -f /srv/media/.piserver-media
+sudo bash scripts/check-media-mount.sh
+```
+
+Se il disco da 4 TB è nuovo o vuoto, Nextcloud e Immich partiranno senza i
+vecchi file. Un database ripristinato che fa riferimento a file non più
+presenti non costituisce un recupero completo.
+
+## Verifica finale
+
+```bash
+bash scripts/preflight.sh
+sudo bash scripts/configure-tailscale-serve.sh
+sudo systemctl restart core-stack.service
+sudo systemctl restart media-stack.service
+sudo systemctl restart automation-stack.service
+sudo systemctl start backup.service
+```
+
+Verificare login e sincronizzazione Vaultwarden, query DNS, dashboard,
+monitoraggi, file Nextcloud, una transcodifica Jellyfin, un upload Immich e un
+workflow n8n prima di cancellare `/srv/restore` o il vecchio disco.

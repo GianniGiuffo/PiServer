@@ -1,5 +1,5 @@
 [Unit]
-Description=Create an encrypted off-device Raspberry Pi backup
+Description=Create an encrypted off-device PiServer backup
 Wants=network-online.target
 After=network-online.target docker.service
 

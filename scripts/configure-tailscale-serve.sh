@@ -6,22 +6,32 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
-if ! tailscale status --json >/dev/null; then
-  echo "Tailscale is not connected. Run: sudo tailscale up --ssh --hostname=rpi-server" >&2
+if [[ $(tailscale status --json | jq -r '.BackendState // empty') != "Running" ]]; then
+  echo "Tailscale is not connected. Run: sudo tailscale up --ssh --hostname=mini-pc" >&2
   exit 1
 fi
 
-# Tailscale Serve uses a separate virtual network interface, so it does not
-# collide with Caddy's public port 443. The longest matching path wins.
+# Each application gets a dedicated Tailnet-only HTTPS port because most of
+# these applications do not support being hosted below a URL subpath.
 tailscale serve reset
-tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:8082
-# Pi-hole uses root-relative /admin/ links, so it needs its own HTTPS port
-# rather than a subpath alongside Nextcloud.
-tailscale serve --bg --https=8444 --set-path=/ http://127.0.0.1:8081
-# Hugo generates root-relative links such as /posts/... and /css/.... Serving
-# the static site on its own HTTPS port keeps all of those links on Caddy
-# instead of falling through to Nextcloud on port 443.
+tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:3000
 tailscale serve --bg --https=8443 --set-path=/ http://127.0.0.1:8083
+tailscale serve --bg --https=8444 --set-path=/ http://127.0.0.1:8081
+tailscale serve --bg --https=8445 --set-path=/ http://127.0.0.1:8082
+tailscale serve --bg --https=8446 --set-path=/ http://127.0.0.1:8096
+tailscale serve --bg --https=8447 --set-path=/ http://127.0.0.1:2283
+tailscale serve --bg --https=8448 --set-path=/ http://127.0.0.1:3001
+tailscale serve --bg --https=8449 --set-path=/ http://127.0.0.1:5678
 
 echo
-echo "Private services configured. Confirm with: tailscale serve status"
+echo "Private services configured:"
+echo "  443  Homepage"
+echo "  8443 private website"
+echo "  8444 Pi-hole"
+echo "  8445 Nextcloud"
+echo "  8446 Jellyfin"
+echo "  8447 Immich"
+echo "  8448 Uptime Kuma"
+echo "  8449 n8n"
+echo
+echo "Confirm with: tailscale serve status"

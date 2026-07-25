@@ -1,0 +1,198 @@
+# Services which depend on the network-mounted 4 TB media disk.
+# Never run this file directly: use media-stack.service or start-stack.sh media.
+
+services:
+  nextcloud-postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=192MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - maintenance_work_mem=96MB
+      - -c
+      - max_connections=40
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?Set NEXTCLOUD_DB_PASSWORD in .env}
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/postgres:/var/lib/postgresql/data
+    networks:
+      - nextcloud-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  nextcloud-redis:
+    image: ${REDIS_IMAGE:?Set REDIS_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 192m
+    command: redis-server --appendonly no --maxmemory 128mb --maxmemory-policy noeviction
+    networks:
+      - nextcloud-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  nextcloud:
+    image: ${NEXTCLOUD_IMAGE:?Set NEXTCLOUD_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 2g
+    depends_on:
+      nextcloud-postgres:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8082:80/tcp"
+    environment:
+      POSTGRES_HOST: nextcloud-postgres
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?Set NEXTCLOUD_DB_PASSWORD in .env}
+      REDIS_HOST: nextcloud-redis
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?Set NEXTCLOUD_ADMIN_USER in .env}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set NEXTCLOUD_ADMIN_PASSWORD in .env}
+      NEXTCLOUD_TRUSTED_DOMAINS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
+      TRUSTED_PROXIES: 172.16.0.0/12
+      OVERWRITEHOST: ${TAILSCALE_FQDN}:8445
+      OVERWRITEPROTOCOL: https
+      OVERWRITECLIURL: https://${TAILSCALE_FQDN}:8445
+      PHP_MEMORY_LIMIT: 768M
+      PHP_UPLOAD_LIMIT: 16G
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/html:/var/www/html
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/nextcloud:/var/www/html/data
+    networks:
+      - web
+      - nextcloud-internal
+    security_opt:
+      - no-new-privileges:true
+
+  nextcloud-cron:
+    image: ${NEXTCLOUD_IMAGE:?Set NEXTCLOUD_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 384m
+    depends_on:
+      - nextcloud
+    entrypoint: /cron.sh
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/html:/var/www/html
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/nextcloud:/var/www/html/data
+    networks:
+      - nextcloud-internal
+    security_opt:
+      - no-new-privileges:true
+
+  jellyfin:
+    image: ${JELLYFIN_IMAGE:?Set JELLYFIN_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 2g
+    cpus: 3.5
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    group_add:
+      - "${RENDER_GID:?Set RENDER_GID in .env}"
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      JELLYFIN_PublishedServerUrl: https://${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}:8446
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/jellyfin/config:/config
+      - ${DATA_DIR:?Set DATA_DIR in .env}/jellyfin/cache:/cache
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/jellyfin:/media:ro
+    ports:
+      - "127.0.0.1:8096:8096/tcp"
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  immich-postgres:
+    image: ${IMMICH_POSTGRES_IMAGE:?Set IMMICH_POSTGRES_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 2g
+    shm_size: 128mb
+    environment:
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD:?Set IMMICH_DB_PASSWORD in .env}
+      POSTGRES_USER: immich
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/immich/postgres:/var/lib/postgresql/data
+    networks:
+      - immich-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U immich -d immich"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  immich-redis:
+    image: ${IMMICH_REDIS_IMAGE:?Set IMMICH_REDIS_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 256m
+    networks:
+      - immich-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  immich-server:
+    image: ${IMMICH_SERVER_IMAGE:?Set IMMICH_SERVER_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 3g
+    cpus: 3.0
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-redis:
+        condition: service_healthy
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      DB_HOSTNAME: immich-postgres
+      DB_USERNAME: immich
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: immich
+      REDIS_HOSTNAME: immich-redis
+      IMMICH_HELMET_FILE: "true"
+      CPU_CORES: "3"
+    volumes:
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/immich:/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "127.0.0.1:2283:2283/tcp"
+    networks:
+      - web
+      - immich-internal
+    healthcheck:
+      disable: false
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  nextcloud-internal:
+    internal: true
+  immich-internal:
+    internal: true

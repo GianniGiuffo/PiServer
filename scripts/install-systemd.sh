@@ -21,7 +21,9 @@ REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server
 install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server/sites
 
-for unit in site-deploy.service site-deploy.timer backup.service backup.timer; do
+for unit in \
+  core-stack.service media-stack.service automation-stack.service \
+  site-deploy.service site-deploy.timer backup.service backup.timer; do
   sed \
     -e "s|__RPI_USER__|${TARGET_USER}|g" \
     -e "s|__RPI_GROUP__|${TARGET_GROUP}|g" \
@@ -30,4 +32,13 @@ for unit in site-deploy.service site-deploy.timer backup.service backup.timer; d
 done
 
 systemctl daemon-reload
-systemctl enable site-deploy.timer backup.timer
+systemctl enable core-stack.service site-deploy.timer
+
+cat <<EOF
+Installed systemd units.
+
+- core-stack.service and site-deploy.timer are enabled for the next boot.
+- Enable backup.timer only after Restic is configured and tested.
+- Enable media-stack.service only after /srv/media passes check-media-mount.sh.
+- Enable automation-stack.service when n8n/Ollama should start.
+EOF

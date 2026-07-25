@@ -1,0 +1,18 @@
+[Unit]
+Description=Start Nextcloud, Jellyfin and Immich after network storage is mounted
+Wants=network-online.target remote-fs.target
+After=network-online.target remote-fs.target docker.service core-stack.service
+Requires=docker.service core-stack.service
+ConditionPathExists=__REPO_DIR__/.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/start-stack.sh media
+ExecStop=/usr/bin/bash __REPO_DIR__/scripts/stop-stack.sh media
+TimeoutStartSec=10min
+TimeoutStopSec=5min
+
+[Install]
+WantedBy=multi-user.target

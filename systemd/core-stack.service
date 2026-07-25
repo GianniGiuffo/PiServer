@@ -1,0 +1,18 @@
+[Unit]
+Description=Start the PiServer core Docker services
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=__REPO_DIR__/.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/start-stack.sh core
+ExecStop=/usr/bin/bash __REPO_DIR__/scripts/stop-stack.sh core
+TimeoutStartSec=10min
+TimeoutStopSec=3min
+
+[Install]
+WantedBy=multi-user.target

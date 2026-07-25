@@ -1,42 +1,50 @@
-# Publish sites and Vaultwarden through Cloudflare Tunnel
+# Pubblicare sito e Vaultwarden con Cloudflare Tunnel
 
-This is the public HTTPS path for this server:
+Il percorso HTTPS pubblico è:
 
 ```text
 Browser (HTTPS) -> Cloudflare -> encrypted outbound tunnel -> cloudflared -> Caddy -> site or Vaultwarden
 ```
 
-It works with CGNAT because the Raspberry Pi makes an outbound connection to Cloudflare. Do not open or forward ports `80`, `443`, `53`, `22`, `5432` or `6379` in the router.
+Funziona con CGNAT perché il mini PC apre una connessione uscente verso
+Cloudflare. Non inoltrare porte nel router.
 
-## 1. Move the domain DNS to Cloudflare
+## 1. Portare il DNS del dominio su Cloudflare
 
-1. Create or sign in to a Cloudflare account and choose **Add a domain**.
-2. Enter `tommasofrancescon.it` and select the Free plan if it meets your needs.
-3. Cloudflare scans the current DNS records. Before changing anything, compare and copy every record needed for email or verification: especially `MX`, `TXT`, SPF, DKIM and DMARC records.
-4. At the company where you bought the domain, replace the existing authoritative nameservers with the two nameservers Cloudflare gives you.
-5. Wait until the Cloudflare dashboard reports the zone as **Active**. Do not delete existing mail-related records.
+1. Accedere a Cloudflare e scegliere **Add a domain**.
+2. Inserire `tommasofrancescon.it`.
+3. Confrontare i record rilevati e conservare tutti quelli necessari per posta
+   e verifiche: in particolare `MX`, `TXT`, SPF, DKIM e DMARC.
+4. Presso il registrar sostituire i nameserver autorevoli con quelli indicati
+   da Cloudflare.
+5. Attendere che la zona risulti **Active**. Non cancellare i record della
+   posta.
 
-Cloudflare will create the tunnel DNS records in a later step. Do not point records at the CGNAT address `100.65.132.6`.
+I record del tunnel verranno creati in seguito. Non puntare record pubblici
+all'indirizzo Tailscale o a un indirizzo CGNAT.
 
-## 2. Create a managed tunnel
+## 2. Configurare il tunnel gestito
 
-1. In Cloudflare, open **Networking** > **Tunnels** > **Create a tunnel**.
-2. Choose **Cloudflared**, name it `pi-server`, and create it.
-3. On the connector-install screen choose **Docker** and copy only the long token after `--token`. Do not run Cloudflare's displayed Docker command: the Compose stack already contains the connector.
-4. On the Pi, edit the local secret file:
+1. Aprire **Networking** > **Tunnels** > **Create a tunnel**.
+2. Riutilizzare il tunnel esistente durante la migrazione oppure crearne uno
+   chiamato `pi-server`.
+3. Nella schermata di installazione scegliere **Docker** e copiare soltanto il
+   token dopo `--token`. Non eseguire il comando mostrato: il connettore è già
+   incluso nel Compose.
+4. Sul mini PC modificare il file locale:
 
 ```bash
 cd /opt/raspberry-server
 nano .env
 ```
 
-5. Add the token as a single quoted value:
+5. Inserire il token tra apici:
 
 ```dotenv
 CLOUDFLARE_TUNNEL_TOKEN='paste-the-entire-token-here'
 ```
 
-6. Start/recreate the stack and check the connector:
+6. Avviare o ricreare lo stack e controllare il connettore:
 
 ```bash
 docker compose up -d
@@ -44,33 +52,48 @@ docker compose ps cloudflared caddy
 docker compose logs --tail=100 cloudflared
 ```
 
-Wait until Cloudflare marks the connector **Healthy**.
+Attendere che Cloudflare mostri il connettore come **Healthy**.
 
-## 3. Add the three public hostname routes
+## 3. Hostname pubblici
 
-In Cloudflare, open **Networking** > **Tunnels** > `pi-server` > **Routes** > **Add route** > **Published application**. Add each of the following routes. In every case select **HTTP** and use exactly `http://caddy:80` as the service URL. `caddy` is the internal Docker service name; do not use `localhost`.
+In Cloudflare aprire **Networking** > **Tunnels** > `pi-server` > **Routes** >
+**Add route** > **Published application**. Aggiungere le route seguenti. In
+entrambi i casi selezionare **HTTP** e usare esattamente `http://caddy:80` come
+URL del servizio. `caddy` è il nome interno Docker; non usare `localhost`.
 
 | Public hostname | Service URL |
 | --- | --- |
 | `tommasofrancescon.it` | `http://caddy:80` |
 | `vault.tommasofrancescon.it` | `http://caddy:80` |
-| `secondo.tommasofrancescon.it` | `http://caddy:80` |
 
-Cloudflare automatically creates the DNS records pointing at the tunnel. You may choose another name instead of `secondo`, but it must match `SITE_2_DOMAIN` in `.env` and the Caddy configuration.
+Un eventuale secondo sito è opzionale: va aggiunta una terza route soltanto
+dopo aver impostato `SITE_2_DOMAIN`. Non pubblicare Homepage, Nextcloud, Immich,
+Jellyfin, Pi-hole, Uptime Kuma o l'editor n8n. Il dominio webhook n8n va
+aggiunto soltanto quando necessario.
 
-## 4. Verify the public edge
+## 4. Verificare il percorso pubblico
 
-With Wi-Fi disabled on a phone, open:
+Con il Wi-Fi disattivato su un telefono aprire:
 
 - `https://tommasofrancescon.it`
 - `https://vault.tommasofrancescon.it`
 
-The site will return a Caddy 404 response until the static-site deployment is configured. That confirms the public tunnel is working; the next task is to configure `site-1` and `site-2` from their GitHub repositories.
+Il sito restituisce una risposta 404 di Caddy finché non è configurato il
+deploy statico. Questo conferma comunque il funzionamento del tunnel; poi va
+configurato `site-1` e, solo se serve, `site-2`.
 
-Vaultwarden should show its initial registration page. Create the first account, enable two-factor authentication, then change `VAULTWARDEN_SIGNUPS_ALLOWED=false` in `.env` and run `docker compose up -d vaultwarden`.
+Per questa migrazione Vaultwarden deve mostrare il vault già ripristinato:
+accedere con un account esistente e verificare almeno un elemento. Se appare
+una nuova installazione vuota, fermarsi, non importare né creare account e
+seguire il rollback in `docs/minipc-migration.md`. Lasciare sempre
+`VAULTWARDEN_SIGNUPS_ALLOWED=false`.
 
-## Security notes
+## Note di sicurezza
 
-- Keep Cloudflare's SSL/TLS mode on **Full** or **Full (strict)**. The browser-to-Cloudflare connection is HTTPS; the tunnel itself is encrypted and Caddy is only reachable on the private Docker network.
-- Do not put the tunnel token in GitHub. `.env` is ignored by Git and the encrypted Restic backup includes it.
-- Do not protect Vaultwarden with a Cloudflare Access browser-login rule: native Bitwarden clients must reach Vaultwarden directly. The Vaultwarden account, master password and two-factor authentication protect the vault.
+- Il browser usa HTTPS, il tunnel è cifrato e Caddy è raggiungibile soltanto
+  dalla rete Docker privata.
+- Non salvare il token del tunnel in GitHub. `.env` è ignorato da Git e viene
+  incluso nel backup Restic cifrato.
+- Non proteggere Vaultwarden con una regola di login browser Cloudflare Access:
+  i client Bitwarden devono raggiungerlo direttamente. Usare password master
+  robusta e autenticazione a due fattori.

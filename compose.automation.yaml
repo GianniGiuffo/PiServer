@@ -1,14 +1,12 @@
-# Optional automation stack for the Debian amd64 mini PC.
-#
-# It is deliberately separate from compose.yaml: the active Raspberry Pi does
-# not need n8n/Ollama images, memory, secrets, or database. Start it only with:
-# docker compose -f compose.yaml -f compose.automation.yaml up -d
+# Optional automation services for the Debian amd64 mini PC.
+# Start through systemd after the core stack:
+#   sudo systemctl enable --now automation-stack.service
 
 services:
   n8n-postgres:
     image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE in .env}
-    restart: unless-stopped
-    mem_limit: 512m
+    restart: on-failure:5
+    mem_limit: 768m
     environment:
       POSTGRES_DB: n8n
       POSTGRES_USER: n8n
@@ -27,9 +25,10 @@ services:
 
   ollama:
     image: ${OLLAMA_IMAGE:?Set OLLAMA_IMAGE in .env}
-    restart: unless-stopped
+    restart: on-failure:5
     # The i5-7500 has no suitable GPU. Do not publish port 11434: only n8n on
     # the internal network can call the local model service.
+    mem_limit: 4g
     cpus: 3.5
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/ollama:/root/.ollama
@@ -40,8 +39,8 @@ services:
 
   n8n:
     image: ${N8N_IMAGE:?Set N8N_IMAGE in .env}
-    restart: unless-stopped
-    mem_limit: 1024m
+    restart: on-failure:5
+    mem_limit: 1536m
     depends_on:
       n8n-postgres:
         condition: service_healthy
@@ -57,10 +56,10 @@ services:
       DB_POSTGRESDB_USER: n8n
       DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?Set N8N_DB_PASSWORD in .env}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Set N8N_ENCRYPTION_KEY in .env}
-      N8N_HOST: ${N8N_DOMAIN:?Set N8N_DOMAIN in .env}
+      N8N_HOST: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
       N8N_PROTOCOL: https
       N8N_PORT: 5678
-      N8N_EDITOR_BASE_URL: https://${N8N_DOMAIN:?Set N8N_DOMAIN in .env}/
+      N8N_EDITOR_BASE_URL: https://${TAILSCALE_FQDN}:8449/
       WEBHOOK_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}/
       N8N_PROXY_HOPS: 1
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
@@ -70,6 +69,8 @@ services:
       EXECUTIONS_DATA_MAX_AGE: 336
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/n8n/n8n:/home/node/.n8n
+    ports:
+      - "127.0.0.1:5678:5678/tcp"
     networks:
       - web
       - automation

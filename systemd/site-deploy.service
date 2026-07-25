@@ -1,5 +1,5 @@
 [Unit]
-Description=Pull, build and publish the two static websites
+Description=Pull, build and publish configured static websites
 Wants=network-online.target
 After=network-online.target docker.service
 

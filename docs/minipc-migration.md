@@ -1,96 +1,138 @@
-# Move the server from Raspberry Pi to the Debian mini PC
+# Migrazione controllata dal Raspberry Pi
 
-Keep the Raspberry Pi online until the mini PC has restored data and passed all
-checks. The goal is one controlled tunnel switch, not two servers serving
-different copies of Vaultwarden or Nextcloud at the same public domain.
+Il Raspberry può essere spento durante la migrazione, ma non deve essere
+cancellato finché Vaultwarden non è stato verificato e il mini PC non ha
+prodotto un nuovo snapshot Restic valido.
 
-## 1. Install the host
+## Dati da migrare
 
-Install **Debian stable 64-bit** (no desktop environment) on the mini PC. In
-the firmware/BIOS, enable:
+- directory completa di Vaultwarden;
+- configurazione Pi-hole;
+- `.env` come fonte dei vecchi segreti, da unire al nuovo `.env.example`;
+- stato Caddy, facoltativo con Cloudflare Tunnel;
+- configurazione del sito in `/etc/raspberry-server/sites`.
 
-- `Restore on AC Power Loss` / `Power On`, so it starts after a power cut;
-- Intel virtualisation only if you expect to use virtual machines later;
-- boot from the SSD.
+Nextcloud non contiene file e viene reinstallato. I modelli Ollama, cache e
+build del sito non devono essere copiati.
 
-Create a non-root administrator account, enable SSH with an SSH key, update
-the system, and reserve a LAN address in the router. Use an ext4 SSD mounted at
-`/srv` for Docker state. Avoid full-disk encryption if the server must reboot
-unattended after a power outage: it would wait for a local unlock password.
+## 1. Congelare le modifiche
 
-Clone this repository and run the portable bootstrap:
+Sul Raspberry:
+
+> Non eseguire `git pull` della nuova configurazione sul Raspberry: i nomi dei
+> servizi Nextcloud sono cambiati. Usare lo script di backup già installato e
+> testato sul Raspberry; la nuova revisione è destinata al mini PC.
 
 ```bash
-sudo git clone https://github.com/GianniGiuffo/PiServer.git /opt/raspberry-server
-sudo chown -R "$USER:$USER" /opt/raspberry-server
 cd /opt/raspberry-server
-sudo bash scripts/bootstrap.sh
-```
-
-The historical paths keep the name `raspberry-server`; this is only a path and
-does not limit the configuration to a Raspberry Pi. The bootstrap script
-supports both `arm64` and `amd64` Debian-family hosts.
-
-## 2. Restore configuration and state without making it public yet
-
-1. Copy the real `.env` securely from the password manager or the Restic
-   snapshot, set mode `0600`, and update only values that genuinely change.
-2. Authenticate the mini PC with Tailscale under a **new hostname** and write
-   its new `TAILSCALE_FQDN` to `.env`. Do not reuse the Raspberry Pi node.
-3. Configure Restic with the same repository and restore a snapshot into a
-   temporary directory. Follow [backup-and-restore.md](backup-and-restore.md)
-   to copy only the intended application state and restore the Nextcloud SQL
-   dump. Move or restore the separate photo/video disk independently.
-4. Start every service except Cloudflared while checking the restored state:
-
-```bash
-docker compose up -d caddy pihole vaultwarden postgres redis nextcloud nextcloud-cron
-docker compose ps
-```
-
-Do not start Cloudflared on the new machine yet. A Tunnel token can create
-multiple connectors; doing so before the restore is complete could send public
-requests to an unfinished second copy.
-
-5. Configure Tailscale Serve on the mini PC and test Nextcloud and the Pi-hole
-dashboard through its **new** Tailnet FQDN. The public website and Vaultwarden
-must remain served by the Raspberry Pi during this stage.
-
-If n8n/Ollama is desired, complete [n8n-ollama.md](n8n-ollama.md) only after
-the base services and Restic backup work on the mini PC.
-
-## 3. Make the controlled public cutover
-
-Take a fresh Restic backup on the Raspberry Pi, stop the Raspberry Pi's
-`cloudflared` container, then start Cloudflared on the mini PC:
-
-```bash
-# On the Raspberry Pi
-cd /opt/raspberry-server
+sudo systemctl stop site-deploy.timer
 docker compose stop cloudflared
-
-# On the mini PC, after all local checks passed
-cd /opt/raspberry-server
-docker compose up -d cloudflared
-docker compose ps
+sudo systemctl start backup.service
+sudo journalctl -u backup.service -n 100 --no-pager
 ```
 
-Check the Cloudflare Tunnel dashboard: it should show the mini PC connector as
-healthy. Test the public sites and Vaultwarden from a mobile network, then
-update the Tailscale global Pi-hole nameserver from the Raspberry Pi Tailnet IP
-to the mini PC Tailnet IP. Only after these tests should the Raspberry Pi be
-powered down or repurposed.
+Da questo momento non modificare Vaultwarden sul Raspberry.
 
-## 4. Post-migration checks
+## 2. Ripristinare in staging
+
+Prima di spegnere definitivamente il Raspberry, conservare anche il contenuto
+di `/etc/raspberry-server/backup.env`: la password Restic da sola non identifica
+il repository e non contiene le eventuali credenziali SFTP/S3.
+
+Sul mini PC:
+
+1. ricreare `/etc/restic/password` usando **esattamente** la password già
+   conservata sul PC, senza generarne una nuova;
+2. copiare o ricreare `/etc/raspberry-server/backup.env` dal Raspberry;
+3. correggere soltanto `RESTIC_MOUNTPOINT` se il supporto è montato in un
+   percorso diverso;
+4. impostare entrambi i file con proprietario `root` e mode `0600`.
 
 ```bash
+sudo install -d -m 0700 /etc/restic /etc/raspberry-server
+sudo chmod 600 /etc/restic/password /etc/raspberry-server/backup.env
+sudo chown root:root /etc/restic/password /etc/raspberry-server/backup.env
+```
+
+Ripristinare quindi l'ultimo snapshot storico in una directory vuota, mai
+direttamente sopra i percorsi live:
+
+```bash
+sudo install -d -m 0700 /srv/restore
+sudo bash -c '
+  set -a
+  source /etc/raspberry-server/backup.env
+  set +a
+  restic snapshots --tag raspberry-server --latest 5
+  restic restore latest --tag raspberry-server --target /srv/restore
+'
+sudo find /srv/restore -maxdepth 6 -type f | head -50
+```
+
+Seguire [backup-and-restore.md](backup-and-restore.md) per copiare Vaultwarden,
+Pi-hole e Caddy con i container fermi.
+
+Non sostituire il nuovo `.env` con quello vecchio: confrontarli e trasferire
+soltanto domini e segreti. Conservare i nuovi valori `TAILSCALE_FQDN`, `PUID`,
+`PGID`, `RENDER_GID`, `MEDIA_DIR` e le nuove immagini.
+
+## 3. Verifica privata
+
+Avviare i servizi core tranne Cloudflared:
+
+```bash
+cd /opt/raspberry-server
+docker compose up -d caddy pihole vaultwarden docker-socket-proxy homepage uptime-kuma
+sudo bash scripts/configure-tailscale-serve.sh
+docker compose ps
+docker compose logs --tail=100 vaultwarden
+docker compose exec vaultwarden test -f /data/db.sqlite3
+curl -fsS http://127.0.0.1:8080/alive
+```
+
+## 4. Cutover senza perdita di delta
+
+Se tra il backup ripristinato e questo momento non è stato modificato il vault,
+avviare Cloudflared sul mini PC:
+
+```bash
+docker compose up -d cloudflared
+```
+
+Se invece il Raspberry ha ricevuto modifiche, ripetere rigorosamente:
+
+1. fermare Cloudflared sul Raspberry;
+2. eseguire l'ultimo backup;
+3. fermare Vaultwarden sul mini PC;
+4. ripristinare nuovamente la directory Vaultwarden dall'ultimo snapshot;
+5. avviare Vaultwarden e poi Cloudflared sul mini PC.
+
+Cloudflare Tunnel può distribuire richieste fra più connettori con lo stesso
+token: non tenere contemporaneamente attivi il Raspberry e il mini PC durante
+il passaggio.
+
+## 5. Collaudo
+
+Da rete mobile:
+
+- aprire il sito;
+- accedere a Vaultwarden;
+- confrontare più elementi con l'esportazione JSON;
+- sincronizzare telefono e browser;
+- creare e cancellare una voce di prova;
+- verificare il secondo fattore.
+
+Poi:
+
+```bash
+sudo systemctl enable --now core-stack.service
+sudo systemctl enable --now backup.timer
+sudo systemctl start backup.service
 systemctl list-timers
 docker compose ps
 tailscale status
-sudo bash scripts/backup.sh
 ```
 
-Confirm that the website deployment timer still publishes a new Git commit,
-Vaultwarden can create and read an item, Nextcloud opens the separate media
-disk, Pi-hole resolves DNS, and a Restic snapshot is new. Do not erase the old
-Pi data until one successful restore test exists from the mini PC.
+Aggiornare il nameserver globale Tailscale e il DNS DHCP del router dal vecchio
+IP del Raspberry al nuovo mini PC. Spegnere il Raspberry, ma conservarne il
+disco intatto finché un restore test del nuovo backup non è riuscito.

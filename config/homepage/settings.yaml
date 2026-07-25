@@ -1,0 +1,20 @@
+title: PiServer
+description: Servizi del mini PC
+language: it
+theme: dark
+color: slate
+headerStyle: boxed
+hideVersion: true
+statusStyle: dot
+target: _self
+
+layout:
+  Servizi principali:
+    style: row
+    columns: 4
+  Media e file:
+    style: row
+    columns: 3
+  Automazione e controllo:
+    style: row
+    columns: 3

@@ -1,69 +1,82 @@
-# Security baseline
+# Sicurezza e confini di accesso
 
-## Exposure rules
+## Matrice di esposizione
 
-| Service | Access path | Public Internet |
+| Servizio | Percorso | Internet pubblico |
 | --- | --- | --- |
-| Public sites | Caddy HTTPS | Yes, port 443 only |
-| Vaultwarden | Caddy HTTPS | Yes, port 443 only |
-| n8n editor (mini PC) | Caddy HTTPS + Cloudflare Access | Yes, only after Access policy |
-| n8n webhooks (mini PC) | Caddy HTTPS | Only when a workflow needs a public webhook |
-| Ollama | Private Docker `automation` network | No |
-| Nextcloud / photo NAS | Tailscale Serve HTTPS | No |
-| Pi-hole DNS | Home LAN and Tailnet | No |
-| Pi-hole dashboard | Tailscale Serve HTTPS | No |
-| SSH | Tailscale SSH or LAN during setup | No router forwarding |
-| PostgreSQL / Redis | Docker internal network | No |
+| Sito | Cloudflare Tunnel → Caddy | sì |
+| Vaultwarden | Cloudflare Tunnel → Caddy | sì |
+| webhook n8n | Cloudflare Tunnel → Caddy | solo quando abilitati |
+| Homepage | Tailscale Serve `443` | no |
+| area privata sito | Tailscale Serve `8443` | no |
+| Pi-hole dashboard | Tailscale Serve `8444` | no |
+| Nextcloud | Tailscale Serve `8445` | no |
+| Jellyfin | Tailscale Serve `8446` | no |
+| Immich | Tailscale Serve `8447` | no |
+| Uptime Kuma | Tailscale Serve `8448` | no |
+| editor n8n | Tailscale Serve `8449` | no |
+| Pi-hole DNS | porta 53, LAN e Tailnet | no |
+| Ollama, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 
-Do not add port forwarding for a service merely to make an app work remotely. Install Tailscale on the client instead.
-
-## n8n and Ollama
-
-The optional automation stack is intended for the mini PC, not the 4 GB
-Raspberry Pi. It has three important boundaries:
-
-1. `n8n.example.com` is the editor and control plane. Publish it through the
-   existing Cloudflare Tunnel only after a Cloudflare Access application allows
-   just your own identity. n8n's own account password is still required; Access
-   is an additional boundary, not a replacement for it.
-2. `hooks.example.com` is deliberately separate. Do not create it until a
-   workflow genuinely needs an external webhook. Never put the same Access
-   policy in front of it, because third-party webhook senders cannot complete an
-   interactive Access login. Protect every public workflow with its native
-   secret, signature verification, or an explicit authentication step.
-3. Ollama has no host port and is attached only to the Docker-internal
-   `automation` network. In n8n, its URL is `http://ollama:11434`, never a LAN
-   IP or a public URL.
-
-`N8N_ENCRYPTION_KEY` decrypts stored n8n credentials. Generate it once, keep it
-in the password manager and encrypted Restic backup, and never replace it on a
-running instance. Losing it makes existing API credentials unrecoverable.
+Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
+5678, 6379, 8096 o 11434.
 
 ## Vaultwarden
 
-Vaultwarden is a third-party Bitwarden-compatible server; it is not the official Bitwarden self-hosted product. It is suitable for a personal deployment when treated as a critical service:
+- Tenere `SIGNUPS_ALLOWED=false` dopo la creazione dell'account.
+- Usare master password unica e 2FA.
+- Conservare il recovery code fuori dal vault.
+- `ADMIN_TOKEN` deve essere un hash Argon2, non una password in chiaro.
+- Il database completo Restic è il backup primario; il JSON sul PC è la seconda
+  via. Per allegati usare anche l'esportazione ZIP con allegati.
+- Non mettere Cloudflare Access davanti al dominio Vaultwarden: i client nativi
+  non possono completare un login web interattivo aggiuntivo.
 
-1. Use a dedicated `vault.example.com` HTTPS name; do not use an IP address or plain HTTP.
-2. Set `VAULTWARDEN_SIGNUPS_ALLOWED=true` only for the initial account, then change it to `false`, redeploy Vaultwarden, and enable two-factor authentication on the account immediately.
-3. Use a long master password which is not stored in the vault itself. Save the recovery information separately.
-4. Keep the `/admin` token as an Argon2 hash in `.env`. The `/admin` panel is optional; remove `ADMIN_TOKEN` from the configuration if it is not needed.
-5. Verify a restore of the Vaultwarden data before relying on it. A password manager without a restore test is a single point of failure.
+## Homepage e Docker
 
-## Tailscale and the NAS
+Homepage non offre un proprio livello di autenticazione ed è accessibile solo
+dalla Tailnet. Non monta direttamente `/var/run/docker.sock`: comunica con un
+proxy su rete Docker interna che espone soltanto endpoint di lettura e blocca
+ogni richiesta POST.
 
-Enable MagicDNS and HTTPS in the Tailnet. Use individual identities for each person and revoke a device as soon as it is lost. Once the basic setup is working, create ACLs that allow only your own user/devices to reach `rpi-server:443` and DNS port `53`.
+Il socket Docker equivale di fatto ad accesso root. Non aggiungere nuovi
+permessi al proxy senza verificare l'endpoint richiesto.
 
-Tailscale Serve is intentionally private. Do not use Tailscale Funnel for Nextcloud, Pi-hole, SSH or administration.
+## n8n e Ollama
 
-## Pi-hole limits and privacy
+L'editor n8n è Tailnet-only. L'hostname webhook pubblico rimane
+`hooks.invalid` finché non esiste una necessità reale. Ogni webhook pubblico
+deve verificare una firma HMAC, un token o un segreto non prevedibile.
 
-Pi-hole blocks DNS requests to known advertising and tracking domains. It cannot remove advertisements delivered by the same host as the desired content, cannot defeat browser-level encrypted DNS if the client bypasses it, and should not be presented as a complete ad blocker. Use browser content blocking in addition for the best result.
+`N8N_ENCRYPTION_KEY` è permanente e deve rimanere associata al relativo dump
+PostgreSQL. Ollama non pubblica alcuna porta host e n8n lo raggiunge tramite
+`http://ollama:11434`.
 
-The configured upstream resolvers are Quad9. You may change them to another provider or run a local recursive resolver later, but choose intentionally: the upstream DNS provider still sees the domains your network asks for.
+## Storage di rete
 
-## Host maintenance
+Un mount NAS assente non deve essere sostituito da una normale directory
+locale. `check-media-mount.sh` richiede sia un mount reale sia il marker
+`.piserver-media`. Le credenziali SMB, se usate, hanno mode `0600`.
 
-- Apply Raspberry Pi OS security updates regularly, preferably after a recent backup.
-- Review container-image updates and pin the approved digest; do not track `latest` permanently.
-- Check `systemctl list-timers`, `docker compose ps`, `tailscale status` and the backup logs monthly.
-- Keep the router firmware up to date and disable UPnP automatic port forwarding if it is not needed.
+Il media remoto non è coperto dal backup Restic di configurazione. Un guasto del
+disco da 4 TB comporterà la perdita dei file finché non verrà predisposta una
+seconda copia.
+
+## Pi-hole e Tailscale
+
+Pi-hole ascolta su tutte le interfacce host per servire LAN e Tailnet, ma la
+porta 53 non deve essere inoltrata da Internet. Il server usa
+`tailscale set --accept-dns=false` per evitare di interrogare sé stesso.
+
+Nella console Tailscale, l'IPv4 Tailnet del mini PC viene configurato come
+nameserver globale con **Override local DNS**. MagicDNS resta attivo.
+
+## Manutenzione
+
+- Applicare regolarmente gli aggiornamenti di sicurezza Debian.
+- Aggiornare le immagini soltanto dopo un backup e la lettura delle release
+  notes.
+- Controllare mensilmente `docker compose ps`, `systemctl --failed`,
+  `systemctl list-timers`, `tailscale status` e i log Restic.
+- Disabilitare UPnP sul router se non necessario.
+- Non committare `.env`, credenziali SMB, database o esportazioni Vaultwarden.

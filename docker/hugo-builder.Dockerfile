@@ -2,7 +2,7 @@
 #
 # Reproducible builder for the first website. It combines the exact Hugo
 # extended release required by the project with Node 24 for Tailwind CSS 4.
-# The image is built natively on the Raspberry Pi (arm64).
+# The image supports both the old Raspberry Pi (arm64) and the mini PC (amd64).
 FROM node:24-bookworm-slim
 
 ARG HUGO_VERSION=0.163.3
