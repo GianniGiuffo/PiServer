@@ -35,7 +35,7 @@ CODENAME=${VERSION_CODENAME:?Cannot determine the Debian codename}
 
 apt-get update
 apt-get install -y --no-install-recommends \
-  ca-certificates cifs-utils curl git gnupg intel-gpu-tools jq \
+  ca-certificates cifs-utils curl dnsutils git gnupg intel-gpu-tools jq \
   nfs-common openssh-client restic rsync
 
 install -m 0755 -d /etc/apt/keyrings
