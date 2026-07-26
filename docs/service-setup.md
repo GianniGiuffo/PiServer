@@ -29,7 +29,8 @@ almeno questi monitor HTTP:
 
 Configurare una notifica esterna, ad esempio email o Telegram, altrimenti un
 monitor sullo stesso server non può avvisare quando l'intero host è spento.
-Uptime Kuma resta sull'SSD locale perché SQLite non deve risiedere su NFS/SMB.
+Selezionare **Embedded MariaDB** alla prima configurazione. Uptime Kuma resta
+sull'SSD locale perché il database non deve risiedere su NFS/SMB.
 Impostare una retention moderata, per esempio 30 giorni, per evitare che la
 cronologia aumenti inutilmente la dimensione del backup Restic.
 

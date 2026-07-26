@@ -126,7 +126,8 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     volumes:
-      # Keep SQLite on the local SSD: POSIX locking on NFS/SMB is unsafe.
+      # Keep Uptime Kuma and its embedded MariaDB on the local SSD: POSIX
+      # locking on NFS/SMB is unsafe.
       - ${DATA_DIR:?Set DATA_DIR in .env}/uptime-kuma:/app/data
     ports:
       - "127.0.0.1:3001:3001/tcp"
