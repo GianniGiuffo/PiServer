@@ -15,11 +15,12 @@
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
+| StreamingCommunity downloader | Tailscale Serve `8450` | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
 | Ollama, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
-5678, 6379, 8096 o 11434.
+5678, 6379, 8000, 8096 o 11434.
 
 ## Vaultwarden
 
@@ -51,6 +52,15 @@ deve verificare una firma HMAC, un token o un segreto non prevedibile.
 `N8N_ENCRYPTION_KEY` è permanente e deve rimanere associata al relativo dump
 PostgreSQL. Ollama non pubblica alcuna porta host e n8n lo raggiunge tramite
 `http://ollama:11434`.
+
+## StreamingCommunity downloader
+
+Il pannello è raggiungibile soltanto attraverso Tailscale e usa
+l'autenticazione Jellyfin (`AUTH_ENABLED=1`). La configurazione persistente
+contiene sessioni e una API key Jellyfin: resta sull'SSD con permessi
+root-only ed entra esclusivamente nel backup Restic cifrato. Il container può
+scrivere soltanto nella directory media `downloads`, non nelle altre librerie
+Jellyfin.
 
 ## Storage di rete
 

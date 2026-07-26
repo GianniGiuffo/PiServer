@@ -32,24 +32,31 @@
     - Nextcloud:
         icon: nextcloud.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8445/
-        siteMonitor: http://nextcloud/
+        siteMonitor: http://nextcloud/status.php
         description: File personali
         server: local
         container: raspberry-server-nextcloud-1
     - Jellyfin:
         icon: jellyfin.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8446/
-        siteMonitor: http://jellyfin:8096/
+        siteMonitor: http://jellyfin:8096/health
         description: Film, serie e musica
         server: local
         container: raspberry-server-jellyfin-1
     - Immich:
         icon: immich.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/
-        siteMonitor: http://immich-server:2283/
+        siteMonitor: http://immich-server:2283/api/server/ping
         description: Foto e video
         server: local
         container: raspberry-server-immich-server-1
+    - StreamingCommunity:
+        icon: mdi-download-circle
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8450/
+        siteMonitor: http://streamingcommunity:8000/login
+        description: Download verso Jellyfin
+        server: local
+        container: raspberry-server-streamingcommunity-1
 
 - Automazione e controllo:
     - n8n:

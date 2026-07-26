@@ -14,7 +14,7 @@ layout:
     columns: 4
   Media e file:
     style: row
-    columns: 3
+    columns: 4
   Automazione e controllo:
     style: row
     columns: 3

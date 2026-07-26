@@ -1,4 +1,4 @@
-# Services which depend on the network-mounted 4 TB media disk.
+# Services which depend on storage mounted at MEDIA_DIR (temporary USB or NAS).
 # Never run this file directly: use media-stack.service or start-stack.sh media.
 
 services:
@@ -114,10 +114,52 @@ services:
       - ${DATA_DIR:?Set DATA_DIR in .env}/jellyfin/config:/config
       - ${DATA_DIR:?Set DATA_DIR in .env}/jellyfin/cache:/cache
       - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/jellyfin:/media:ro
+      # Same container path used by the downloader, so Jellyfin can index the
+      # generated files without granting the downloader access to /media.
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads:/app/videos:ro
     ports:
       - "127.0.0.1:8096:8096/tcp"
     networks:
       - web
+    security_opt:
+      - no-new-privileges:true
+
+  streamingcommunity:
+    image: ${STREAMINGCOMMUNITY_IMAGE:?Set STREAMINGCOMMUNITY_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 1536m
+    cpus: 2.5
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      VIDEOS_DIR: /app/videos
+      TMP_DIR: /app/tmp
+      DB_FILE: /app/config/panel.db
+      DATA_FILE: /app/config/data.json
+      SCHEDULE_FILE: /app/config/schedule.json
+      AUTH_ENABLED: "1"
+      COOKIE_SECURE: "1"
+      COOKIE_SAMESITE: lax
+      # Requests arrive only through the host-controlled Tailscale proxy.
+      TRUST_PROXY_HEADERS: "1"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/streamingcommunity:/app/config
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads:/app/videos
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads/.tmp:/app/tmp
+    ports:
+      - "127.0.0.1:8000:8000/tcp"
+    networks:
+      - web
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/login', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     security_opt:
       - no-new-privileges:true
 

@@ -22,9 +22,10 @@ almeno questi monitor HTTP:
 | Sito | `https://tommasofrancescon.it/` |
 | Vaultwarden | `http://vaultwarden/` |
 | Pi-hole | `http://pihole/admin/` |
-| Nextcloud | `http://nextcloud/` |
-| Jellyfin | `http://jellyfin:8096/` |
-| Immich | `http://immich-server:2283/` |
+| Nextcloud | `http://nextcloud/status.php` |
+| Jellyfin | `http://jellyfin:8096/health` |
+| Immich | `http://immich-server:2283/api/server/ping` |
+| StreamingCommunity | `http://streamingcommunity:8000/login` |
 | n8n | `http://n8n:5678/` |
 
 Configurare una notifica esterna, ad esempio email o Telegram, altrimenti un
@@ -82,7 +83,34 @@ sudo intel_gpu_top
 ```
 
 La directory `/media` è montata in sola lettura: Jellyfin non può cancellare i
-file originali.
+file originali. Aggiungere inoltre una libreria dedicata con percorso
+`/app/videos`: è la directory dei file creati dal downloader, montata in sola
+lettura anche dentro Jellyfin.
+
+## StreamingCommunity downloader
+
+Aprire `https://TAILSCALE_FQDN:8450/`. Il servizio è Tailnet-only e
+l'autenticazione Jellyfin è obbligatoria.
+
+Al primo accesso:
+
+1. indicare `http://jellyfin:8096` come URL server Jellyfin;
+2. accedere con un amministratore Jellyfin per inizializzare il pannello;
+3. importare da **Utenti** solo gli account che devono usare il downloader;
+4. concedere i permessi minimi necessari;
+5. nelle impostazioni usare `/app/videos` come percorso libreria;
+6. impostare manualmente il dominio sorgente corrente richiesto
+   dall'applicazione;
+7. limitare download paralleli e transcodifiche per non saturare CPU e RAM.
+
+Configurazione, utenti, sessioni, richieste e API key Jellyfin risiedono in
+`/srv/raspberry-server/data/streamingcommunity` e sono inclusi nel backup
+Restic. I video e i segmenti temporanei risiedono in `/srv/media/downloads` e
+sono esclusi dal backup di configurazione.
+
+Usare il pannello esclusivamente per contenuti che si è autorizzati a
+scaricare. L'immagine upstream usa un tag `latest` mobile: aggiornarla soltanto
+dopo un backup tramite `scripts/update-images.sh media`.
 
 ## Immich senza machine learning
 

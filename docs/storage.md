@@ -21,6 +21,7 @@ configurazioni e database:
 │   ├── nextcloud/postgres
 │   ├── ollama
 │   ├── pihole
+│   ├── streamingcommunity
 │   ├── uptime-kuma
 │   └── vaultwarden
 ├── sites
@@ -32,6 +33,7 @@ Il disco da 4 TB condiviso in LAN viene montato così:
 ```text
 /srv/media
 ├── .piserver-media
+├── downloads    file creati dal downloader e indicizzati da Jellyfin
 ├── immich       foto e video gestiti da Immich
 ├── jellyfin     film, serie e musica
 └── nextcloud    directory dati di Nextcloud
@@ -138,13 +140,16 @@ mount USB o remoto:
 
 ```bash
 mountpoint /srv/media
-sudo mkdir -p /srv/media/{immich,jellyfin,nextcloud}
+sudo mkdir -p /srv/media/{downloads,immich,jellyfin,nextcloud}
 sudo touch /srv/media/.piserver-media
 ```
 
 Configurare i permessi necessari sul filesystem locale o sul NAS:
 
 - Immich deve poter scrivere in `immich`;
+- `downloads` deve essere scrivibile dal downloader e leggibile dal
+  `PUID`/`PGID` usato da Jellyfin; su ext4 usare proprietario `root:PGID` e
+  mode `2770`;
 - l'UID `33` di `www-data` deve poter scrivere in `nextcloud`;
 - l'utente indicato da `PUID` deve almeno leggere `jellyfin`.
 
@@ -196,5 +201,5 @@ database: seguire una procedura di reset controllata per Nextcloud, Immich e
 Jellyfin.
 
 Dopo avere montato il nuovo storage nello stesso percorso `/srv/media`,
-ricreare o copiare le tre directory e il marker, eseguire
+ricreare o copiare le quattro directory e il marker, eseguire
 `check-media-mount.sh` e riabilitare `media-stack.service`.

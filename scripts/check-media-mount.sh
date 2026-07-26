@@ -20,7 +20,7 @@ if [[ ! -f ${MEDIA_DIR}/.piserver-media ]]; then
   echo "Missing ${MEDIA_DIR}/.piserver-media marker; refusing to use an unexpected share." >&2
   exit 1
 fi
-for directory in immich jellyfin nextcloud; do
+for directory in downloads immich jellyfin nextcloud; do
   if [[ ! -d ${MEDIA_DIR}/${directory} ]]; then
     echo "Missing ${MEDIA_DIR}/${directory}; see docs/storage.md." >&2
     exit 1

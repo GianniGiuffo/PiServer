@@ -230,7 +230,7 @@ In Jellyfin selezionare Intel Quick Sync o VA-API con
 `/dev/dri/renderD128`, quindi eseguire una transcodifica di prova.
 
 Per la configurazione dettagliata di Homepage, Uptime Kuma, Nextcloud,
-Jellyfin, Immich e Vaultwarden seguire
+Jellyfin, Immich, StreamingCommunity downloader e Vaultwarden seguire
 [service-setup.md](service-setup.md).
 
 ## 13. n8n e Ollama

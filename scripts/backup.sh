@@ -59,6 +59,7 @@ NEXTCLOUD_MAINTENANCE=false
 N8N_STOPPED=false
 IMMICH_STOPPED=false
 JELLYFIN_STOPPED=false
+STREAMINGCOMMUNITY_STOPPED=false
 UPTIME_STOPPED=false
 VAULTWARDEN_STOPPED=false
 PIHOLE_STOPPED=false
@@ -75,6 +76,9 @@ cleanup() {
   fi
   if [[ ${JELLYFIN_STOPPED} == true ]]; then
     "${MEDIA[@]}" start jellyfin || true
+  fi
+  if [[ ${STREAMINGCOMMUNITY_STOPPED} == true ]]; then
+    "${MEDIA[@]}" start streamingcommunity || true
   fi
   if [[ ${IMMICH_STOPPED} == true ]]; then
     "${MEDIA[@]}" start immich-server || true
@@ -127,6 +131,10 @@ fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
+if is_running MEDIA streamingcommunity; then
+  "${MEDIA[@]}" stop streamingcommunity
+  STREAMINGCOMMUNITY_STOPPED=true
+fi
 if is_running MEDIA jellyfin; then
   "${MEDIA[@]}" stop jellyfin
   JELLYFIN_STOPPED=true
@@ -168,6 +176,9 @@ for nextcloud_path in \
 done
 if [[ -e ${DATA_DIR}/n8n/n8n ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/n8n/n8n")
+fi
+if [[ -e ${DATA_DIR}/streamingcommunity ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/streamingcommunity")
 fi
 
 RESTIC_EXCLUDES=(

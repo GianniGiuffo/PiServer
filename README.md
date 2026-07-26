@@ -25,6 +25,7 @@ Hardware di riferimento:
 | Nextcloud | Tailnet, porta 8445 | DB/config su SSD, file su `/srv/media` |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
+| StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
 | n8n | Tailnet, porta 8449 | SSD locale + Restic |
 | Ollama | solo rete Docker | modelli riproducibili, non salvati |
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
@@ -36,8 +37,8 @@ deve essere inoltrata.
 ## Tre stack indipendenti
 
 - `compose.yaml`: servizi core, sempre disponibili e senza dati utente sul NAS;
-- `compose.media.yaml`: Nextcloud, Jellyfin e Immich; parte solo dopo la verifica
-  del mount `/srv/media`;
+- `compose.media.yaml`: Nextcloud, Jellyfin, Immich e StreamingCommunity
+  downloader; parte solo dopo la verifica del mount `/srv/media`;
 - `compose.automation.yaml`: n8n, PostgreSQL e Ollama.
 
 Le unità `core-stack.service`, `media-stack.service` e
@@ -92,9 +93,10 @@ Ripetere con `media` o `automation` dopo avere letto le note di rilascio.
 ## Backup
 
 Restic salva `.env`, configurazioni, database SQLite coerenti e dump PostgreSQL.
-Non salva foto, video, file Nextcloud, media Jellyfin, cache, thumbnail o modelli
-Ollama. Il disco da 4 TB richiede quindi una politica di backup separata se in
-futuro quei file dovranno essere recuperabili dopo la sua rottura.
+Non salva foto, video, file Nextcloud, media Jellyfin, download, cache,
+thumbnail o modelli Ollama. Il disco media richiede quindi una politica di
+backup separata se in futuro quei file dovranno essere recuperabili dopo la sua
+rottura.
 
 La procedura completa e i comandi di restore sono in
 [docs/backup-and-restore.md](docs/backup-and-restore.md).

@@ -1,5 +1,5 @@
 [Unit]
-Description=Start Nextcloud, Jellyfin and Immich after network storage is mounted
+Description=Start Nextcloud, Jellyfin, Immich and downloader after media storage is mounted
 Wants=network-online.target remote-fs.target
 After=network-online.target remote-fs.target docker.service core-stack.service
 Requires=docker.service core-stack.service

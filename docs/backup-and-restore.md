@@ -11,17 +11,20 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - database e impostazioni Uptime Kuma;
 - database/configurazione Jellyfin, esclusi log, cache, metadata generati e
   transcodifiche;
+- configurazione, utenti, sessioni e richieste del downloader;
 - configurazione Nextcloud e dump PostgreSQL;
 - dump PostgreSQL Immich;
 - configurazione e dump PostgreSQL n8n.
 
-Vaultwarden, Pi-hole, Uptime Kuma e Jellyfin vengono fermati brevemente per
-rendere coerenti i rispettivi database. Nextcloud entra in maintenance mode.
-n8n e Immich vengono fermati mentre viene creato il loro dump PostgreSQL.
+Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin e il downloader vengono fermati
+brevemente per rendere coerenti i rispettivi database. Nextcloud entra in
+maintenance mode. n8n e Immich vengono fermati mentre viene creato il loro dump
+PostgreSQL.
 
 ## Cosa non viene salvato
 
-- `/srv/media`, quindi file Nextcloud, foto/video Immich e media Jellyfin;
+- `/srv/media`, quindi file Nextcloud, foto/video Immich, media Jellyfin e
+  download;
 - database PostgreSQL live;
 - Redis/Valkey;
 - cache e thumbnail ricostruibili;
@@ -73,7 +76,7 @@ sudo bash -c '
   restic snapshots --latest 5
   restic check --read-data-subset=5%
   restic ls latest --tag pi-server |
-    grep -E "vaultwarden|pihole|uptime-kuma|nextcloud.sql|immich.sql|n8n.sql"
+    grep -E "vaultwarden|pihole|uptime-kuma|streamingcommunity|nextcloud.sql|immich.sql|n8n.sql"
 '
 
 sudo systemctl enable --now backup.timer
@@ -156,6 +159,19 @@ sudo systemctl start core-stack.service
 
 Per Vaultwarden il restore della directory completa è la via primaria. Il JSON
 sul PC è una seconda via se il database non fosse recuperabile.
+
+La configurazione del downloader può essere ripristinata, sempre con il
+container fermo, tramite:
+
+```bash
+sudo rsync -aHAX \
+  /srv/restore/srv/raspberry-server/data/streamingcommunity/ \
+  /srv/raspberry-server/data/streamingcommunity/
+```
+
+Questo recupera utenti, sessioni, richieste, pianificazioni e API key Jellyfin;
+i file scaricati sotto `/srv/media/downloads` devono invece provenire dal
+backup separato del disco media.
 
 ## Ripristino PostgreSQL
 
