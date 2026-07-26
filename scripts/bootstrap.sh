@@ -35,8 +35,9 @@ CODENAME=${VERSION_CODENAME:?Cannot determine the Debian codename}
 
 apt-get update
 apt-get install -y --no-install-recommends \
-  ca-certificates cifs-utils curl dnsutils git gnupg intel-gpu-tools jq \
-  nfs-common openssh-client restic rsync
+  ca-certificates cifs-utils curl dnsutils e2fsprogs git gnupg \
+  intel-gpu-tools jq nfs-common openssh-client parted restic rsync \
+  smartmontools
 
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
