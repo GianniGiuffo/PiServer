@@ -10,6 +10,10 @@ i5-7500. `automation-stack.service` avvia:
 Non viene usata una GPU. Iniziare con modelli quantizzati 3B; modelli grandi e
 workflow simultanei saturerebbero rapidamente CPU e RAM.
 
+Ollama non pubblica porte sull'host. Usa una seconda rete Docker senza servizi
+collegati soltanto per le connessioni uscenti necessarie a scaricare un modello;
+n8n continua a raggiungerlo esclusivamente sulla rete interna `automation`.
+
 ## 1. Accesso privato e webhook opzionale
 
 L'editor usa il FQDN MagicDNS del mini PC ed è disponibile soltanto attraverso

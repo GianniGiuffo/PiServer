@@ -33,7 +33,14 @@ services:
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/ollama:/root/.ollama
     networks:
-      - automation
+      # n8n reaches Ollama only over the internal network. The separate
+      # egress network provides a default route solely so Ollama can download
+      # explicitly requested models; it has no published host ports and no
+      # other attached services.
+      automation:
+        gw_priority: 0
+      ollama-egress:
+        gw_priority: 1
     security_opt:
       - no-new-privileges:true
 
@@ -80,3 +87,4 @@ services:
 networks:
   automation:
     internal: true
+  ollama-egress:
