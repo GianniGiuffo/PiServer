@@ -23,6 +23,8 @@ tailscale serve --bg --https=8447 --set-path=/ http://127.0.0.1:2283
 tailscale serve --bg --https=8448 --set-path=/ http://127.0.0.1:3001
 tailscale serve --bg --https=8449 --set-path=/ http://127.0.0.1:5678
 tailscale serve --bg --https=8450 --set-path=/ http://127.0.0.1:8000
+tailscale serve --bg --https=8451 --set-path=/ http://127.0.0.1:3002
+tailscale serve --bg --https=8452 --set-path=/ http://127.0.0.1:4533
 
 echo
 echo "Private services configured:"
@@ -35,5 +37,7 @@ echo "  8447 Immich"
 echo "  8448 Uptime Kuma"
 echo "  8449 n8n"
 echo "  8450 StreamingCommunity downloader"
+echo "  8451 Aurral"
+echo "  8452 Navidrome"
 echo
 echo "Confirm with: tailscale serve status"

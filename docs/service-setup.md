@@ -26,6 +26,8 @@ almeno questi monitor HTTP:
 | Jellyfin | `http://jellyfin:8096/health` |
 | Immich | `http://immich-server:2283/api/server/ping` |
 | StreamingCommunity | `http://streamingcommunity:8000/login` |
+| Aurral | `http://aurral:3001/` |
+| Navidrome | `http://navidrome:4533/` |
 | n8n | `http://n8n:5678/` |
 
 Configurare una notifica esterna, ad esempio email o Telegram, altrimenti un
@@ -111,6 +113,13 @@ sono esclusi dal backup di configurazione.
 Usare il pannello esclusivamente per contenuti che si è autorizzati a
 scaricare. L'immagine upstream usa un tag `latest` mobile: aggiornarla soltanto
 dopo un backup tramite `scripts/update-images.sh media`.
+
+## Aurral, Lidarr, slskd e Navidrome
+
+La procedura completa, inclusi tunnel SSH, percorsi, onboarding, test e backup,
+è in [music-stack.md](music-stack.md). Soltanto Aurral e Navidrome sono
+raggiungibili direttamente dalla Tailnet; Lidarr e slskd restano pannelli
+amministrativi su loopback.
 
 ## Immich senza machine learning
 

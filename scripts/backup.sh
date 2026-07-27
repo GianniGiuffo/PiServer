@@ -60,11 +60,29 @@ N8N_STOPPED=false
 IMMICH_STOPPED=false
 JELLYFIN_STOPPED=false
 STREAMINGCOMMUNITY_STOPPED=false
+AURRAL_STOPPED=false
+NAVIDROME_STOPPED=false
+LIDARR_STOPPED=false
+SLSKD_STOPPED=false
 UPTIME_STOPPED=false
 VAULTWARDEN_STOPPED=false
 PIHOLE_STOPPED=false
 
 cleanup() {
+  local media_can_restart=true
+  if [[ ${NEXTCLOUD_MAINTENANCE} == true ||
+        ${IMMICH_STOPPED} == true ||
+        ${JELLYFIN_STOPPED} == true ||
+        ${STREAMINGCOMMUNITY_STOPPED} == true ||
+        ${AURRAL_STOPPED} == true ||
+        ${NAVIDROME_STOPPED} == true ||
+        ${LIDARR_STOPPED} == true ||
+        ${SLSKD_STOPPED} == true ]]; then
+    if ! bash "${SCRIPT_DIR}/check-media-mount.sh"; then
+      echo "WARNING: media mount failed validation; media services remain stopped." >&2
+      media_can_restart=false
+    fi
+  fi
   if [[ ${PIHOLE_STOPPED} == true ]]; then
     "${BASE[@]}" start pihole || true
   fi
@@ -74,19 +92,31 @@ cleanup() {
   if [[ ${UPTIME_STOPPED} == true ]]; then
     "${BASE[@]}" start uptime-kuma || true
   fi
-  if [[ ${JELLYFIN_STOPPED} == true ]]; then
+  if [[ ${JELLYFIN_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start jellyfin || true
   fi
-  if [[ ${STREAMINGCOMMUNITY_STOPPED} == true ]]; then
+  if [[ ${STREAMINGCOMMUNITY_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start streamingcommunity || true
   fi
-  if [[ ${IMMICH_STOPPED} == true ]]; then
+  if [[ ${IMMICH_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start immich-server || true
+  fi
+  if [[ ${SLSKD_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start slskd || true
+  fi
+  if [[ ${LIDARR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start lidarr || true
+  fi
+  if [[ ${NAVIDROME_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start navidrome || true
+  fi
+  if [[ ${AURRAL_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start aurral || true
   fi
   if [[ ${N8N_STOPPED} == true ]]; then
     "${AUTOMATION[@]}" start n8n || true
   fi
-  if [[ ${NEXTCLOUD_MAINTENANCE} == true ]]; then
+  if [[ ${NEXTCLOUD_MAINTENANCE} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" exec -T --user www-data nextcloud \
       php occ maintenance:mode --off || true
   fi
@@ -131,6 +161,22 @@ fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
+if is_running MEDIA aurral; then
+  "${MEDIA[@]}" stop aurral
+  AURRAL_STOPPED=true
+fi
+if is_running MEDIA navidrome; then
+  "${MEDIA[@]}" stop navidrome
+  NAVIDROME_STOPPED=true
+fi
+if is_running MEDIA lidarr; then
+  "${MEDIA[@]}" stop lidarr
+  LIDARR_STOPPED=true
+fi
+if is_running MEDIA slskd; then
+  "${MEDIA[@]}" stop slskd
+  SLSKD_STOPPED=true
+fi
 if is_running MEDIA streamingcommunity; then
   "${MEDIA[@]}" stop streamingcommunity
   STREAMINGCOMMUNITY_STOPPED=true
@@ -180,11 +226,23 @@ fi
 if [[ -e ${DATA_DIR}/streamingcommunity ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/streamingcommunity")
 fi
+for music_state_path in \
+  "${DATA_DIR}/aurral" \
+  "${DATA_DIR}/lidarr" \
+  "${DATA_DIR}/slskd" \
+  "${DATA_DIR}/navidrome"; do
+  [[ -e ${music_state_path} ]] && BACKUP_PATHS+=("${music_state_path}")
+done
 
 RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/jellyfin/config/log"
   --exclude "${DATA_DIR}/jellyfin/config/metadata"
   --exclude "${DATA_DIR}/jellyfin/config/transcodes"
+  --exclude "${DATA_DIR}/aurral/cache"
+  --exclude "${DATA_DIR}/aurral/image-cache"
+  --exclude "${DATA_DIR}/lidarr/logs"
+  --exclude "${DATA_DIR}/lidarr/MediaCover"
+  --exclude "${DATA_DIR}/slskd/logs"
 )
 
 restic backup --tag pi-server "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"

@@ -64,7 +64,12 @@ install -d -m 0750 -o 1000 -g 1000 /srv/raspberry-server/data/n8n/n8n
 install -d -m 0755 -o "${TARGET_USER}" -g "${TARGET_GROUP}" /srv/raspberry-server/sites
 install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
   /srv/raspberry-server/data/jellyfin/config \
-  /srv/raspberry-server/data/jellyfin/cache
+  /srv/raspberry-server/data/jellyfin/cache \
+  /srv/raspberry-server/data/aurral \
+  /srv/raspberry-server/data/lidarr \
+  /srv/raspberry-server/data/slskd \
+  /srv/raspberry-server/data/navidrome \
+  /srv/raspberry-server/data/navidrome-cache
 # Uptime Kuma v2 runs its embedded MariaDB as the `node` user (UID/GID 1001).
 # Creating the bind mount with those owners avoids an initialization loop.
 install -d -m 0750 -o 1001 -g 1001 /srv/raspberry-server/data/uptime-kuma

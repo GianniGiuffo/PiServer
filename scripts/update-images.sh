@@ -17,6 +17,7 @@ case "${STACK}" in
     SERVICES=(
       nextcloud-postgres nextcloud-redis nextcloud nextcloud-cron
       jellyfin streamingcommunity immich-postgres immich-redis immich-server
+      lidarr slskd navidrome aurral
     )
     ;;
   automation)

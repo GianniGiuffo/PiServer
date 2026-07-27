@@ -12,19 +12,20 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - database/configurazione Jellyfin, esclusi log, cache, metadata generati e
   transcodifiche;
 - configurazione, utenti, sessioni e richieste del downloader;
+- database e configurazioni di Aurral, Lidarr, slskd e Navidrome;
 - configurazione Nextcloud e dump PostgreSQL;
 - dump PostgreSQL Immich;
 - configurazione e dump PostgreSQL n8n.
 
-Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin e il downloader vengono fermati
-brevemente per rendere coerenti i rispettivi database. Nextcloud entra in
-maintenance mode. n8n e Immich vengono fermati mentre viene creato il loro dump
-PostgreSQL.
+Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, il downloader e i quattro servizi
+musicali vengono fermati brevemente per rendere coerenti i rispettivi database.
+Nextcloud entra in maintenance mode. n8n e Immich vengono fermati mentre viene
+creato il loro dump PostgreSQL.
 
 ## Cosa non viene salvato
 
-- `/srv/media`, quindi file Nextcloud, foto/video Immich, media Jellyfin e
-  download;
+- `/srv/media`, quindi file Nextcloud, foto/video Immich, media Jellyfin,
+  musica e download;
 - database PostgreSQL live;
 - Redis/Valkey;
 - cache e thumbnail ricostruibili;
@@ -76,7 +77,7 @@ sudo bash -c '
   restic snapshots --latest 5
   restic check --read-data-subset=5%
   restic ls latest --tag pi-server |
-    grep -E "vaultwarden|pihole|uptime-kuma|streamingcommunity|nextcloud.sql|immich.sql|n8n.sql"
+    grep -E "vaultwarden|pihole|uptime-kuma|streamingcommunity|aurral|lidarr|slskd|navidrome|nextcloud.sql|immich.sql|n8n.sql"
 '
 
 sudo systemctl enable --now backup.timer
@@ -173,6 +174,21 @@ Questo recupera utenti, sessioni, richieste, pianificazioni e API key Jellyfin;
 i file scaricati sotto `/srv/media/downloads` devono invece provenire dal
 backup separato del disco media.
 
+Lo stato dello stack musicale si ripristina con i container fermi:
+
+```bash
+sudo systemctl stop media-stack.service
+for service in aurral lidarr slskd navidrome; do
+  sudo rsync -aHAX \
+    "/srv/restore/srv/raspberry-server/data/${service}/" \
+    "/srv/raspberry-server/data/${service}/"
+done
+```
+
+Questo recupera utenti, configurazioni, preferiti, playlist e cronologia. La
+cache Navidrome e ogni file sotto `/srv/media/music` restano esclusi e devono
+provenire dall'eventuale backup separato del disco media.
+
 ## Ripristino PostgreSQL
 
 Usare dump e configurazioni appartenenti allo stesso snapshot. Eseguire questi
@@ -241,4 +257,5 @@ sudo systemctl start backup.service
 
 Verificare login e sincronizzazione Vaultwarden, query DNS, dashboard,
 monitoraggi, file Nextcloud, una transcodifica Jellyfin, un upload Immich e un
-workflow n8n prima di cancellare `/srv/restore` o il vecchio disco.
+workflow n8n. Verificare inoltre login Aurral/Navidrome, stato Soulseek e una
+scansione musicale prima di cancellare `/srv/restore` o il vecchio disco.

@@ -214,7 +214,8 @@ sudo systemctl start backup.service
 
 ## 12. Disco da 4 TB e servizi media
 
-Quando il disco è disponibile, seguire [storage.md](storage.md). Soltanto dopo:
+Quando il disco è disponibile, seguire [storage.md](storage.md) e preparare lo
+stack musicale con [music-stack.md](music-stack.md). Soltanto dopo:
 
 ```bash
 sudo bash scripts/check-media-mount.sh

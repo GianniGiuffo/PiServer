@@ -16,11 +16,16 @@
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
 | StreamingCommunity downloader | Tailscale Serve `8450` | no |
+| Aurral | Tailscale Serve `8451` | no |
+| Navidrome | Tailscale Serve `8452` | no |
+| Lidarr Web UI | loopback, tunnel SSH temporaneo | no |
+| slskd Web UI | loopback, tunnel SSH temporaneo | no |
+| Soulseek peer port `50300` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
 | Ollama, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
-5678, 6379, 8000, 8096 o 11434.
+4533, 5030, 5031, 50300, 5678, 6379, 8000, 8096, 8686 o 11434.
 
 ## Vaultwarden
 
@@ -61,6 +66,23 @@ contiene sessioni e una API key Jellyfin: resta sull'SSD con permessi
 root-only ed entra esclusivamente nel backup Restic cifrato. Il container può
 scrivere soltanto nella directory media `downloads`, non nelle altre librerie
 Jellyfin.
+
+## Stack musicale
+
+Aurral e Navidrome sono gli unici pannelli musicali pubblicati tramite
+Tailscale Serve. Lidarr e slskd sono legati a `127.0.0.1` e si amministrano
+tramite tunnel SSH. Le card Homepage di questi ultimi mostrano soltanto lo
+stato Docker e non contengono un collegamento.
+
+La porta Soulseek `50300/tcp` non viene pubblicata da Docker né inoltrata sul
+router. slskd usa soltanto connessioni in uscita e non condivide directory.
+L'eventuale apertura futura è un'eccezione al modello Tailnet-only e richiede
+una valutazione separata di firewall, router, aggiornamenti e contenuti
+condivisi.
+
+Navidrome monta l'intera radice musicale in sola lettura. Aurral vede la
+libreria permanente in sola lettura e può scrivere soltanto il proprio output
+e consumare i download slskd completati.
 
 ## Storage di rete
 

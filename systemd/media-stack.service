@@ -1,8 +1,10 @@
 [Unit]
-Description=Start Nextcloud, Jellyfin, Immich and downloader after media storage is mounted
+Description=Start file, media and music services after media storage is mounted
 Wants=network-online.target remote-fs.target
-After=network-online.target remote-fs.target docker.service core-stack.service
+After=network-online.target remote-fs.target docker.service core-stack.service srv-media.mount
 Requires=docker.service core-stack.service
+BindsTo=srv-media.mount
+RequiresMountsFor=/srv/media
 ConditionPathExists=__REPO_DIR__/.env
 
 [Service]

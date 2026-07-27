@@ -58,6 +58,32 @@
         server: local
         container: raspberry-server-streamingcommunity-1
 
+- MUSICA:
+    - Aurral:
+        icon: mdi-music-box-multiple
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8451/
+        siteMonitor: http://aurral:3001/
+        description: Ricerca, richieste e playlist
+        server: local
+        container: raspberry-server-aurral-1
+    - Navidrome:
+        icon: navidrome.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8452/
+        siteMonitor: http://navidrome:4533/
+        description: Libreria e streaming musicale
+        server: local
+        container: raspberry-server-navidrome-1
+    - Lidarr:
+        icon: lidarr.png
+        description: Gestione libreria permanente
+        server: local
+        container: raspberry-server-lidarr-1
+    - slskd:
+        icon: mdi-download-network-outline
+        description: Download Soulseek interno
+        server: local
+        container: raspberry-server-slskd-1
+
 - Automazione e controllo:
     - n8n:
         icon: n8n.png

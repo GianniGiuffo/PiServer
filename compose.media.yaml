@@ -163,6 +163,136 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  lidarr:
+    image: ${LIDARR_IMAGE:?Set LIDARR_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+      UMASK: "002"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/lidarr:/config
+      # Lidarr owns the permanent library and imports completed slskd jobs.
+      # The parent music directory is a verified mount below MEDIA_DIR.
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music
+        target: /data
+        bind:
+          create_host_path: false
+    ports:
+      # Administration only: use an SSH tunnel when direct access is needed.
+      - "127.0.0.1:8686:8686/tcp"
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  slskd:
+    image: ${SLSKD_IMAGE:?Set SLSKD_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    environment:
+      SLSKD_REMOTE_CONFIGURATION: "false"
+      SLSKD_DOWNLOADS_DIR: /data/.downloads/slskd/complete
+      SLSKD_INCOMPLETE_DIR: /data/.downloads/slskd/incomplete
+      SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME:?Set SLSKD_SLSK_USERNAME in .env}
+      SLSKD_SLSK_PASSWORD: ${SLSKD_SLSK_PASSWORD:?Set SLSKD_SLSK_PASSWORD in .env}
+      SLSKD_USERNAME: ${SLSKD_WEB_USERNAME:?Set SLSKD_WEB_USERNAME in .env}
+      SLSKD_PASSWORD: ${SLSKD_WEB_PASSWORD:?Set SLSKD_WEB_PASSWORD in .env}
+      SLSKD_API_KEY: ${SLSKD_API_KEY:?Set SLSKD_API_KEY in .env}
+      SLSKD_JWT_KEY: ${SLSKD_JWT_KEY:?Set SLSKD_JWT_KEY in .env}
+      SLSKD_DISK_LOGGER: "false"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/slskd:/app
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music/.downloads/slskd
+        target: /data/.downloads/slskd
+        bind:
+          create_host_path: false
+    ports:
+      # The Web UI is not published through Tailscale Serve.
+      - "127.0.0.1:5030:5030/tcp"
+      # Port 50300 is intentionally not published. See docs/music-stack.md
+      # before enabling public Soulseek inbound connectivity.
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  navidrome:
+    image: ${NAVIDROME_IMAGE:?Set NAVIDROME_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    environment:
+      ND_DATAFOLDER: /config
+      ND_CACHEFOLDER: /cache
+      ND_MUSICFOLDER: /data/library
+      ND_SCANNER_PURGEMISSING: always
+      ND_ENABLEINSIGHTSCOLLECTOR: "false"
+      ND_LOGLEVEL: info
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/navidrome:/config
+      - ${DATA_DIR:?Set DATA_DIR in .env}/navidrome-cache:/cache
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:4533:4533/tcp"
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  aurral:
+    image: ${AURRAL_IMAGE:?Set AURRAL_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 1g
+    depends_on:
+      - lidarr
+      - slskd
+      - navidrome
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      AURRAL_DATA_DIR: /config
+      DOWNLOAD_FOLDER: /data/aurral
+      TRUST_PROXY: "true"
+      AURRAL_IMAGE_PROXY_MAX_BYTES: "67108864"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/aurral:/config
+      # The permanent library is read-only. Nested writable mounts allow
+      # Aurral to consume slskd jobs and create only its own output.
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music/aurral
+        target: /data/aurral
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music/.downloads/slskd/complete
+        target: /data/.downloads/slskd/complete
+        bind:
+          create_host_path: false
+    ports:
+      # Host port 3001 is already used by Uptime Kuma.
+      - "127.0.0.1:3002:3001/tcp"
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+
   immich-postgres:
     image: ${IMMICH_POSTGRES_IMAGE:?Set IMMICH_POSTGRES_IMAGE in .env}
     restart: on-failure:5
