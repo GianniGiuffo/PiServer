@@ -234,6 +234,9 @@ services:
       ND_SCANNER_PURGEMISSING: always
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
       ND_LOGLEVEL: info
+      # Required only to enable per-user Last.fm scrobbling in the Navidrome UI.
+      ND_LASTFM_APIKEY: ${NAVIDROME_LASTFM_API_KEY:-}
+      ND_LASTFM_SECRET: ${NAVIDROME_LASTFM_SECRET:-}
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/navidrome:/config
       - ${DATA_DIR:?Set DATA_DIR in .env}/navidrome-cache:/cache

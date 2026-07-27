@@ -113,6 +113,18 @@ SLSKD_IMAGE=slskd/slskd:0.26.0
 NAVIDROME_IMAGE=deluan/navidrome:0.63.2
 ```
 
+Per usare lo scrobbling Last.fm di Navidrome, aggiungere anche le credenziali
+dell'applicazione API Last.fm (non l'username dell'utente):
+
+```dotenv
+NAVIDROME_LASTFM_API_KEY=CHANGE_ME
+NAVIDROME_LASTFM_SECRET=CHANGE_ME
+```
+
+Questi valori sono necessari al server Navidrome per autorizzare ogni utente
+verso Last.fm. Non eseguire `source .env`: Docker Compose legge il file
+direttamente.
+
 Aggiungere le credenziali. Il nome Soulseek deve essere unico; il primo accesso
 alla rete associa il nome alla password scelta.
 
@@ -224,6 +236,21 @@ Aprire:
 
 ```text
 https://TAILSCALE_FQDN:8452/
+```
+
+Creare l'utente amministratore. Per ogni utente che deve inviare ascolti:
+
+1. aprire le impostazioni personali di Navidrome;
+2. attivare **Scrobble to Last.fm** e completare l'autorizzazione nella pagina
+   Last.fm aperta dal browser;
+3. attivare **Scrobble to ListenBrainz** e incollare il relativo User Token.
+
+Last.fm e ListenBrainz possono essere abilitati contemporaneamente. Dopo avere
+aggiunto le variabili Last.fm in `.env`, riavviare lo stack attraverso systemd,
+così il controllo del mount resta obbligatorio:
+
+```bash
+sudo systemctl restart media-stack.service
 ```
 
 Creare il primo amministratore. La libreria predefinita punta già a
