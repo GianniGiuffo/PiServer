@@ -4,7 +4,9 @@ Questo stack usa:
 
 - Lidarr stabile per catalogo, metadati e libreria permanente;
 - Aurral per ricerca, richieste, flow e playlist;
-- slskd come client Soulseek controllato da Aurral;
+- il client Soulseek interno di Aurral 1.x per flow e playlist;
+- slskd come client Soulseek separato per ricerche e download manuali, pronto
+  per la futura integrazione esterna di Aurral v2;
 - Navidrome per indicizzazione e streaming.
 
 Tutti e quattro i pannelli sono raggiungibili tramite Tailscale Serve. I
@@ -27,9 +29,10 @@ Tutti i file musicali, inclusi quelli temporanei, rimangono nel disco montato:
         └── incomplete
 ```
 
-`library` è gestita da Lidarr. Aurral scrive esclusivamente in `aurral` e
-preleva i file completati da `.downloads/slskd/complete`. Navidrome indicizza
-`library` e la libreria generata da Aurral, ma non `.downloads`.
+`library` è gestita da Lidarr. Aurral 1.x scrive esclusivamente in `aurral`
+tramite il proprio worker Soulseek. slskd usa `.downloads/slskd` come area
+separata. Navidrome indicizza `library` e la libreria generata da Aurral, ma
+non `.downloads`.
 Lo stack musicale non scrive né in `/srv/media/download` né nella directory
 `/srv/media/downloads` già usata da StreamingCommunity.
 
@@ -216,9 +219,10 @@ In Lidarr:
    definita una politica di acquisizione permanente.
 
 Questa configurazione usa Lidarr stabile. Aurral può aggiungere e monitorare
-artisti e album, ma il download Soulseek automatico degli album completi
-richiederebbe Lidarr nightly più Tubifarry. slskd viene invece usato subito da
-Aurral per tracce, flow e playlist.
+artisti e album, mentre Aurral 1.x usa il proprio worker Soulseek per tracce,
+flow e playlist. Il container slskd resta separato; collegarlo a Lidarr per gli
+album completi richiederebbe Lidarr nightly più Tubifarry, oppure la futura
+integrazione esterna di Aurral v2.
 
 In slskd:
 
@@ -282,9 +286,13 @@ Completare l'onboarding:
 2. impostare il contatto email richiesto da MusicBrainz;
 3. collegare Lidarr con URL `http://lidarr:8686` e relativa API key;
 4. eseguire **Test library access**: deve vedere `/data/library`;
-5. impostare come Downloads Folder `/data/aurral`;
-6. collegare slskd con URL `http://slskd:5030` e `SLSKD_API_KEY`;
-7. scegliere slskd come sorgente prioritaria;
+5. lasciare come Downloads Folder `/app/downloads`; il compose collega questo
+   percorso a `/srv/media/music/aurral` sull'hard disk;
+6. nella versione Aurral `1.76.51`, aprire **Worker Settings** e verificare
+   l'account Soulseek interno, concorrenza `2`, retry `15 min` e **Strict**
+   disabilitato durante i primi test;
+7. considerare il container slskd separato come pannello manuale: Aurral 1.x
+   non mostra ancora la futura sezione **Download Clients > slskd**;
 8. collegare Navidrome con URL `http://navidrome:4533` e l'account creato;
 9. mantenere il monitoraggio album predefinito su `None`;
 10. configurare Last.fm o ListenBrainz soltanto se si desiderano

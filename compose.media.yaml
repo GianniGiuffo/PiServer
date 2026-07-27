@@ -174,7 +174,8 @@ services:
       UMASK: "002"
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/lidarr:/config
-      # Lidarr owns the permanent library and imports completed slskd jobs.
+      # Lidarr owns the permanent library. External slskd remains standalone
+      # while the pinned Aurral 1.x release uses its built-in Soulseek worker.
       # The parent music directory is a verified mount below MEDIA_DIR.
       - type: bind
         source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music
@@ -265,13 +266,15 @@ services:
       PUID: ${PUID:?Set PUID in .env}
       PGID: ${PGID:?Set PGID in .env}
       AURRAL_DATA_DIR: /config
-      DOWNLOAD_FOLDER: /data/aurral
+      # Aurral 1.x also uses /app/downloads internally for flows/playlists.
+      DOWNLOAD_FOLDER: /app/downloads
       TRUST_PROXY: "true"
       AURRAL_IMAGE_PROXY_MAX_BYTES: "67108864"
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/aurral:/config
       # The permanent library is read-only. Nested writable mounts allow
-      # Aurral to consume slskd jobs and create only its own output.
+      # Aurral to create only its own output; the slskd path is retained for
+      # a future migration to Aurral v2's external download client.
       - type: bind
         source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music
         target: /data
@@ -281,6 +284,11 @@ services:
       - type: bind
         source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music/aurral
         target: /data/aurral
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/music/aurral
+        target: /app/downloads
         bind:
           create_host_path: false
       - type: bind
