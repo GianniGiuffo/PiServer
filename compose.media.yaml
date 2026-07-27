@@ -182,7 +182,7 @@ services:
         bind:
           create_host_path: false
     ports:
-      # Administration only: use an SSH tunnel when direct access is needed.
+      # Exposed only through host-controlled Tailscale Serve, never on the LAN.
       - "127.0.0.1:8686:8686/tcp"
     networks:
       - web
@@ -213,7 +213,7 @@ services:
         bind:
           create_host_path: false
     ports:
-      # The Web UI is not published through Tailscale Serve.
+      # Web UI/API are exposed only through host-controlled Tailscale Serve.
       - "127.0.0.1:5030:5030/tcp"
       # Port 50300 is intentionally not published. See docs/music-stack.md
       # before enabling public Soulseek inbound connectivity.

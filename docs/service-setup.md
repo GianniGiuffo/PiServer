@@ -116,10 +116,10 @@ dopo un backup tramite `scripts/update-images.sh media`.
 
 ## Aurral, Lidarr, slskd e Navidrome
 
-La procedura completa, inclusi tunnel SSH, percorsi, onboarding, test e backup,
-è in [music-stack.md](music-stack.md). Soltanto Aurral e Navidrome sono
-raggiungibili direttamente dalla Tailnet; Lidarr e slskd restano pannelli
-amministrativi su loopback.
+La procedura completa, inclusi percorsi, onboarding, test e backup,
+è in [music-stack.md](music-stack.md). Tutti e quattro i pannelli sono
+raggiungibili direttamente dalla Tailnet; i container restano comunque legati
+al loopback.
 
 ## Immich senza machine learning
 

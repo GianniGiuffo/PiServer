@@ -75,11 +75,13 @@
         container: raspberry-server-navidrome-1
     - Lidarr:
         icon: lidarr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8453/
         description: Gestione libreria permanente
         server: local
         container: raspberry-server-lidarr-1
     - slskd:
         icon: mdi-download-network-outline
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8454/
         description: Download Soulseek interno
         server: local
         container: raspberry-server-slskd-1

@@ -28,8 +28,8 @@ Hardware di riferimento:
 | StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
 | Aurral | Tailnet, porta 8451 | config su SSD, musica su `/srv/media/music` |
 | Navidrome | Tailnet, porta 8452 | DB su SSD, musica in sola lettura |
-| Lidarr | loopback/SSH | config su SSD, libreria su `/srv/media/music` |
-| slskd | loopback/SSH | config su SSD, transito su `/srv/media/music` |
+| Lidarr | Tailnet, porta 8453 | config su SSD, libreria su `/srv/media/music` |
+| slskd | Tailnet, porta 8454 | config su SSD, transito su `/srv/media/music` |
 | n8n | Tailnet, porta 8449 | SSD locale + Restic |
 | Ollama | solo rete Docker | modelli riproducibili, non salvati |
 | Area privata del sito | Tailnet, porta 8443 | build del sito |

@@ -7,9 +7,9 @@ Questo stack usa:
 - slskd come client Soulseek controllato da Aurral;
 - Navidrome per indicizzazione e streaming.
 
-Aurral e Navidrome sono raggiungibili tramite Tailscale Serve. Lidarr e la Web
-UI di slskd ascoltano soltanto su loopback e si amministrano attraverso un
-tunnel SSH temporaneo. La porta P2P Soulseek `50300` non viene pubblicata.
+Tutti e quattro i pannelli sono raggiungibili tramite Tailscale Serve. I
+container ascoltano comunque soltanto su loopback; la porta P2P Soulseek
+`50300` non viene pubblicata.
 
 Usare lo stack soltanto per file che si è autorizzati a scaricare e condividere.
 
@@ -57,13 +57,14 @@ findmnt -no SOURCE,FSTYPE,OPTIONS /srv/media
 sudo test -f /srv/media/.piserver-media
 ```
 
-Caricare UID e GID già usati dagli altri container e creare i percorsi:
+Leggere UID e GID già usati dagli altri container senza eseguire `.env` come
+script Bash, quindi creare i percorsi:
 
 ```bash
 cd /opt/raspberry-server
-set -a
-source ./.env
-set +a
+PUID=$(bash -c 'source ./scripts/read-stack-path.sh; read_stack_value ./.env PUID')
+PGID=$(bash -c 'source ./scripts/read-stack-path.sh; read_stack_value ./.env PGID')
+printf 'PUID=%s PGID=%s\n' "${PUID}" "${PGID}"
 
 sudo install -d -m 2770 -o "${PUID}" -g "${PGID}" \
   /srv/media/music/library \
@@ -106,7 +107,7 @@ nano .env
 Aggiungere le immagini:
 
 ```dotenv
-AURRAL_IMAGE=ghcr.io/lklynet/aurral:v1.76.51
+AURRAL_IMAGE=ghcr.io/lklynet/aurral:1.76.51
 LIDARR_IMAGE=lscr.io/linuxserver/lidarr:latest
 SLSKD_IMAGE=slskd/slskd:0.26.0
 NAVIDROME_IMAGE=deluan/navidrome:0.63.2
@@ -168,10 +169,12 @@ docker compose -f compose.yaml -f compose.media.yaml ps \
 
 ## 5. Configurare Tailscale
 
-Lo script conserva Lidarr e slskd fuori da Tailscale Serve e pubblica soltanto:
+Lo script pubblica nella sola Tailnet:
 
 - Aurral su `https://TAILSCALE_FQDN:8451/`;
-- Navidrome su `https://TAILSCALE_FQDN:8452/`.
+- Navidrome su `https://TAILSCALE_FQDN:8452/`;
+- Lidarr su `https://TAILSCALE_FQDN:8453/`;
+- slskd su `https://TAILSCALE_FQDN:8454/`.
 
 Applicare l'intera configurazione Serve:
 
@@ -183,21 +186,11 @@ tailscale serve status
 
 ## 6. Configurare Lidarr e slskd
 
-Lidarr e slskd non sono raggiungibili direttamente dalla LAN o dalla Tailnet.
-Da un PC autorizzato aprire un tunnel SSH verso il nome Tailscale del server:
-
-```bash
-ssh -N \
-  -L 8686:127.0.0.1:8686 \
-  -L 5030:127.0.0.1:5030 \
-  YOUR_LINUX_USER@TAILSCALE_FQDN
-```
-
-Tenere aperto il comando e visitare:
+Da un dispositivo collegato alla Tailnet, visitare:
 
 ```text
-http://127.0.0.1:8686   Lidarr
-http://127.0.0.1:5030   slskd
+https://TAILSCALE_FQDN:8453/   Lidarr
+https://TAILSCALE_FQDN:8454/   slskd
 ```
 
 In Lidarr:
@@ -277,8 +270,7 @@ Soulseek, oppure attivato dopo aver verificato qualità e provenienza dei file.
 
 Homepage mostra una nuova sezione `MUSICA` con:
 
-- Aurral e Navidrome, entrambi apribili;
-- Lidarr e slskd come stato Docker, senza link diretto.
+- Aurral, Navidrome, Lidarr e slskd, tutti apribili dalla Tailnet.
 
 Ricaricare Homepage:
 

@@ -18,8 +18,8 @@
 | StreamingCommunity downloader | Tailscale Serve `8450` | no |
 | Aurral | Tailscale Serve `8451` | no |
 | Navidrome | Tailscale Serve `8452` | no |
-| Lidarr Web UI | loopback, tunnel SSH temporaneo | no |
-| slskd Web UI | loopback, tunnel SSH temporaneo | no |
+| Lidarr Web UI | Tailscale Serve `8453` | no |
+| slskd Web UI | Tailscale Serve `8454` | no; la porta P2P `50300` resta chiusa |
 | Soulseek peer port `50300` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
 | Ollama, PostgreSQL, Redis/Valkey | reti Docker interne | no |
@@ -69,10 +69,9 @@ Jellyfin.
 
 ## Stack musicale
 
-Aurral e Navidrome sono gli unici pannelli musicali pubblicati tramite
-Tailscale Serve. Lidarr e slskd sono legati a `127.0.0.1` e si amministrano
-tramite tunnel SSH. Le card Homepage di questi ultimi mostrano soltanto lo
-stato Docker e non contengono un collegamento.
+Tutti i pannelli musicali sono pubblicati nella sola Tailnet tramite Tailscale
+Serve; i rispettivi container restano legati a `127.0.0.1`. Le card Homepage
+contengono i collegamenti Tailnet, senza esporre nulla alla LAN o a Internet.
 
 La porta Soulseek `50300/tcp` non viene pubblicata da Docker né inoltrata sul
 router. slskd usa soltanto connessioni in uscita e non condivide directory.
