@@ -258,6 +258,11 @@ services:
     image: ${AURRAL_IMAGE:?Set AURRAL_IMAGE in .env}
     restart: on-failure:5
     mem_limit: 1g
+    # Avoid the host/Pi-hole startup DNS loop for external Soulseek and
+    # metadata lookups. Docker's embedded DNS still resolves service names.
+    dns:
+      - 9.9.9.9
+      - 149.112.112.112
     depends_on:
       - lidarr
       - slskd

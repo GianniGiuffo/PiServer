@@ -298,6 +298,11 @@ Completare l'onboarding:
 10. configurare Last.fm o ListenBrainz soltanto se si desiderano
     raccomandazioni personalizzate.
 
+Il servizio Aurral usa esplicitamente gli stessi resolver Quad9 configurati
+come upstream di Pi-hole. Questo evita dipendenze circolari dal DNS del host
+dopo un riavvio, mentre i nomi dei servizi (`lidarr`, `navidrome`, `slskd`)
+continuano a essere risolti dal DNS interno di Docker.
+
 Il fallback yt-dlp può essere lasciato disabilitato per usare soltanto
 Soulseek, oppure attivato dopo aver verificato qualità e provenienza dei file.
 
