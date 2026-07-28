@@ -1,1 +1,18 @@
-/* Personalizzazioni opzionali del dashboard. */
+/*
+ * widgets.yaml is intentionally empty. Homepage still renders its boxed,
+ * empty information-widget header, so remove that unused strip completely.
+ */
+#information-widgets {
+  display: none !important;
+}
+
+/*
+ * Homepage's Block component emits the value before the label. Reverse only
+ * the blocks in the four system cards: label above, value below.
+ */
+#system-server .service-block,
+#system-nas .service-block,
+#system-network .service-block,
+#system-backup .service-block {
+  flex-direction: column-reverse;
+}

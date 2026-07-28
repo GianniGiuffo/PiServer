@@ -1,5 +1,6 @@
 - Sistema:
     - Server:
+        id: system-server
         widget:
           type: customapi
           url: http://monitoring-api:8080/server
@@ -19,6 +20,7 @@
               label: Uptime
               format: duration
     - NAS:
+        id: system-nas
         widget:
           type: customapi
           url: http://monitoring-api:8080/nas
@@ -36,6 +38,7 @@
               label: Utilizzo
               format: percent
     - Rete:
+        id: system-network
         widget:
           type: customapi
           url: http://monitoring-api:8080/network
@@ -50,6 +53,7 @@
               label: Uscita
               format: bitrate
     - Backup:
+        id: system-backup
         widget:
           type: customapi
           url: http://monitoring-api:8080/backup

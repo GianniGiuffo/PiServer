@@ -21,6 +21,11 @@ della stessa larghezza:
 - **Rete**: traffico istantaneo in entrata e uscita sull'interfaccia fisica;
 - **Backup**: esito Restic, ultimo snapshot riuscito e prossimo avvio del timer.
 
+Il contenitore vuoto degli information widget viene nascosto da `custom.css`.
+Nelle quattro card di sistema ogni etichetta (per esempio **CPU**) è mostrata
+sopra al relativo valore; il CSS è limitato agli ID `system-*` e non cambia i
+widget degli altri servizi.
+
 `monitoring-api` legge soltanto i file necessari sotto `/proc` e `/sys`, il
 mount media e il JSON di stato del backup. Non riceve socket Docker o systemd,
 non pubblica porte e risponde soltanto sulla rete Docker interna `monitoring`.
