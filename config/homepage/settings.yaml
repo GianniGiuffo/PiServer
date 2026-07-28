@@ -8,8 +8,14 @@ hideVersion: true
 disableIndexing: true
 statusStyle: dot
 target: _self
+fullWidth: true
 
 layout:
+  Sistema:
+    style: row
+    columns: 4
+    header: false
+    useEqualHeights: true
   Servizi principali:
     style: row
     columns: 4

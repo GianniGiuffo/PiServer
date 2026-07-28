@@ -82,7 +82,7 @@ Avviare i servizi core tranne Cloudflared:
 
 ```bash
 cd /opt/raspberry-server
-docker compose up -d caddy pihole vaultwarden docker-socket-proxy glances homepage uptime-kuma
+docker compose up -d caddy pihole vaultwarden docker-socket-proxy monitoring-api homepage uptime-kuma
 sudo bash scripts/configure-tailscale-serve.sh
 docker compose ps
 docker compose logs --tail=100 vaultwarden

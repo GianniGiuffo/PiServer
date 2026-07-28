@@ -1,3 +1,78 @@
+- Sistema:
+    - Server:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/server
+          refreshInterval: 5000
+          mappings:
+            - field: cpu_percent
+              label: CPU
+              format: percent
+            - field: memory_percent
+              label: Memoria
+              format: percent
+            - field: temperature_c
+              label: Temperatura
+              format: float
+              suffix: " °C"
+            - field: uptime_seconds
+              label: Uptime
+              format: duration
+    - NAS:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/nas
+          refreshInterval: 10000
+          mappings:
+            - field: status
+              label: Stato
+            - field: free_bytes
+              label: Liberi
+              format: bytes
+            - field: total_bytes
+              label: Totali
+              format: bytes
+            - field: used_percent
+              label: Utilizzo
+              format: percent
+    - Rete:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/network
+          refreshInterval: 5000
+          mappings:
+            - field: interface
+              label: Interfaccia
+            - field: rx_bps
+              label: Entrata
+              format: bitrate
+            - field: tx_bps
+              label: Uscita
+              format: bitrate
+    - Backup Restic:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/backup
+          refreshInterval: 15000
+          mappings:
+            - field: status
+              label: Stato
+            - field: last_success
+              label: Ultimo
+              format: relativeDate
+              locale: it
+              style: short
+              numeric: auto
+            - field: next_run
+              label: Prossimo
+              format: relativeDate
+              locale: it
+              style: short
+              numeric: auto
+            - field: duration_seconds
+              label: Durata
+              format: duration
+
 - Servizi principali:
     - Sito:
         icon: mdi-web

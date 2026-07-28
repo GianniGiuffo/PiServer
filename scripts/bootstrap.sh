@@ -60,6 +60,7 @@ usermod -aG docker "${TARGET_USER}"
 # /srv/media and is never created here: doing so could hide a failed NAS mount.
 install -d -m 0750 /srv/raspberry-server/data
 install -d -m 0750 /srv/raspberry-server/staging
+install -d -m 0755 -o root -g root /srv/raspberry-server/data/monitoring
 install -d -m 0750 -o 1000 -g 1000 /srv/raspberry-server/data/n8n/n8n
 install -d -m 0755 -o "${TARGET_USER}" -g "${TARGET_GROUP}" /srv/raspberry-server/sites
 install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \

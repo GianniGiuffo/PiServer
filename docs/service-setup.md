@@ -12,18 +12,50 @@ Le statistiche Docker passano attraverso `docker-socket-proxy`, che consente
 soltanto letture. Per aggiungere collegamenti modificare `services.yaml` e
 committare la modifica: il dashboard rimane così riproducibile da Git.
 
-Le metriche in alto arrivano da Glances e rappresentano l'host, non il solo
-container Homepage. Glances non pubblica porte, non riceve il socket Docker,
-espone soltanto la REST API sulla rete interna `monitoring` e monta `/sys` e
-`MEDIA_DIR` in sola lettura. Il riquadro **NAS** mostra capacità e spazio
-libero; `N/D` significa che `/srv/media` non è montato o che il disco non è
-raggiungibile. La temperatura dipende dai sensori esposti dal kernel: se resta
-`N/D`, installare/verificare `lm-sensors` prima di cambiare Homepage:
+La prima riga di Homepage contiene quattro bande compatte:
+
+- **Server**: CPU, memoria, temperatura e uptime dell'host;
+- **NAS**: stato del mount, spazio libero, capacità e percentuale usata;
+- **Rete**: traffico istantaneo in entrata e uscita sull'interfaccia fisica;
+- **Backup Restic**: esito, ultimo snapshot riuscito e prossimo avvio del timer.
+
+`monitoring-api` legge soltanto i file necessari sotto `/proc` e `/sys`, il
+mount media e il JSON di stato del backup. Non riceve socket Docker o systemd,
+non pubblica porte e risponde soltanto sulla rete Docker interna `monitoring`.
+Se `/srv/media` non è un mount reale, la banda NAS mostra **Non montato**.
+
+L'interfaccia di rete è rilevata automaticamente ignorando loopback, Docker e
+Tailscale. Per fissarla esplicitamente, trovare quella della route predefinita:
+
+```bash
+ip route show default
+```
+
+e impostare, per esempio, `SERVER_NETWORK_INTERFACE=enp1s0` in `.env`. Non
+eseguire `source .env`: i segreti contenuti nel file possono includere caratteri
+interpretati dalla shell.
+
+La temperatura dipende dai sensori esposti dal kernel: se non appare,
+installare/verificare `lm-sensors` prima di cambiare Homepage:
 
 ```bash
 sudo apt install lm-sensors
 sensors
 ```
+
+Lo script Restic aggiorna
+`/srv/raspberry-server/data/monitoring/backup.json` dopo ogni esito, riuscito o
+fallito. Il file contiene soltanto stato e orari, non credenziali. Per
+inizializzarlo da uno snapshot Restic già esistente e leggere il prossimo
+orario calcolato da systemd:
+
+```bash
+sudo bash scripts/refresh-backup-status.sh auto
+```
+
+La banda mostra orari relativi aggiornati da Homepage. `backup-status.timer`
+ricalcola ogni cinque minuti il prossimo avvio effettivo; il backup resta
+programmato alle 03:15 con un ritardo casuale massimo di 30 minuti.
 
 Homepage mostra due controlli distinti per i servizi configurati:
 

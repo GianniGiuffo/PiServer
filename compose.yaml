@@ -98,29 +98,39 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # Host metrics for Homepage. The API has no published port, no Docker socket
-  # and no Web UI; only Homepage can reach it on the internal monitoring
-  # network. MEDIA_DIR and /sys are read-only.
-  glances:
-    image: ${GLANCES_IMAGE:?Set GLANCES_IMAGE in .env}
+  # Minimal read-only API for the four compact system bands in Homepage.
+  # It reads selected host counters and Restic timestamps without receiving
+  # Docker/systemd sockets and without publishing a host port.
+  monitoring-api:
+    image: ${MONITORING_API_IMAGE:?Set MONITORING_API_IMAGE in .env}
     restart: unless-stopped
-    mem_limit: 256m
+    mem_limit: 64m
+    user: "65534:65534"
+    command:
+      - python
+      - /app/monitoring-api.py
     environment:
-      TZ: ${TZ:-Europe/Rome}
-      GLANCES_OPT: >-
-        -w --disable-webui -C /etc/glances/glances.conf
-        --enable-plugin sensors
-        --disable-plugin processlist,containers,ports,folders,amps
+      NETWORK_INTERFACE: ${SERVER_NETWORK_INTERFACE:-auto}
+      MEDIA_PATH: /srv/media
+      BACKUP_STATUS_FILE: /status/backup.json
     volumes:
-      - ./config/glances/glances.conf:/etc/glances/glances.conf:ro
-      - /sys:/sys:ro
-      - /etc/os-release:/etc/os-release:ro
+      - ./scripts/monitoring-api.py:/app/monitoring-api.py:ro
+      - /proc/stat:/host/proc/stat:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
+      - /proc/uptime:/host/proc/uptime:ro
+      - /proc/net/dev:/host/proc/net/dev:ro
+      - /proc/1/mounts:/host/proc/mounts:ro
+      - /sys:/host/sys:ro
+      - ${DATA_DIR:?Set DATA_DIR in .env}/monitoring:/status:ro
       - type: bind
         source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}
         target: /srv/media
         read_only: true
         bind:
           create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp
     networks:
       - monitoring
     healthcheck:
@@ -128,11 +138,13 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:61208/api/4/status', timeout=5)"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 10s
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
 
@@ -142,7 +154,7 @@ services:
     mem_limit: 256m
     depends_on:
       - docker-socket-proxy
-      - glances
+      - monitoring-api
     environment:
       HOMEPAGE_ALLOWED_HOSTS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
       HOMEPAGE_VAR_TAILSCALE_FQDN: ${TAILSCALE_FQDN}

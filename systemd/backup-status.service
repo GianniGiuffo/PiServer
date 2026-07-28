@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh the PiServer backup status shown by Homepage
+After=backup.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/refresh-backup-status.sh auto
+Nice=19

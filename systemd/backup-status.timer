@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically refresh the Homepage Restic status
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=backup-status.service
+
+[Install]
+WantedBy=timers.target

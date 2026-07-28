@@ -82,7 +82,15 @@ sudo bash -c '
 
 sudo systemctl enable --now backup.timer
 systemctl list-timers backup.timer
+sudo bash scripts/refresh-backup-status.sh auto
 ```
+
+L'ultimo comando inizializza la banda **Backup Restic** di Homepage usando lo
+snapshot più recente disponibile e il prossimo avvio effettivo del timer.
+Dopo ogni esecuzione `backup.sh` aggiorna automaticamente stato, ultimo
+successo e prossimo avvio; un errore conserva la data dell'ultimo backup
+riuscito e imposta lo stato su **Fallito**. `backup-status.timer`, installato
+insieme alle altre unità, riallinea il prossimo orario ogni cinque minuti.
 
 La retention è di 7 snapshot giornalieri, 4 settimanali e 12 mensili. I vecchi
 snapshot con tag storico `raspberry-server` non vengono eliminati

@@ -67,8 +67,11 @@ SLSKD_STOPPED=false
 UPTIME_STOPPED=false
 VAULTWARDEN_STOPPED=false
 PIHOLE_STOPPED=false
+BACKUP_COMPLETED=false
+BACKUP_STARTED_EPOCH=$(date +%s)
 
 cleanup() {
+  local exit_status=$?
   local media_can_restart=true
   if [[ ${NEXTCLOUD_MAINTENANCE} == true ||
         ${IMMICH_STOPPED} == true ||
@@ -119,6 +122,15 @@ cleanup() {
   if [[ ${NEXTCLOUD_MAINTENANCE} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" exec -T --user www-data nextcloud \
       php occ maintenance:mode --off || true
+  fi
+  local duration
+  duration=$(( $(date +%s) - BACKUP_STARTED_EPOCH ))
+  if [[ ${BACKUP_COMPLETED} == true && ${exit_status} -eq 0 ]]; then
+    bash "${SCRIPT_DIR}/refresh-backup-status.sh" success "${duration}" ||
+      echo "WARNING: failed to update Homepage backup status." >&2
+  else
+    bash "${SCRIPT_DIR}/refresh-backup-status.sh" failure "${duration}" ||
+      echo "WARNING: failed to update Homepage backup status." >&2
   fi
 }
 trap cleanup EXIT
@@ -253,4 +265,5 @@ rm -f \
   "${STAGING_DIR}/nextcloud.sql" \
   "${STAGING_DIR}/immich.sql" \
   "${STAGING_DIR}/n8n.sql"
+BACKUP_COMPLETED=true
 echo "Encrypted configuration and database backup completed."
