@@ -49,7 +49,7 @@
             - field: tx_bps
               label: Uscita
               format: bitrate
-    - Backup Restic:
+    - Backup:
         widget:
           type: customapi
           url: http://monitoring-api:8080/backup

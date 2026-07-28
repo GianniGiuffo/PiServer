@@ -12,12 +12,14 @@ Le statistiche Docker passano attraverso `docker-socket-proxy`, che consente
 soltanto letture. Per aggiungere collegamenti modificare `services.yaml` e
 committare la modifica: il dashboard rimane così riproducibile da Git.
 
-La prima riga di Homepage contiene quattro bande compatte:
+La prima riga di Homepage, prima di ogni altro servizio e senza barra di
+ricerca o intestazione richiudibile, contiene quattro card sempre visibili e
+della stessa larghezza:
 
 - **Server**: CPU, memoria, temperatura e uptime dell'host;
 - **NAS**: stato del mount, spazio libero, capacità e percentuale usata;
 - **Rete**: traffico istantaneo in entrata e uscita sull'interfaccia fisica;
-- **Backup Restic**: esito, ultimo snapshot riuscito e prossimo avvio del timer.
+- **Backup**: esito Restic, ultimo snapshot riuscito e prossimo avvio del timer.
 
 `monitoring-api` legge soltanto i file necessari sotto `/proc` e `/sys`, il
 mount media e il JSON di stato del backup. Non riceve socket Docker o systemd,
