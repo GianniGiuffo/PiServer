@@ -98,12 +98,51 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # Host metrics for Homepage. The API has no published port, no Docker socket
+  # and no Web UI; only Homepage can reach it on the internal monitoring
+  # network. MEDIA_DIR and /sys are read-only.
+  glances:
+    image: ${GLANCES_IMAGE:?Set GLANCES_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      GLANCES_OPT: >-
+        -w --disable-webui -C /etc/glances/glances.conf
+        --enable-plugin sensors
+        --disable-plugin processlist,containers,ports,folders,amps
+    volumes:
+      - ./config/glances/glances.conf:/etc/glances/glances.conf:ro
+      - /sys:/sys:ro
+      - /etc/os-release:/etc/os-release:ro
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}
+        target: /srv/media
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - monitoring
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:61208/api/4/status', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
   homepage:
     image: ${HOMEPAGE_IMAGE:?Set HOMEPAGE_IMAGE in .env}
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
       - docker-socket-proxy
+      - glances
     environment:
       HOMEPAGE_ALLOWED_HOSTS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
       HOMEPAGE_VAR_TAILSCALE_FQDN: ${TAILSCALE_FQDN}

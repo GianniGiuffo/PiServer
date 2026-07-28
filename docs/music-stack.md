@@ -303,14 +303,18 @@ come upstream di Pi-hole. Questo evita dipendenze circolari dal DNS del host
 dopo un riavvio, mentre i nomi dei servizi (`lidarr`, `navidrome`, `slskd`)
 continuano a essere risolti dal DNS interno di Docker.
 
-Il fallback yt-dlp può essere lasciato disabilitato per usare soltanto
-Soulseek, oppure attivato dopo aver verificato qualità e provenienza dei file.
+Aurral `1.76.51` non include yt-dlp né un relativo download client. Il suo
+fallback automatico resta interno a Soulseek e prova MP3 quando i candidati
+FLAC non sono utilizzabili. Non configurare opzioni yt-dlp indicate dalla
+documentazione di Aurral v2 finché quella versione non viene adottata e testata.
 
 ## 9. Homepage
 
-Homepage mostra una nuova sezione `MUSICA` con:
+Homepage mostra una nuova sezione `Musica`, con lo stesso layout a quattro
+colonne delle altre sezioni, contenente:
 
 - Aurral, Navidrome, Lidarr e slskd, tutti apribili dalla Tailnet.
+- un controllo HTTP separato dallo stato Docker per ciascun pannello.
 
 Ricaricare Homepage:
 

@@ -121,7 +121,7 @@ Fermare temporaneamente Cloudflared nel Compose:
 
 ```bash
 cd /opt/raspberry-server
-docker compose up -d caddy pihole vaultwarden docker-socket-proxy homepage uptime-kuma
+docker compose up -d caddy pihole vaultwarden docker-socket-proxy glances homepage uptime-kuma
 docker compose ps
 sudo bash scripts/configure-tailscale-serve.sh
 tailscale serve status

@@ -12,6 +12,46 @@ Le statistiche Docker passano attraverso `docker-socket-proxy`, che consente
 soltanto letture. Per aggiungere collegamenti modificare `services.yaml` e
 committare la modifica: il dashboard rimane così riproducibile da Git.
 
+Le metriche in alto arrivano da Glances e rappresentano l'host, non il solo
+container Homepage. Glances non pubblica porte, non riceve il socket Docker,
+espone soltanto la REST API sulla rete interna `monitoring` e monta `/sys` e
+`MEDIA_DIR` in sola lettura. Il riquadro **NAS** mostra capacità e spazio
+libero; `N/D` significa che `/srv/media` non è montato o che il disco non è
+raggiungibile. La temperatura dipende dai sensori esposti dal kernel: se resta
+`N/D`, installare/verificare `lm-sensors` prima di cambiare Homepage:
+
+```bash
+sudo apt install lm-sensors
+sensors
+```
+
+Homepage mostra due controlli distinti per i servizi configurati:
+
+- il controllo Docker indica se il processo è avviato e, quando presente, usa
+  anche l'`healthcheck` definito nel Compose;
+- `siteMonitor` esegue una richiesta HTTP interna e verifica che
+  l'applicazione risponda davvero.
+
+Per questo Aurral può risultare `running` ma `unhealthy`: il processo Node è
+ancora vivo, mentre `/api/health/live` non risponde. L'healthcheck di Aurral
+parte dopo 30 secondi, viene eseguito ogni 30 secondi e richiede tre errori
+consecutivi prima di dichiarare il container non sano. Lidarr controlla
+`/ping`; slskd include già nell'immagine upstream un controllo su `/health`,
+ma il Compose riduce a 45 secondi il periodo iniziale upstream di un'ora.
+
+Un container `unhealthy` non viene riavviato automaticamente dalle policy
+`restart`: queste reagiscono all'uscita del processo, non allo stato di salute.
+Questa scelta evita cicli di riavvio e conserva i log per la diagnosi. Uptime
+Kuma resta responsabile di storico e notifiche.
+
+Verificare gli stati con:
+
+```bash
+docker compose -f compose.yaml -f compose.media.yaml ps
+docker inspect --format '{{json .State.Health}}' \
+  raspberry-server-aurral-1 | jq
+```
+
 ## Uptime Kuma
 
 Aprire `https://TAILSCALE_FQDN:8448/` e creare il primo amministratore. Aggiungere
@@ -26,8 +66,10 @@ almeno questi monitor HTTP:
 | Jellyfin | `http://jellyfin:8096/health` |
 | Immich | `http://immich-server:2283/api/server/ping` |
 | StreamingCommunity | `http://streamingcommunity:8000/login` |
-| Aurral | `http://aurral:3001/` |
+| Aurral | `http://aurral:3001/api/health/live` |
 | Navidrome | `http://navidrome:4533/` |
+| Lidarr | `http://lidarr:8686/ping` |
+| slskd | `http://slskd:5030/health` |
 | n8n | `http://n8n:5678/` |
 
 Configurare una notifica esterna, ad esempio email o Telegram, altrimenti un

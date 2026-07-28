@@ -5,6 +5,7 @@ theme: dark
 color: slate
 headerStyle: boxed
 hideVersion: true
+disableIndexing: true
 statusStyle: dot
 target: _self
 
@@ -13,6 +14,9 @@ layout:
     style: row
     columns: 4
   Media e file:
+    style: row
+    columns: 4
+  Musica:
     style: row
     columns: 4
   Automazione e controllo:

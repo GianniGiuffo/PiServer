@@ -68,7 +68,7 @@ chmod 600 .env
 nano .env
 bash scripts/preflight.sh
 
-docker compose up -d caddy pihole vaultwarden docker-socket-proxy homepage uptime-kuma
+docker compose up -d caddy pihole vaultwarden docker-socket-proxy glances homepage uptime-kuma
 sudo bash scripts/configure-tailscale-serve.sh
 ```
 

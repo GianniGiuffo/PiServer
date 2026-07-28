@@ -1,8 +1,26 @@
-- resources:
+- glances:
+    url: http://glances:61208
+    version: 4
+    label: Server
     cpu: true
-    memory: true
-    disk: /
+    mem: true
+    cputemp: true
     uptime: true
+    disk: /
+    expanded: true
+    diskUnits: bytes
+
+- glances:
+    url: http://glances:61208
+    version: 4
+    label: "NAS (N/D = disco non montato)"
+    cpu: false
+    mem: false
+    cputemp: false
+    uptime: false
+    disk: /srv/media
+    expanded: true
+    diskUnits: bytes
 
 - search:
     provider: duckduckgo
