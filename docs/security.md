@@ -60,6 +60,12 @@ segreto non prevedibile.
 PostgreSQL. Ollama non pubblica alcuna porta host e n8n lo raggiunge tramite
 `http://ollama:11434`.
 
+Postgres Chat Memory salva il contenuto delle conversazioni nella tabella
+`ai_chat_memory` del database n8n. I dati sono protetti dai confini del server
+e dal backup Restic cifrato, ma nel database PostgreSQL locale non sono
+cifrati campo per campo. Non inserire in chat segreti che non devono essere
+conservati.
+
 ## StreamingCommunity downloader
 
 Il pannello è raggiungibile soltanto attraverso Tailscale e usa

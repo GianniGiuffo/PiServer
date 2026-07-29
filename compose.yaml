@@ -160,7 +160,7 @@ services:
       HOMEPAGE_VAR_SITE_DOMAIN: ${SITE_1_DOMAIN}
       HOMEPAGE_VAR_VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN}
       HOMEPAGE_VAR_N8N_CHAT_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}:8449${N8N_CHAT_PATH:?Set N8N_CHAT_PATH in .env}
-      HOMEPAGE_VAR_OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      HOMEPAGE_VAR_OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
     volumes:
       - ./config/homepage:/app/config:ro
     tmpfs:

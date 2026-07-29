@@ -246,6 +246,9 @@ gli elementi importati.
 ## n8n e Ollama
 
 Aprire `https://TAILSCALE_FQDN:8449/`. Per Ollama usare l'URL interno
-`http://ollama:11434` e un modello 3B. Dopo aver attivato il Chat Trigger,
-copiare il percorso della Production Chat URL in `N8N_CHAT_PATH` e ricreare
-Homepage. Vedi [n8n-ollama.md](n8n-ollama.md).
+`http://ollama:11434` e selezionare `qwen3.5:4b`. Usare **Postgres Chat
+Memory** sulla connessione interna `n8n-postgres`, tabella
+`ai_chat_memory`, condividendola tra Chat Trigger e AI Agent. Dopo aver
+attivato il Chat Trigger, copiare il percorso della Production Chat URL in
+`N8N_CHAT_PATH` e ricreare Homepage. Vedi
+[n8n-ollama.md](n8n-ollama.md).

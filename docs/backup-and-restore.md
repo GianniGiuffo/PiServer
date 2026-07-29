@@ -15,7 +15,8 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - database e configurazioni di Aurral, Lidarr, slskd e Navidrome;
 - configurazione Nextcloud e dump PostgreSQL;
 - dump PostgreSQL Immich;
-- configurazione e dump PostgreSQL n8n.
+- configurazione e dump PostgreSQL n8n, inclusa la tabella
+  `ai_chat_memory` con la cronologia delle chat;
 
 Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, il downloader e i quattro servizi
 musicali vengono fermati brevemente per rendere coerenti i rispettivi database.

@@ -1,5 +1,5 @@
 [Unit]
-Description=Start n8n and Ollama
+Description=Start n8n, PostgreSQL and Ollama
 Wants=network-online.target
 After=network-online.target docker.service core-stack.service
 Requires=docker.service core-stack.service
@@ -11,7 +11,8 @@ RemainAfterExit=yes
 WorkingDirectory=__REPO_DIR__
 ExecStart=/usr/bin/bash __REPO_DIR__/scripts/start-stack.sh automation
 ExecStop=/usr/bin/bash __REPO_DIR__/scripts/stop-stack.sh automation
-TimeoutStartSec=10min
+# The first start may need to download the multi-gigabyte Ollama model.
+TimeoutStartSec=30min
 TimeoutStopSec=5min
 
 [Install]

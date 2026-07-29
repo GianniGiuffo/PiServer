@@ -6,7 +6,8 @@ services:
   n8n-postgres:
     image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE in .env}
     restart: on-failure:5
-    mem_limit: 768m
+    # Also stores the Postgres Chat Memory table used by the AI workflow.
+    mem_limit: 1g
     environment:
       POSTGRES_DB: n8n
       POSTGRES_USER: n8n
@@ -28,8 +29,15 @@ services:
     restart: on-failure:5
     # The i5-7500 has no suitable GPU. Do not publish port 11434: only n8n on
     # the internal network can call the local model service.
-    mem_limit: 4g
+    # qwen3.5:4b is a 3.4 GB Q4 model. Runtime state and its bounded 8K
+    # context require additional headroom on this 16 GB CPU-only host.
+    mem_limit: 6g
     cpus: 3.5
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/ollama:/root/.ollama
     networks:
@@ -52,15 +60,33 @@ services:
       retries: 3
       start_period: 30s
 
+  # Pull the selected local model before n8n starts. Re-running this one-shot
+  # service is idempotent: Ollama only downloads layers that are not present.
+  ollama-model-init:
+    image: ${OLLAMA_IMAGE:?Set OLLAMA_IMAGE in .env}
+    restart: "no"
+    mem_limit: 256m
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "${OLLAMA_MODEL:-qwen3.5:4b}"]
+    networks:
+      - automation
+    security_opt:
+      - no-new-privileges:true
+
   n8n:
     image: ${N8N_IMAGE:?Set N8N_IMAGE in .env}
     restart: on-failure:5
-    mem_limit: 1536m
+    # Leave room for AI Agent execution, Postgres memory and tool payloads.
+    mem_limit: 2g
     depends_on:
       n8n-postgres:
         condition: service_healthy
-      ollama:
-        condition: service_started
+      ollama-model-init:
+        condition: service_completed_successfully
     environment:
       TZ: ${TZ:-Europe/Rome}
       GENERIC_TIMEZONE: ${TZ:-Europe/Rome}
