@@ -57,6 +57,8 @@ nano .env
 Impostare:
 
 - `TAILSCALE_FQDN` con il nome appena ottenuto;
+- `N8N_WEBHOOK_DOMAIN` con lo stesso identico nome MagicDNS; il percorso
+  `N8N_CHAT_PATH` verrà sostituito dopo aver attivato il Chat Trigger;
 - `PUID`, `PGID` e `RENDER_GID`:
 
   ```bash

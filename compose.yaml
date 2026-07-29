@@ -11,7 +11,6 @@ services:
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:-unused.invalid}
       VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
-      N8N_WEBHOOK_DOMAIN: ${N8N_WEBHOOK_DOMAIN:-hooks.invalid}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
@@ -160,6 +159,8 @@ services:
       HOMEPAGE_VAR_TAILSCALE_FQDN: ${TAILSCALE_FQDN}
       HOMEPAGE_VAR_SITE_DOMAIN: ${SITE_1_DOMAIN}
       HOMEPAGE_VAR_VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN}
+      HOMEPAGE_VAR_N8N_CHAT_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}:8449${N8N_CHAT_PATH:?Set N8N_CHAT_PATH in .env}
+      HOMEPAGE_VAR_OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
     volumes:
       - ./config/homepage:/app/config:ro
     tmpfs:

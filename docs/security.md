@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Sito | Cloudflare Tunnel → Caddy | sì |
 | Vaultwarden | Cloudflare Tunnel → Caddy | sì |
-| webhook n8n | Cloudflare Tunnel → Caddy | solo quando abilitati |
+| webhook e chat n8n | Tailscale Serve `8449` | no |
 | Homepage | Tailscale Serve `443` | no |
 | area privata sito | Tailscale Serve `8443` | no |
 | Pi-hole dashboard | Tailscale Serve `8444` | no |
@@ -50,9 +50,11 @@ permessi al proxy senza verificare l'endpoint richiesto.
 
 ## n8n e Ollama
 
-L'editor n8n è Tailnet-only. L'hostname webhook pubblico rimane
-`hooks.invalid` finché non esiste una necessità reale. Ogni webhook pubblico
-deve verificare una firma HMAC, un token o un segreto non prevedibile.
+L'editor, gli endpoint webhook e la chat n8n sono Tailnet-only sulla porta
+`8449`. `N8N_WEBHOOK_DOMAIN` deve coincidere con `TAILSCALE_FQDN`; non creare
+una route Cloudflare per n8n. Un'eventuale futura esposizione pubblica richiede
+un hostname e una configurazione separati, oltre a firma HMAC, token o altro
+segreto non prevedibile.
 
 `N8N_ENCRYPTION_KEY` è permanente e deve rimanere associata al relativo dump
 PostgreSQL. Ollama non pubblica alcuna porta host e n8n lo raggiunge tramite

@@ -175,6 +175,17 @@
         description: Automazioni
         server: local
         container: raspberry-server-n8n-1
+    - Ollama:
+        icon: ollama.png
+        description: Motore AI locale
+        server: local
+        container: raspberry-server-ollama-1
+    - Modello AI:
+        icon: mdi-brain
+        href: "{{HOMEPAGE_VAR_N8N_CHAT_URL}}"
+        description: "{{HOMEPAGE_VAR_OLLAMA_MODEL}} · Apri la chat"
+        server: local
+        container: raspberry-server-ollama-1
     - Uptime Kuma:
         icon: uptime-kuma.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8448/

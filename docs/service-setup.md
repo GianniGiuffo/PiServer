@@ -71,6 +71,12 @@ Homepage mostra due controlli distinti per i servizi configurati:
 - `siteMonitor` esegue una richiesta HTTP interna e verifica che
   l'applicazione risponda davvero.
 
+Le card **Ollama** e **Modello AI** sono un'eccezione intenzionale: entrambe
+mostrano soltanto l'health Docker del container Ollama e non hanno
+`siteMonitor`. La card del modello visualizza il valore `OLLAMA_MODEL` e apre
+la URL privata costruita da `N8N_WEBHOOK_DOMAIN`, porta `8449` e
+`N8N_CHAT_PATH`.
+
 Per questo Aurral può risultare `running` ma `unhealthy`: il processo Node è
 ancora vivo, mentre `/api/health/live` non risponde. L'healthcheck di Aurral
 parte dopo 30 secondi, viene eseguito ogni 30 secondi e richiede tre errori
@@ -240,4 +246,6 @@ gli elementi importati.
 ## n8n e Ollama
 
 Aprire `https://TAILSCALE_FQDN:8449/`. Per Ollama usare l'URL interno
-`http://ollama:11434` e un modello 3B. Vedi [n8n-ollama.md](n8n-ollama.md).
+`http://ollama:11434` e un modello 3B. Dopo aver attivato il Chat Trigger,
+copiare il percorso della Production Chat URL in `N8N_CHAT_PATH` e ricreare
+Homepage. Vedi [n8n-ollama.md](n8n-ollama.md).

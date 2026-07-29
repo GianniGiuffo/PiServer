@@ -43,6 +43,14 @@ services:
         gw_priority: 1
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      # Docker health only: confirm that the Ollama process answers its local
+      # CLI. Model availability is intentionally not used as a health signal.
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   n8n:
     image: ${N8N_IMAGE:?Set N8N_IMAGE in .env}
@@ -67,7 +75,7 @@ services:
       N8N_PROTOCOL: https
       N8N_PORT: 5678
       N8N_EDITOR_BASE_URL: https://${TAILSCALE_FQDN}:8449/
-      WEBHOOK_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}/
+      WEBHOOK_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}:8449/
       N8N_PROXY_HOPS: 1
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"

@@ -35,8 +35,8 @@ Hardware di riferimento:
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone soltanto il
-sito, Vaultwarden e, in futuro, eventuali webhook n8n. Nessuna porta del router
-deve essere inoltrata.
+sito e Vaultwarden; editor, webhook e chat n8n restano nella Tailnet. Nessuna
+porta del router deve essere inoltrata.
 
 ## Tre stack indipendenti
 

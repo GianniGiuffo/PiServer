@@ -49,14 +49,3 @@ http://{$VAULTWARDEN_DOMAIN} {
 	}
 	header -Server
 }
-
-# The n8n editor is Tailnet-only on port 8449. This route is exclusively for
-# third-party webhooks and remains inert while N8N_WEBHOOK_DOMAIN is
-# hooks.invalid and no matching Cloudflare Tunnel route exists.
-http://{$N8N_WEBHOOK_DOMAIN} {
-	encode zstd gzip
-	reverse_proxy n8n:5678 {
-		header_up X-Forwarded-Proto https
-	}
-	header -Server
-}

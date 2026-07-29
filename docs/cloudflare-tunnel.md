@@ -68,8 +68,8 @@ URL del servizio. `caddy` è il nome interno Docker; non usare `localhost`.
 
 Un eventuale secondo sito è opzionale: va aggiunta una terza route soltanto
 dopo aver impostato `SITE_2_DOMAIN`. Non pubblicare Homepage, Nextcloud, Immich,
-Jellyfin, Pi-hole, Uptime Kuma o l'editor n8n. Il dominio webhook n8n va
-aggiunto soltanto quando necessario.
+Jellyfin, Pi-hole, Uptime Kuma, l'editor n8n o la chat n8n. Gli endpoint n8n
+restano raggiungibili esclusivamente tramite Tailscale.
 
 ## 4. Verificare il percorso pubblico
 
