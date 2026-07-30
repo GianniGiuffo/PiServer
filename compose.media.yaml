@@ -77,8 +77,40 @@ services:
       - ${DATA_DIR:?Set DATA_DIR in .env}/nextcloud/html:/var/www/html
       - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/nextcloud:/var/www/html/data
     networks:
-      - web
+      # Separate from the generic web network so n8n cannot bypass the
+      # read-only connector. Homepage and Uptime Kuma retain monitor access.
+      - nextcloud-access
       - nextcloud-internal
+    security_opt:
+      - no-new-privileges:true
+
+  nextcloud-readonly:
+    image: ${NGINX_IMAGE:?Set NGINX_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 128m
+    cpus: 0.5
+    depends_on:
+      - nextcloud
+    environment:
+      NEXTCLOUD_INTERNAL_HOST: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
+      # Preserve NGINX variables such as $remote_addr while substituting only
+      # the trusted Nextcloud hostname in the mounted template.
+      NGINX_ENVSUBST_FILTER: "^NEXTCLOUD_INTERNAL_HOST$$"
+    volumes:
+      - ./config/nextcloud-readonly/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      - nextcloud-internal
+      - ai-connectors
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget --quiet --tries=1 --spider http://127.0.0.1:8080/healthz &&
+          wget --quiet --tries=1 --spider http://nextcloud/status.php
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     security_opt:
       - no-new-privileges:true
 
@@ -423,7 +455,10 @@ services:
       - no-new-privileges:true
 
 networks:
+  nextcloud-access:
   nextcloud-internal:
+    internal: true
+  ai-connectors:
     internal: true
   immich-internal:
     internal: true

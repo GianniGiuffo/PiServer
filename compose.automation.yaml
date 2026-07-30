@@ -77,6 +77,40 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  searxng:
+    image: ${SEARXNG_IMAGE:?Set SEARXNG_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 512m
+    cpus: 1.0
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Set SEARXNG_SECRET in .env}
+      SEARXNG_PORT: 8080
+      FORCE_OWNERSHIP: "false"
+    volumes:
+      - ./config/searxng:/etc/searxng:ro
+      - ${DATA_DIR:?Set DATA_DIR in .env}/searxng/cache:/var/cache/searxng
+    networks:
+      # n8n can use the JSON search API only through the private connector
+      # network. The second network provides outbound access to search engines.
+      ai-connectors:
+        gw_priority: 0
+      searxng-egress:
+        gw_priority: 1
+    healthcheck:
+      test:
+        - CMD
+        - sh
+        - -c
+        - wget --quiet --tries=1 --spider http://127.0.0.1:8080/healthz
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    security_opt:
+      - no-new-privileges:true
+
   n8n:
     image: ${N8N_IMAGE:?Set N8N_IMAGE in .env}
     restart: on-failure:5
@@ -115,10 +149,14 @@ services:
     networks:
       - web
       - automation
+      - ai-connectors
     security_opt:
       - no-new-privileges:true
 
 networks:
   automation:
     internal: true
+  ai-connectors:
+    internal: true
   ollama-egress:
+  searxng-egress:

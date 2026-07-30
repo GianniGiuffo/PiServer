@@ -32,6 +32,8 @@ Hardware di riferimento:
 | slskd | Tailnet, porta 8454 | config su SSD, transito su `/srv/media/music` |
 | n8n | Tailnet, porta 8449 | SSD locale + Restic |
 | Ollama | solo rete Docker | modelli riproducibili, non salvati |
+| SearXNG | solo rete Docker per n8n | cache eliminabile, non salvata |
+| Nextcloud read-only connector | solo rete Docker per n8n | nessun dato proprio |
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone soltanto il
@@ -43,7 +45,7 @@ porta del router deve essere inoltrata.
 - `compose.yaml`: servizi core, sempre disponibili e senza dati utente sul NAS;
 - `compose.media.yaml`: Nextcloud, Jellyfin, Immich, downloader e stack
   musicale; parte solo dopo la verifica del mount `/srv/media`;
-- `compose.automation.yaml`: n8n, PostgreSQL e Ollama.
+- `compose.automation.yaml`: n8n, PostgreSQL, Ollama e SearXNG.
 
 Le unità `core-stack.service`, `media-stack.service` e
 `automation-stack.service` li avviano automaticamente e in ordine. I servizi
@@ -116,3 +118,4 @@ La procedura completa e i comandi di restore sono in
 - [Stack musicale](docs/music-stack.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md)
 - [n8n e Ollama](docs/n8n-ollama.md)
+- [Connettori AI: SearXNG e Nextcloud in sola lettura](docs/ai-connectors.md)

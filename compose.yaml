@@ -170,6 +170,7 @@ services:
     networks:
       - monitoring
       - web
+      - nextcloud-access
     security_opt:
       - no-new-privileges:true
 
@@ -185,10 +186,12 @@ services:
       - "127.0.0.1:3001:3001/tcp"
     networks:
       - web
+      - nextcloud-access
     security_opt:
       - no-new-privileges:true
 
 networks:
   web:
+  nextcloud-access:
   monitoring:
     internal: true

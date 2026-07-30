@@ -25,6 +25,7 @@ configurazioni e database:
 │   ├── nextcloud/postgres
 │   ├── ollama
 │   ├── pihole
+│   ├── searxng/cache
 │   ├── streamingcommunity
 │   ├── slskd
 │   ├── uptime-kuma

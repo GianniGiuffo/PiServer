@@ -15,14 +15,14 @@ case "${STACK}" in
     bash "${SCRIPT_DIR}/check-media-mount.sh"
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.media.yaml")
     SERVICES=(
-      nextcloud-postgres nextcloud-redis nextcloud nextcloud-cron
+      nextcloud-postgres nextcloud-redis nextcloud nextcloud-readonly nextcloud-cron
       jellyfin streamingcommunity immich-postgres immich-redis immich-server
       lidarr slskd navidrome aurral
     )
     ;;
   automation)
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.automation.yaml")
-    SERVICES=(n8n-postgres ollama ollama-model-init n8n)
+    SERVICES=(n8n-postgres ollama ollama-model-init searxng n8n)
     ;;
   *)
     echo "Unknown stack '${STACK}'." >&2

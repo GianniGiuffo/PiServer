@@ -1,5 +1,5 @@
 [Unit]
-Description=Start n8n, PostgreSQL and Ollama
+Description=Start n8n, PostgreSQL, Ollama and SearXNG
 Wants=network-online.target
 After=network-online.target docker.service core-stack.service
 Requires=docker.service core-stack.service

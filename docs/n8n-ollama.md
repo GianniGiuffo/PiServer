@@ -112,6 +112,9 @@ usare temperatura `0.2`-`0.4`; se l'interfaccia espone il controllo del
 ragionamento, tenerlo basso o disattivato finché non sono state misurate
 latenza e RAM.
 
+Per collegare la ricerca Internet privata e i file Nextcloud in sola lettura,
+proseguire con [ai-connectors.md](ai-connectors.md).
+
 ## 6. Postgres Chat Memory
 
 La memoria usa lo stesso PostgreSQL già impiegato da n8n. La tabella

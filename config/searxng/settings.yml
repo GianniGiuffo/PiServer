@@ -1,0 +1,36 @@
+# Private SearXNG instance consumed only by n8n over the ai-connectors network.
+# JSON must remain enabled for the n8n HTTP Request Tool.
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "n8n private search"
+  enable_metrics: false
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  favicon_resolver: ""
+  default_lang: "it-IT"
+  formats:
+    - html
+    - json
+
+server:
+  # Overridden at runtime by SEARXNG_SECRET from .env.
+  secret_key: "ultrasecretkey"
+  limiter: false
+  image_proxy: false
+  method: "GET"
+
+ui:
+  default_locale: "it"
+  query_in_title: false
+
+preferences:
+  lock:
+    - autocomplete
+    - favicon_resolver
+    - image_proxy
+    - method
+    - safesearch

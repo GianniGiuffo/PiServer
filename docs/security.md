@@ -22,7 +22,8 @@
 | slskd Web UI | Tailscale Serve `8454` | no; la porta P2P `50300` resta chiusa |
 | Soulseek peer port `50300` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
-| Ollama, PostgreSQL, Redis/Valkey | reti Docker interne | no |
+| Ollama, SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
+| proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
 4533, 5030, 5031, 50300, 5678, 6379, 8000, 8096, 8686 o 11434.
@@ -65,6 +66,23 @@ Postgres Chat Memory salva il contenuto delle conversazioni nella tabella
 e dal backup Restic cifrato, ma nel database PostgreSQL locale non sono
 cifrati campo per campo. Non inserire in chat segreti che non devono essere
 conservati.
+
+SearXNG non pubblica porte sull'host: n8n usa la sua API JSON sulla rete
+interna `ai-connectors`. Il container dispone di una rete di uscita separata
+per interrogare i motori esterni; le query lasciano quindi la rete locale,
+anche se l'istanza SearXNG non è accessibile da Internet.
+
+n8n non è collegato direttamente al container Nextcloud: Nextcloud usa la rete
+dedicata `nextcloud-access` soltanto con Homepage e Uptime Kuma. Il servizio
+`nextcloud-readonly` inoltra soltanto `GET`, `HEAD`, `OPTIONS` e `PROPFIND`
+agli endpoint necessari per elencare e scaricare file. Tutte le operazioni
+WebDAV di scrittura e le altre API Nextcloud sono bloccate. Usare comunque un
+account dedicato, una password applicazione revocabile e una cartella
+condivisa senza permesso di modifica.
+
+I risultati web e i documenti possono contenere prompt injection. Il prompt
+di sistema deve considerarli dati non attendibili, mai istruzioni, e l'agente
+non deve ricevere strumenti di scrittura o segreti non necessari.
 
 ## StreamingCommunity downloader
 

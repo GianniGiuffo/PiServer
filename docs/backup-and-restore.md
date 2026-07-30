@@ -29,7 +29,7 @@ creato il loro dump PostgreSQL.
   musica e download;
 - database PostgreSQL live;
 - Redis/Valkey;
-- cache e thumbnail ricostruibili;
+- cache e thumbnail ricostruibili, inclusa la cache SearXNG;
 - modelli Ollama;
 - checkout e release del sito.
 

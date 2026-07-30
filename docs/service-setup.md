@@ -252,3 +252,8 @@ Memory** sulla connessione interna `n8n-postgres`, tabella
 attivato il Chat Trigger, copiare il percorso della Production Chat URL in
 `N8N_CHAT_PATH` e ricreare Homepage. Vedi
 [n8n-ollama.md](n8n-ollama.md).
+
+SearXNG e il proxy WebDAV Nextcloud non pubblicano porte. n8n li raggiunge
+rispettivamente su `http://searxng:8080` e
+`http://nextcloud-readonly:8080`; la configurazione dei relativi strumenti AI
+è descritta in [ai-connectors.md](ai-connectors.md).
