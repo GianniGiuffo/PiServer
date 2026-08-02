@@ -252,6 +252,7 @@ RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/jellyfin/config/transcodes"
   --exclude "${DATA_DIR}/aurral/cache"
   --exclude "${DATA_DIR}/aurral/image-cache"
+  --exclude "${DATA_DIR}/aurral/_staging"
   --exclude "${DATA_DIR}/lidarr/logs"
   --exclude "${DATA_DIR}/lidarr/MediaCover"
   --exclude "${DATA_DIR}/slskd/logs"

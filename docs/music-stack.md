@@ -4,9 +4,9 @@ Questo stack usa:
 
 - Lidarr stabile per catalogo, metadati e libreria permanente;
 - Aurral per ricerca, richieste, flow e playlist;
-- il client Soulseek interno di Aurral 1.x per flow e playlist;
-- slskd come client Soulseek separato per ricerche e download manuali, pronto
-  per la futura integrazione esterna di Aurral v2;
+- slskd come sorgente Soulseek esterna e prioritaria per i download di Aurral;
+- yt-dlp e ffmpeg inclusi nell'immagine Aurral, abilitati per impostazione
+  predefinita come fallback disattivabile;
 - Navidrome per indicizzazione e streaming.
 
 Tutti e quattro i pannelli sono raggiungibili tramite Tailscale Serve. I
@@ -29,10 +29,10 @@ Tutti i file musicali, inclusi quelli temporanei, rimangono nel disco montato:
         └── incomplete
 ```
 
-`library` è gestita da Lidarr. Aurral 1.x scrive esclusivamente in `aurral`
-tramite il proprio worker Soulseek. slskd usa `.downloads/slskd` come area
-separata. Navidrome indicizza `library` e la libreria generata da Aurral, ma
-non `.downloads`.
+`library` è gestita da Lidarr. Aurral 2 sposta in `aurral` i file completati
+da slskd oppure importa lì quelli prodotti dal proprio yt-dlp. slskd usa
+`.downloads/slskd` come area separata. Navidrome indicizza `library` e la
+libreria generata da Aurral, ma non `.downloads`.
 Lo stack musicale non scrive né in `/srv/media/download` né nella directory
 `/srv/media/downloads` già usata da StreamingCommunity.
 
@@ -42,13 +42,25 @@ in `/srv/media/music` entra nel backup di configurazione.
 
 ## 1. Aggiornare il repository
 
+Prima del passaggio da Aurral 1.x a 2.x creare e verificare uno snapshot
+Restic. Il database viene migrato automaticamente al primo avvio di Aurral 2;
+il compose usa già la directory host corretta montata su `/config`. I file
+esistenti in `/srv/media/music/aurral` non vengono spostati sul disco: cambia
+soltanto il percorso visto dal container, da `/app/downloads` a `/data/aurral`.
+
 Sul server:
 
 ```bash
 cd /opt/raspberry-server
+sudo systemctl start backup.service
+sudo systemctl status backup.service --no-pager
+sudo journalctl -u backup.service -n 100 --no-pager
 git pull --ff-only
 sudo systemctl stop media-stack.service
 ```
+
+Continuare soltanto se il log del backup termina con
+`Encrypted configuration and database backup completed.`
 
 ## 2. Verificare il disco e creare le directory
 
@@ -110,7 +122,7 @@ nano .env
 Aggiungere le immagini:
 
 ```dotenv
-AURRAL_IMAGE=ghcr.io/lklynet/aurral:1.76.51
+AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.0.3
 LIDARR_IMAGE=lscr.io/linuxserver/lidarr:latest
 SLSKD_IMAGE=slskd/slskd:0.26.0
 NAVIDROME_IMAGE=deluan/navidrome:0.63.2
@@ -219,10 +231,10 @@ In Lidarr:
    definita una politica di acquisizione permanente.
 
 Questa configurazione usa Lidarr stabile. Aurral può aggiungere e monitorare
-artisti e album, mentre Aurral 1.x usa il proprio worker Soulseek per tracce,
-flow e playlist. Il container slskd resta separato; collegarlo a Lidarr per gli
-album completi richiederebbe Lidarr nightly più Tubifarry, oppure la futura
-integrazione esterna di Aurral v2.
+artisti e album; per flow e playlist Aurral 2 orchestra il container slskd
+tramite API e usa yt-dlp come fallback. Collegare slskd direttamente a Lidarr
+per gli album completi resta un flusso distinto e richiederebbe Lidarr nightly
+più Tubifarry.
 
 In slskd:
 
@@ -286,16 +298,18 @@ Completare l'onboarding:
 2. impostare il contatto email richiesto da MusicBrainz;
 3. collegare Lidarr con URL `http://lidarr:8686` e relativa API key;
 4. eseguire **Test library access**: deve vedere `/data/library`;
-5. lasciare come Downloads Folder `/app/downloads`; il compose collega questo
-   percorso a `/srv/media/music/aurral` sull'hard disk;
-6. nella versione Aurral `1.76.51`, aprire **Worker Settings** e verificare
-   l'account Soulseek interno, concorrenza `2`, retry `15 min` e **Strict**
-   disabilitato durante i primi test;
-7. considerare il container slskd separato come pannello manuale: Aurral 1.x
-   non mostra ancora la futura sezione **Download Clients > slskd**;
-8. collegare Navidrome con URL `http://navidrome:4533` e l'account creato;
-9. mantenere il monitoraggio album predefinito su `None`;
-10. configurare Last.fm o ListenBrainz soltanto se si desiderano
+5. in **Settings > Download Clients > Downloads Folder**, impostare
+   `/data/aurral`; il compose rende scrivibile soltanto questa sottodirectory;
+6. aprire **Download Clients > slskd**, usare URL `http://slskd:5030` e la
+   `SLSKD_API_KEY`, quindi eseguire il test di connessione;
+7. lasciare slskd con priorità `10`, scegliere il formato preferito e tenere
+   **Strict format only** disabilitato durante i primi test;
+8. in **Download Clients > yt-dlp**, lasciare attivo il fallback con priorità
+   `50`, staging `/config/_staging`, quindi eseguire il test. Disabilitarlo qui
+   se non si vogliono download da YouTube/web;
+9. collegare Navidrome con URL `http://navidrome:4533` e l'account creato;
+10. mantenere il monitoraggio album predefinito su `None`;
+11. configurare Last.fm o ListenBrainz soltanto se si desiderano
     raccomandazioni personalizzate.
 
 Il servizio Aurral usa esplicitamente gli stessi resolver Quad9 configurati
@@ -303,10 +317,11 @@ come upstream di Pi-hole. Questo evita dipendenze circolari dal DNS del host
 dopo un riavvio, mentre i nomi dei servizi (`lidarr`, `navidrome`, `slskd`)
 continuano a essere risolti dal DNS interno di Docker.
 
-Aurral `1.76.51` non include yt-dlp né un relativo download client. Il suo
-fallback automatico resta interno a Soulseek e prova MP3 quando i candidati
-FLAC non sono utilizzabili. Non configurare opzioni yt-dlp indicate dalla
-documentazione di Aurral v2 finché quella versione non viene adottata e testata.
+Aurral `2.0.3` include già yt-dlp e ffmpeg: non installare un altro container.
+Con le priorità indicate prova prima slskd e usa yt-dlp solo quando le sorgenti
+precedenti falliscono. L'audio ottenuto da YouTube è normalmente lossy; Aurral
+lo valida, applica i tag e invia a **Activity > Review** le corrispondenze con
+durata dubbia.
 
 ## 9. Homepage
 
@@ -340,9 +355,11 @@ Da Aurral avviare il download di una traccia autorizzata e verificare:
 sudo find /srv/media/music -maxdepth 5 -type f -printf '%s %p\n'
 ```
 
-Il file parziale deve apparire soltanto sotto `.downloads/slskd/incomplete`;
-quello completato passa da `complete` e infine arriva sotto `aurral`. Dopo la
-scansione deve comparire in Navidrome.
+Con slskd, il file parziale deve apparire soltanto sotto
+`.downloads/slskd/incomplete`; quello completato passa da `complete` e infine
+arriva sotto `aurral`. Con yt-dlp, il lavoro temporaneo rimane in
+`/srv/raspberry-server/data/aurral/_staging` e soltanto il file validato arriva
+sotto `aurral`. Dopo la scansione deve comparire in Navidrome.
 
 ## 11. Verificare Restic
 

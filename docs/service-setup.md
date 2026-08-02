@@ -257,3 +257,9 @@ SearXNG e il proxy WebDAV Nextcloud non pubblicano porte. n8n li raggiunge
 rispettivamente su `http://searxng:8080` e
 `http://nextcloud-readonly:8080`; la configurazione dei relativi strumenti AI
 è descritta in [ai-connectors.md](ai-connectors.md).
+
+GitHub e DeepL non richiedono container aggiuntivi: si configurano come nodi
+nativi collegati al connettore **Tool** dell'AI Agent, usando credenziali create
+nell'interfaccia n8n. La procedura, i permessi GitHub di sola lettura e le
+cautele privacy per DeepL sono in
+[n8n-github-deepl.md](n8n-github-deepl.md).

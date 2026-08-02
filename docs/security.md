@@ -84,6 +84,15 @@ I risultati web e i documenti possono contenere prompt injection. Il prompt
 di sistema deve considerarli dati non attendibili, mai istruzioni, e l'agente
 non deve ricevere strumenti di scrittura o segreti non necessari.
 
+Anche i contenuti restituiti da GitHub sono dati non attendibili. Il relativo
+token n8n deve avere accesso soltanto ai repository selezionati e permessi di
+sola lettura; non collegare all'AI Agent operazioni GitHub di scrittura.
+
+DeepL è un servizio esterno: ogni testo passato al nodo DeepL lascia il server
+locale. Non inoltrare automaticamente documenti Nextcloud, segreti o cronologia
+della chat. Usare Qwen per la traduzione locale dei documenti privati oppure
+richiedere una conferma umana prima di usare DeepL.
+
 ## StreamingCommunity downloader
 
 Il pannello è raggiungibile soltanto attraverso Tailscale e usa
@@ -127,6 +136,11 @@ porta 53 non deve essere inoltrata da Internet. Il server usa
 
 Nella console Tailscale, l'IPv4 Tailnet del mini PC viene configurato come
 nameserver globale con **Override local DNS**. MagicDNS resta attivo.
+
+Non serve duplicare in SearXNG le blocklist gestite da Pi-hole. Pi-hole resta
+però un filtro DNS, non una protezione completa contro URL arbitrari o SSRF:
+gli strumenti HTTP e RSS controllati dal modello devono usare destinazioni
+fisse o validate.
 
 ## Manutenzione
 

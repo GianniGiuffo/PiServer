@@ -119,3 +119,4 @@ La procedura completa e i comandi di restore sono in
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md)
 - [n8n e Ollama](docs/n8n-ollama.md)
 - [Connettori AI: SearXNG e Nextcloud in sola lettura](docs/ai-connectors.md)
+- [Connettori AI: GitHub in sola lettura e DeepL](docs/n8n-github-deepl.md)
