@@ -2,7 +2,7 @@
 
 Questo stack usa:
 
-- Lidarr stabile per catalogo, metadati e libreria permanente;
+- Lidarr nightly per catalogo, metadati, libreria permanente e plugin slskd;
 - Aurral per ricerca, richieste, flow e playlist;
 - slskd come sorgente Soulseek esterna e prioritaria per i download di Aurral;
 - yt-dlp e ffmpeg inclusi nell'immagine Aurral, abilitati per impostazione
@@ -42,11 +42,15 @@ in `/srv/media/music` entra nel backup di configurazione.
 
 ## 1. Aggiornare il repository
 
-Prima del passaggio da Aurral 1.x a 2.x creare e verificare uno snapshot
-Restic. Il database viene migrato automaticamente al primo avvio di Aurral 2;
-il compose usa già la directory host corretta montata su `/config`. I file
-esistenti in `/srv/media/music/aurral` non vengono spostati sul disco: cambia
-soltanto il percorso visto dal container, da `/app/downloads` a `/data/aurral`.
+Prima dell'aggiornamento creare e verificare uno snapshot Restic. Il passaggio
+di Lidarr dal canale stabile a `nightly` serve per il supporto ai plugin e può
+migrare il database: per tornare a stable bisogna ripristinare lo snapshot
+creato prima del passaggio. Non tentare il downgrade usando il database
+aggiornato.
+
+Il database Aurral viene migrato automaticamente. Il compose usa la directory
+host corretta montata su `/config`; i file in `/srv/media/music/aurral` non
+vengono spostati.
 
 Sul server:
 
@@ -122,8 +126,8 @@ nano .env
 Aggiungere le immagini:
 
 ```dotenv
-AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.0.3
-LIDARR_IMAGE=lscr.io/linuxserver/lidarr:latest
+AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.2.0
+LIDARR_IMAGE=lscr.io/linuxserver/lidarr:nightly
 SLSKD_IMAGE=slskd/slskd:0.26.0
 NAVIDROME_IMAGE=deluan/navidrome:0.63.2
 ```
@@ -211,7 +215,7 @@ sudo bash scripts/configure-tailscale-serve.sh
 tailscale serve status
 ```
 
-## 6. Configurare Lidarr e slskd
+## 6. Configurare Lidarr e slskd (una sola volta)
 
 Da un dispositivo collegato alla Tailnet, visitare:
 
@@ -227,14 +231,24 @@ In Lidarr:
 3. aggiungere `/data/library`;
 4. scegliere profilo qualità e schema nomi;
 5. in **Settings > General** copiare l'API key;
-6. lasciare il monitoraggio album predefinito su `None` finché non è stata
-   definita una politica di acquisizione permanente.
+6. aprire **System > Plugins**, aggiungere il repository
+   `https://github.com/allquiet-hub/Lidarr.Plugin.Slskd` e riavviare Lidarr;
+7. in **Settings > Download Clients** aggiungere `Slskd` con host `slskd`,
+   porta `5030`, SSL disattivato e la `SLSKD_API_KEY`. Lasciare disattivato
+   **Fix slskd Config on Test**, perché la configurazione remota è volutamente
+   bloccata;
+8. in **Settings > Indexers** aggiungere `Slskd`, URL
+   `http://slskd:5030/` e la stessa API key. Attivare sia **Enable RSS Sync**
+   sia **Enable Automatic Search**;
+9. in **Settings > Profiles > Delay Profiles** includere/selezionare il
+   protocollo `Slskd`;
+10. eseguire **Test** su indicizzatore e download client.
 
-Questa configurazione usa Lidarr stabile. Aurral può aggiungere e monitorare
-artisti e album; per flow e playlist Aurral 2 orchestra il container slskd
-tramite API e usa yt-dlp come fallback. Collegare slskd direttamente a Lidarr
-per gli album completi resta un flusso distinto e richiederebbe Lidarr nightly
-più Tubifarry.
+Il plugin registra slskd sia come indicizzatore sia come download client:
+servono entrambi. Questi passaggi eliminano i tre avvisi della schermata dopo
+che i test hanno avuto successo. Il compose abilita la gestione remota dei
+soli file slskd, necessaria per eliminare la cartella di un job dopo
+l'importazione, ma mantiene disattivata la modifica remota della configurazione.
 
 In slskd:
 
@@ -308,7 +322,9 @@ Completare l'onboarding:
    `50`, staging `/config/_staging`, quindi eseguire il test. Disabilitarlo qui
    se non si vogliono download da YouTube/web;
 9. collegare Navidrome con URL `http://navidrome:4533` e l'account creato;
-10. mantenere il monitoraggio album predefinito su `None`;
+10. in **Settings > Lidarr** impostare il monitoraggio predefinito su `All` e
+    attivare **Search on add** se si vuole scaricare anche il catalogo già
+    pubblicato; scegliere `Future` per acquisire soltanto le nuove uscite;
 11. configurare Last.fm o ListenBrainz soltanto se si desiderano
     raccomandazioni personalizzate.
 
@@ -317,11 +333,19 @@ come upstream di Pi-hole. Questo evita dipendenze circolari dal DNS del host
 dopo un riavvio, mentre i nomi dei servizi (`lidarr`, `navidrome`, `slskd`)
 continuano a essere risolti dal DNS interno di Docker.
 
-Aurral `2.0.3` include già yt-dlp e ffmpeg: non installare un altro container.
+Aurral `2.2.0` include già yt-dlp e ffmpeg: non installare un altro container.
 Con le priorità indicate prova prima slskd e usa yt-dlp solo quando le sorgenti
 precedenti falliscono. L'audio ottenuto da YouTube è normalmente lossy; Aurral
 lo valida, applica i tag e invia a **Activity > Review** le corrispondenze con
 durata dubbia.
+
+Da questo momento non è più necessario usare l'interfaccia Lidarr nella
+gestione quotidiana. In Aurral, cercare un artista, scegliere **Add to Library**
+e impostare `All` con ricerca immediata; dalla pagina dell'artista si può poi
+cambiare il monitoraggio. Aurral inoltra artisti, album e ricerche a Lidarr,
+mentre **Activity** mostra coda e cronologia. Lidarr resta il motore in
+background. L'interfaccia Lidarr servirà ancora soltanto per manutenzione o
+diagnostica del plugin.
 
 ## 9. Homepage
 
@@ -355,9 +379,11 @@ Da Aurral avviare il download di una traccia autorizzata e verificare:
 sudo find /srv/media/music -maxdepth 5 -type f -printf '%s %p\n'
 ```
 
-Con slskd, il file parziale deve apparire soltanto sotto
-`.downloads/slskd/incomplete`; quello completato passa da `complete` e infine
-arriva sotto `aurral`. Con yt-dlp, il lavoro temporaneo rimane in
+Per un album richiesto da Lidarr, il file parziale deve apparire soltanto sotto
+`.downloads/slskd/incomplete`; il plugin crea il job sotto `complete/lidarr`,
+Lidarr lo importa in `library` e poi il plugin rimuove la cartella completata.
+Per un flow richiesto direttamente da Aurral, il file completato passa invece
+da `complete` ad `aurral`. Con yt-dlp, il lavoro temporaneo rimane in
 `/srv/raspberry-server/data/aurral/_staging` e soltanto il file validato arriva
 sotto `aurral`. Dopo la scansione deve comparire in Navidrome.
 

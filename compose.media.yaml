@@ -240,7 +240,12 @@ services:
     mem_limit: 768m
     user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
     environment:
+      # The Lidarr plugin may remove completed jobs after a successful import.
+      # Remote configuration remains disabled below.
+      SLSKD_REMOTE_FILE_MANAGEMENT: "true"
       SLSKD_REMOTE_CONFIGURATION: "false"
+      # Lidarr and slskd share PUID/PGID; keep imported files group-writable.
+      SLSKD_UMASK: "002"
       SLSKD_DOWNLOADS_DIR: /data/.downloads/slskd/complete
       SLSKD_INCOMPLETE_DIR: /data/.downloads/slskd/incomplete
       SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME:?Set SLSKD_SLSK_USERNAME in .env}
