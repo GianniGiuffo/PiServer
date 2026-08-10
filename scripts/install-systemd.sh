@@ -24,7 +24,8 @@ install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server/sites
 for unit in \
   core-stack.service media-stack.service automation-stack.service \
   site-deploy.service site-deploy.timer backup.service backup.timer \
-  backup-status.service backup-status.timer; do
+  backup-status.service backup-status.timer \
+  lidarr-weekly-search.service lidarr-weekly-search.timer; do
   sed \
     -e "s|__RPI_USER__|${TARGET_USER}|g" \
     -e "s|__RPI_GROUP__|${TARGET_GROUP}|g" \
@@ -46,5 +47,7 @@ Installed systemd units.
   the next boot.
 - Enable backup.timer only after Restic is configured and tested.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
+- Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
+  reachable; it refreshes metadata and searches recent releases every Monday.
 - Enable automation-stack.service when n8n/Ollama should start.
 EOF

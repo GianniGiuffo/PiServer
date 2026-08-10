@@ -1,0 +1,19 @@
+[Unit]
+Description=Refresh Lidarr metadata and search recent monitored releases
+Wants=network-online.target
+After=network-online.target media-stack.service
+Requires=media-stack.service
+ConditionPathExists=__REPO_DIR__/.env
+
+[Service]
+Type=oneshot
+User=__RPI_USER__
+Group=__RPI_GROUP__
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/python3 __REPO_DIR__/scripts/lidarr-weekly-search.py --lookback-days 14 --future-days 1
+TimeoutStartSec=2h
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict

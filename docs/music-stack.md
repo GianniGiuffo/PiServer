@@ -250,6 +250,51 @@ che i test hanno avuto successo. Il compose abilita la gestione remota dei
 soli file slskd, necessaria per eliminare la cartella di un job dopo
 l'importazione, ma mantiene disattivata la modifica remota della configurazione.
 
+### Ricerca settimanale senza feed RSS
+
+La sincronizzazione RSS cerca soltanto nelle release pubblicate dal feed
+dell'indicizzatore. Se l'indicizzatore non fornisce un feed utile, installare
+il timer incluso nel repository:
+
+```bash
+cd /opt/raspberry-server
+sudo bash scripts/install-systemd.sh YOUR_LINUX_USER
+
+# Verifica senza aggiornare metadati o avviare download.
+sudo -u YOUR_LINUX_USER python3 scripts/lidarr-weekly-search.py --dry-run
+
+sudo systemctl enable --now lidarr-weekly-search.timer
+systemctl list-timers lidarr-weekly-search.timer
+```
+
+Ogni lunedì mattina il servizio:
+
+1. legge la chiave API direttamente da
+   `${DATA_DIR}/lidarr/config.xml`, senza copiarla nel repository;
+2. aggiorna i metadati di tutti gli artisti monitorati;
+3. seleziona gli album, EP e singoli monitorati usciti negli ultimi 14 giorni
+   e ancora incompleti;
+4. avvia una ricerca automatica soltanto per quelle release.
+
+La finestra di 14 giorni introduce una sovrapposizione intenzionale rispetto
+alla cadenza settimanale: recupera metadati pubblicati in ritardo senza
+ricercare ogni volta l'intero catalogo. Lidarr ignora le release già complete.
+Per provare subito il job reale e leggerne il log:
+
+```bash
+sudo systemctl start lidarr-weekly-search.service
+sudo journalctl -u lidarr-weekly-search.service -n 100 --no-pager
+```
+
+In **Settings > Profiles > Metadata Profiles**, il profilo assegnato agli
+artisti deve includere `Album`, `EP` e `Single`. Ogni artista deve essere
+monitorato e configurato per monitorare le nuove uscite; in caso contrario
+Lidarr non aggiunge quelle release al proprio catalogo e lo script non ha
+nulla da cercare. L'orario è definito in
+`systemd/lidarr-weekly-search.timer`; dopo una modifica eseguire
+`sudo systemctl daemon-reload && sudo systemctl restart
+lidarr-weekly-search.timer`.
+
 In slskd:
 
 1. accedere con `SLSKD_WEB_USERNAME` e `SLSKD_WEB_PASSWORD`;
@@ -297,6 +342,66 @@ Path: /data/aurral
 
 Non aggiungere `/data` o `/data/.downloads`: includerebbero file parziali e
 duplicati.
+
+### Album sdoppiati in Navidrome
+
+Navidrome raggruppa la musica usando i tag incorporati nei file, non le
+directory. Differenze anche minime in `ALBUM`, `ALBUMARTIST`, data o
+`MUSICBRAINZ_ALBUMID` possono quindi creare schede separate. Nelle schermate
+di esempio sono già visibili due cause concrete:
+
+- `Bar della rabbia` / `Bar Della Rabbia` e `Mannarino` / `Alessandro
+  Mannarino`;
+- titoli con maiuscole diverse come `Musica Per Bambini` / `Musica per
+  bambini`.
+
+Non mascherare il problema impostando `ND_PID_ALBUM=folder`: potrebbe unire
+edizioni realmente diverse dello stesso disco e lascerebbe incoerenti i tag.
+Correggere invece i file gestiti da Lidarr:
+
+1. fare prima una copia di sicurezza dell'album; `/srv/media/music` è
+   volutamente esclusa dal backup Restic di configurazione;
+2. in Lidarr aprire **Settings > Media Management**, mostrare le opzioni
+   avanzate e impostare **Write Metadata Tags** su **All Files**;
+3. dall'artista selezionare **Retag Files**, controllare l'anteprima e
+   applicarla all'album interessato;
+4. verificare che tutte le tracce abbiano esattamente lo stesso `ALBUM`, lo
+   stesso `ALBUMARTIST` e lo stesso `MUSICBRAINZ_ALBUMID` della release scelta;
+5. avviare una nuova scansione della libreria in Navidrome. Se le vecchie
+   schede rimangono, eseguire una scansione completa con eliminazione dei file
+   mancanti; `ND_SCANNER_PURGEMISSING=always` è già configurato.
+
+Per album con collaborazioni o crediti complessi, MusicBrainz Picard è
+preferibile al retag massivo di Lidarr: consente di scegliere esplicitamente
+la stessa release MusicBrainz per tutte le tracce e di conservare gli artisti
+ospiti. In ogni caso non correggere soltanto nome file o cartella: Navidrome
+non li usa per determinare l'identità dell'album.
+
+### Import fallito con `Has missing tracks`
+
+Il messaggio non indica un FLAC corrotto. Significa che il job ricevuto non
+contiene tutte le tracce previste dalla specifica release MusicBrainz
+selezionata da Lidarr. Nel caso `Rubami la Notte FLAC`, il download contiene
+una sola traccia mentre la release scelta ne richiede altre, quindi Lidarr
+blocca correttamente l'importazione parziale.
+
+Procedere così:
+
+1. in **Activity > Queue** rimuovere il job fallito e aggiungerlo alla
+   blocklist, per evitare che venga scelto di nuovo;
+2. aprire la ricerca interattiva dell'album/singolo e confrontare il numero di
+   tracce del risultato con quello della release monitorata;
+3. scegliere un risultato completo oppure cambiare la release monitorata con
+   la corretta edizione digitale a traccia singola, se esiste;
+4. importare manualmente il file soltanto se titolo, artista, durata e release
+   coincidono davvero. Non disabilitare il controllo delle tracce mancanti:
+   creerebbe album incompleti e nuovi duplicati in Navidrome.
+
+La presenza, nella schermata di `Fake News`, di due righe identiche `Fede`
+indica inoltre due file distinti o tag MusicBrainz incoerenti. Dopo avere
+individuato i percorsi da **Manage Files** in Lidarr, conservarne uno solo se
+sono duplicati reali e ritaggare l'intero album prima della scansione completa
+di Navidrome.
 
 ## 8. Configurare Aurral
 

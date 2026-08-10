@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Lidarr recent-release search every week
+
+[Timer]
+OnCalendar=Mon *-*-* 04:30:00
+RandomizedDelaySec=30min
+Persistent=true
+Unit=lidarr-weekly-search.service
+
+[Install]
+WantedBy=timers.target
