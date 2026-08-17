@@ -110,7 +110,8 @@ services:
       - /app/monitoring-api.py
     environment:
       NETWORK_INTERFACE: ${SERVER_NETWORK_INTERFACE:-auto}
-      MEDIA_PATH: /srv/media
+      MEDIA_MOUNTPOINT: ${MEDIA_DIR:?Set MEDIA_DIR in .env}
+      MEDIA_STATUS_FILE: /status/media.json
       BACKUP_STATUS_FILE: /status/backup.json
     volumes:
       - ./scripts/monitoring-api.py:/app/monitoring-api.py:ro
@@ -121,12 +122,6 @@ services:
       - /proc/1/mounts:/host/proc/mounts:ro
       - /sys:/host/sys:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/monitoring:/status:ro
-      - type: bind
-        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}
-        target: /srv/media
-        read_only: true
-        bind:
-          create_host_path: false
     read_only: true
     tmpfs:
       - /tmp
@@ -151,9 +146,6 @@ services:
     image: ${HOMEPAGE_IMAGE:?Set HOMEPAGE_IMAGE in .env}
     restart: unless-stopped
     mem_limit: 256m
-    depends_on:
-      - docker-socket-proxy
-      - monitoring-api
     environment:
       HOMEPAGE_ALLOWED_HOSTS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
       HOMEPAGE_VAR_TAILSCALE_FQDN: ${TAILSCALE_FQDN}

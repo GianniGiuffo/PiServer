@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically refresh the Homepage media status
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=media-status.service
+
+[Install]
+WantedBy=timers.target

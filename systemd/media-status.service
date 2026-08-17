@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh the PiServer media status shown by Homepage
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/refresh-media-status.sh
+Nice=19

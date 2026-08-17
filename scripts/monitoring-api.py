@@ -20,7 +20,8 @@ PROC_NET_DEV = Path(os.getenv("HOST_PROC_NET_DEV", "/host/proc/net/dev"))
 PROC_MOUNTS = Path(os.getenv("HOST_PROC_MOUNTS", "/host/proc/mounts"))
 THERMAL_ROOT = Path(os.getenv("HOST_THERMAL_ROOT", "/host/sys/class/thermal"))
 HWMON_ROOT = Path(os.getenv("HOST_HWMON_ROOT", "/host/sys/class/hwmon"))
-MEDIA_PATH = Path(os.getenv("MEDIA_PATH", "/srv/media"))
+MEDIA_MOUNTPOINT = os.getenv("MEDIA_MOUNTPOINT", "/srv/media")
+MEDIA_STATUS_FILE = Path(os.getenv("MEDIA_STATUS_FILE", "/status/media.json"))
 BACKUP_STATUS_FILE = Path(
     os.getenv("BACKUP_STATUS_FILE", "/status/backup.json")
 )
@@ -158,7 +159,6 @@ def _unescape_mount_path(value: str) -> str:
 
 
 def _media_is_mounted() -> bool:
-    media = str(MEDIA_PATH)
     try:
         for line in _read_text(PROC_MOUNTS).splitlines():
             fields = line.split()
@@ -166,7 +166,7 @@ def _media_is_mounted() -> bool:
                 continue
             mountpoint = _unescape_mount_path(fields[1])
             filesystem = fields[2]
-            if mountpoint == media and filesystem != "autofs":
+            if mountpoint == MEDIA_MOUNTPOINT and filesystem != "autofs":
                 return True
     except OSError:
         return False
@@ -263,23 +263,25 @@ class Metrics:
                 "used_percent": None,
             }
         try:
-            stats = os.statvfs(MEDIA_PATH)
-            total = stats.f_blocks * stats.f_frsize
-            free = stats.f_bavail * stats.f_frsize
-            used_percent = round((total - free) * 100 / total, 1) if total else None
-            return {
-                "status": "Montato",
-                "free_bytes": free,
-                "total_bytes": total,
-                "used_percent": used_percent,
-            }
-        except OSError:
-            return {
-                "status": "Non disponibile",
-                "free_bytes": None,
-                "total_bytes": None,
-                "used_percent": None,
-            }
+            payload = json.loads(_read_text(MEDIA_STATUS_FILE))
+            if (
+                isinstance(payload, dict)
+                and payload.get("status") in {"Montato", "Non disponibile"}
+            ):
+                return {
+                    "status": payload["status"],
+                    "free_bytes": payload.get("free_bytes"),
+                    "total_bytes": payload.get("total_bytes"),
+                    "used_percent": payload.get("used_percent"),
+                }
+        except (OSError, json.JSONDecodeError):
+            pass
+        return {
+            "status": "Non disponibile",
+            "free_bytes": None,
+            "total_bytes": None,
+            "used_percent": None,
+        }
 
     @staticmethod
     def backup() -> dict[str, object]:

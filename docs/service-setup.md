@@ -26,10 +26,12 @@ Nelle quattro card di sistema ogni etichetta (per esempio **CPU**) è mostrata
 sopra al relativo valore; il CSS è limitato agli ID `system-*` e non cambia i
 widget degli altri servizi.
 
-`monitoring-api` legge soltanto i file necessari sotto `/proc` e `/sys`, il
-mount media e il JSON di stato del backup. Non riceve socket Docker o systemd,
-non pubblica porte e risponde soltanto sulla rete Docker interna `monitoring`.
-Se `/srv/media` non è un mount reale, la banda NAS mostra **Non montato**.
+`monitoring-api` legge soltanto i file necessari sotto `/proc` e `/sys` e i
+JSON locali con lo stato di media e backup. Non monta `/srv/media`, non riceve
+socket Docker o systemd, non pubblica porte e risponde soltanto sulla rete
+Docker interna `monitoring`. `media-status.timer` aggiorna capacità e stato del
+NAS ogni minuto; se `/srv/media` non è un mount reale, la banda NAS mostra
+**Non montato**. Il NAS non è quindi una dipendenza di avvio di Homepage.
 
 L'interfaccia di rete è rilevata automaticamente ignorando loopback, Docker e
 Tailscale. Per fissarla esplicitamente, trovare quella della route predefinita:
