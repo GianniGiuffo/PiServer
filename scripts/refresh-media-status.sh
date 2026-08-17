@@ -28,7 +28,10 @@ total_bytes=null
 free_bytes=null
 used_percent=null
 
-mount_record=$(findmnt -rn --mountpoint "${MEDIA_DIR}" --output TARGET,FSTYPE 2>/dev/null || true)
+mount_record=$(
+  findmnt -rn --mountpoint "${MEDIA_DIR}" --output TARGET,FSTYPE 2>/dev/null |
+    awk '$2 != "autofs" { print; exit }' || true
+)
 read -r mounted_target filesystem <<<"${mount_record}"
 if [[ ${mounted_target:-} == "${MEDIA_DIR}" && ${filesystem:-} != autofs ]]; then
   status="Non disponibile"
