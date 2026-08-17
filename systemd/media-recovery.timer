@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically recover the PiServer media stack
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=media-recovery.service
+
+[Install]
+WantedBy=timers.target

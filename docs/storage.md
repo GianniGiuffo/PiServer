@@ -183,11 +183,17 @@ Docker. Non creare il marker sull'SSD locale.
 ## Storage media assente
 
 I servizi core continuano a funzionare. I servizi media restano fermi oppure
-falliscono senza creare directory locali sostitutive. Quando il NAS torna:
+falliscono senza creare directory locali sostitutive. `media-recovery.timer`
+controlla ogni minuto: se `media-stack.service` è abilitato, tenta il mount,
+verifica marker e struttura e riavvia lo stack quando lo storage ritorna. Non
+riattiva mai uno stack disabilitato intenzionalmente.
+
+Per non attendere il prossimo controllo, quando il NAS torna:
 
 ```bash
 sudo mount /srv/media
 sudo systemctl restart media-stack.service
+sudo bash scripts/refresh-media-status.sh
 ```
 
 Prima di scollegare il disco o spegnere il NAS:

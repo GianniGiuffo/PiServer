@@ -32,6 +32,8 @@ socket Docker o systemd, non pubblica porte e risponde soltanto sulla rete
 Docker interna `monitoring`. `media-status.timer` aggiorna capacità e stato del
 NAS ogni minuto; se `/srv/media` non è un mount reale, la banda NAS mostra
 **Non montato**. Il NAS non è quindi una dipendenza di avvio di Homepage.
+Se lo stack media è abilitato, `media-recovery.timer` ritenta ogni minuto il
+mount e l'avvio dei servizi dopo un'assenza temporanea dello storage.
 
 L'interfaccia di rete è rilevata automaticamente ignorando loopback, Docker e
 Tailscale. Per fissarla esplicitamente, trovare quella della route predefinita:

@@ -1,0 +1,11 @@
+[Unit]
+Description=Recover the PiServer media stack when storage returns
+After=network-online.target docker.service core-stack.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/recover-media-stack.sh
+TimeoutStartSec=3min
+Nice=19

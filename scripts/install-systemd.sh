@@ -26,6 +26,7 @@ for unit in \
   site-deploy.service site-deploy.timer backup.service backup.timer \
   backup-status.service backup-status.timer \
   media-status.service media-status.timer \
+  media-recovery.service media-recovery.timer \
   lidarr-weekly-search.service lidarr-weekly-search.timer; do
   sed \
     -e "s|__RPI_USER__|${TARGET_USER}|g" \
@@ -36,18 +37,20 @@ done
 
 systemctl daemon-reload
 systemctl enable \
-  core-stack.service site-deploy.timer backup-status.timer media-status.timer
+  core-stack.service site-deploy.timer backup-status.timer media-status.timer \
+  media-recovery.timer
 if [[ -r ${REPO_DIR}/.env ]]; then
   bash "${REPO_DIR}/scripts/refresh-backup-status.sh" auto
   bash "${REPO_DIR}/scripts/refresh-media-status.sh"
-  systemctl start backup-status.timer media-status.timer
+  systemctl start backup-status.timer media-status.timer media-recovery.timer
 fi
 
 cat <<EOF
 Installed systemd units.
 
 - core-stack.service, site-deploy.timer, backup-status.timer and
-  media-status.timer are enabled for the next boot.
+  media-status.timer are enabled for the next boot. media-recovery.timer
+  retries an enabled media stack when its storage becomes available.
 - Enable backup.timer only after Restic is configured and tested.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
 - Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
