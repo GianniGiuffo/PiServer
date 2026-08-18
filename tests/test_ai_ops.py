@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -92,6 +93,33 @@ class GatewayPolicyTests(unittest.TestCase):
         action = {**self._plan()["actions"][0], "patch": "diff --git ..."}
         with self.assertRaises(self.gateway.ApiError):
             self.gateway.validate_action(action)
+
+    def test_compose_diagnostics_expose_only_state_fields(self) -> None:
+        raw = json.dumps(
+            [
+                {
+                    "Service": "homepage",
+                    "Name": "piserver-homepage-1",
+                    "State": "running",
+                    "Health": "healthy",
+                    "Status": "Up 2 hours",
+                    "Labels": "private.path=/srv/private",
+                    "Mounts": "/srv/private:/data",
+                    "Command": "secret command",
+                }
+            ]
+        )
+        completed = self.gateway.subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=raw, stderr=""
+        )
+        with patch.object(self.gateway.subprocess, "run", return_value=completed):
+            result = self.gateway._compose_status("core")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["services"][0]["Service"], "homepage")
+        serialized = json.dumps(result)
+        self.assertNotIn("private.path", serialized)
+        self.assertNotIn("Mounts", serialized)
+        self.assertNotIn("Command", serialized)
 
     def test_plan_token_is_single_use(self) -> None:
         registration = self.gateway.create_plan(self._plan())
@@ -185,16 +213,30 @@ class WorkflowTests(unittest.TestCase):
             )
         )
         names = {node["name"] for node in workflow["nodes"]}
-        references = {
-            connection["node"]
-            for value in workflow["connections"].values()
-            for branch in value["main"]
-            for connection in branch
-        }
+        references = set()
+        for value in workflow["connections"].values():
+            for branches in value.values():
+                for branch in branches:
+                    references.update(connection["node"] for connection in branch)
         self.assertLessEqual(references, names)
         serialized = json.dumps(workflow)
-        self.assertIn("http://ollama:11434/api/chat", serialized)
+        node_types = {node["type"] for node in workflow["nodes"]}
+        nodes_by_name = {node["name"]: node for node in workflow["nodes"]}
+        self.assertIn("@n8n/n8n-nodes-langchain.chainLlm", node_types)
+        self.assertIn("@n8n/n8n-nodes-langchain.lmChatOllama", node_types)
+        self.assertIn("@n8n/n8n-nodes-langchain.outputParserStructured", node_types)
+        self.assertEqual(
+            nodes_by_name["Diagnostica di base"].get("onError"),
+            "continueRegularOutput",
+        )
+        self.assertEqual(
+            nodes_by_name["Diagnosi con Qwen"].get("onError"),
+            "continueRegularOutput",
+        )
         self.assertIn("qwen3.5:4b", serialized)
+        self.assertIn('"numCtx": 4096', serialized)
+        self.assertIn('"numPredict": 768', serialized)
+        self.assertNotIn("/api/chat", serialized)
         self.assertNotIn("openai.com", serialized.lower())
         self.assertNotIn("apply_repo_patch", serialized)
         self.assertNotIn("$env", serialized)

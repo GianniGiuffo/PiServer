@@ -10,12 +10,6 @@
     "media-recovery.service",
     "media-recovery.timer"
   ],
-  "diagnostic_files": [
-    "Caddyfile",
-    "compose.yaml",
-    "compose.media.yaml",
-    "compose.automation.yaml"
-  ],
   "restartable_systemd_units": [
     "core-stack.service",
     "media-stack.service",

@@ -23,7 +23,7 @@ file Nextcloud o directory media. Può vedere soltanto:
 - stato e health dei container Compose;
 - `git status --short`;
 - spazio del filesystem della repo;
-- porzioni limitate dei file infrastrutturali versionati elencati nella policy.
+- la policy locale con i soli target eseguibili.
 
 Le sole azioni eseguibili sono:
 
@@ -84,10 +84,10 @@ Assicurarsi che `.env` contenga, oltre ai valori già presenti:
 AI_OPS_TELEGRAM_CHAT_ID=123456789
 AI_OPS_TELEGRAM_USER_ID=123456789
 OLLAMA_MODEL=qwen3.5:4b
-OLLAMA_CONTEXT_LENGTH=8192
+OLLAMA_CONTEXT_LENGTH=4096
 OLLAMA_NUM_PARALLEL=1
 OLLAMA_MAX_LOADED_MODELS=1
-OLLAMA_KEEP_ALIVE=5m
+OLLAMA_KEEP_ALIVE=30m
 ```
 
 Se gli ID Telegram non sono ancora noti, lasciare temporaneamente i valori di
@@ -136,9 +136,9 @@ Se `ollama list` mostra un nome diverso, usare esattamente quel nome al posto
 di `qwen2.5:3b`. La rimozione libera solo i layer non condivisi; non elimina la
 configurazione di n8n.
 
-## 3. Creare le due credenziali n8n
+## 3. Creare le tre credenziali n8n
 
-Aprire n8n dalla Tailnet e creare due credenziali **Header Auth**.
+Aprire n8n dalla Tailnet e creare prima due credenziali **Header Auth**.
 
 Prima credenziale:
 
@@ -163,8 +163,17 @@ sudo cat /etc/raspberry-server/ai-ops-token
 sudo cat /etc/raspberry-server/ai-ops-telegram-bridge-token
 ```
 
-Non creare una credenziale Ollama o OpenAI per questo workflow: la chiamata a
-Ollama resta sulla rete Docker interna.
+Terza credenziale, di tipo **Ollama**:
+
+| Campo | Valore |
+| --- | --- |
+| Name | `PiServer Ollama locale` |
+| Base URL | `http://ollama:11434` |
+| API Key | vuota, se il form la mostra come opzionale |
+
+Questa credenziale non contiene un segreto: indica al nodo nativo **Ollama Chat
+Model** l'indirizzo interno del container. Non usare `localhost`, che dentro
+n8n indicherebbe il container n8n stesso. Non serve alcuna credenziale OpenAI.
 
 ## 4. Creare il bot e ricavare gli ID
 
@@ -199,7 +208,8 @@ richiesta solo quando coincidono sia utente sia chat.
 
 ## 5. Importare e attivare il workflow
 
-Da n8n selezionare **Import from File** e importare:
+Disattivare prima l'eventuale versione precedente del workflow, poi selezionare
+**Import from File** e importare:
 
 ```text
 workflows/n8n-ai-ops-telegram-local.json
@@ -210,10 +220,16 @@ Aprire tutti i nodi che richiedono credenziali e selezionare quella corretta:
 - `PiServer AI Ops Gateway` per diagnostica, registrazione, esecuzione e
   annullamento del piano;
 - `PiServer AI Ops Telegram Bridge` per messaggi e callback Telegram.
+- `PiServer Ollama locale` nel nodo **Ollama Chat Model**.
 
-Il nodo **Ollama Qwen locale** non deve avere credenziali. Salvare e attivare
-il workflow: il percorso di produzione deve restare
+Il flusso AI deve contenere **Basic LLM Chain**, **Ollama Chat Model** e
+**Structured Output Parser**; non deve più esserci un HTTP Request diretto a
+`/api/chat`. Salvare e attivare il nuovo workflow soltanto dopo avere associato
+le tre credenziali. Il percorso di produzione deve restare
 `piserver-ai-ops-telegram-v1`, perché il poller lo usa sulla rete interna.
+
+Quando il nuovo workflow funziona, eliminare la vecchia versione per evitare
+due webhook con lo stesso percorso.
 
 ## 6. Avviare il poller e verificare
 
@@ -239,6 +255,11 @@ apparire alcun pulsante di conferma. Per provare l'intero ciclo, descrivere un
 servizio ammesso realmente non funzionante e controllare attentamente piano e
 rischi prima di premere **Conferma**.
 
+Il bot invia subito una conferma di presa in carico. Se il gateway, Ollama o il
+parser non completano la diagnosi, deve poi arrivare un rapporto di errore senza
+azioni e senza pulsanti di approvazione: il workflow non deve interrompersi in
+silenzio.
+
 Verifiche host utili:
 
 ```bash
@@ -246,6 +267,29 @@ sudo systemctl status ai-ops-gateway.service automation-stack.service --no-pager
 sudo journalctl -u ai-ops-gateway.service -n 100 --no-pager
 sudo ls -la /var/lib/raspberry-server/ai-ops
 ```
+
+## Prestazioni e memoria
+
+`qwen3.5:4b` occupa normalmente circa 4-5 GB mentre è caricato. Il limite
+Compose è 8 GB, ma è un tetto e non una prenotazione: Ollama non usa RAM
+aggiuntiva se il modello non ne ha bisogno. Aumentare il solo limite non rende
+più veloce la generazione.
+
+Il workflow è ottimizzato per l'i5-7500 con quattro thread, contesto 4096,
+batch di prompt 1024, massimo 768 token di risposta, thinking disattivato e
+keep-alive di 30 minuti. La diagnostica non include più contenuti dei file
+Compose e viene inviata in forma strutturata e compatta. Durante una richiesta
+controllare il consumo reale con:
+
+```bash
+docker stats --no-stream
+docker compose -f compose.yaml -f compose.automation.yaml exec ollama ollama ps
+```
+
+In `docker stats`, circa `400%` CPU per Ollama corrisponde all'uso completo dei
+quattro core. Il valore Homepage può essere rilevato dopo la fine della
+generazione e quindi mostrare `0%` anche se durante la richiesta la CPU era
+satura.
 
 ## Arresto e rollback operativo
 

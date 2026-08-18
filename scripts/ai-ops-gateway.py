@@ -143,30 +143,55 @@ def _disk_summary(path: Path) -> dict[str, Any]:
         return {"path": str(path), "error": str(exc)}
 
 
-def _diagnostic_sources() -> dict[str, Any]:
-    sources: dict[str, Any] = {}
-    total = 0
-    for relative in POLICY["diagnostic_files"]:
-        path = (STACK_DIR / relative).resolve()
-        if not path.is_relative_to(STACK_DIR):
-            sources[relative] = {"error": "path outside repository"}
-            continue
-        try:
-            content = path.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:
-            sources[relative] = {"error": str(exc)}
-            continue
-        remaining = max(0, 12_000 - total)
-        original_length = len(content)
-        content = _redact(content[: min(4_000, remaining)])
-        total += len(content)
-        sources[relative] = {
-            "content": content,
-            "truncated": original_length > len(content),
+def _compose_status(stack: str) -> dict[str, Any]:
+    """Return only state fields, never Compose labels, commands or mounts."""
+    started = time.monotonic()
+    try:
+        result = subprocess.run(
+            _compose_argv(stack) + ["ps", "--format", "json"],
+            cwd=str(STACK_DIR),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            env={**os.environ, "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8"},
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"ok": False, "error": _redact(str(exc))}
+
+    if result.returncode != 0:
+        return {
+            "ok": False,
+            "exit_code": result.returncode,
+            "error": _redact(result.stderr.strip()),
         }
-        if total >= 12_000:
-            break
-    return sources
+
+    raw = result.stdout.strip()
+    try:
+        decoded = json.loads(raw) if raw else []
+        records = decoded if isinstance(decoded, list) else [decoded]
+    except json.JSONDecodeError:
+        try:
+            records = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        except json.JSONDecodeError:
+            return {"ok": False, "error": "invalid Docker Compose status response"}
+
+    services: list[dict[str, Any]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        services.append(
+            {
+                key: record[key]
+                for key in ("Service", "Name", "State", "Health", "ExitCode", "Status")
+                if key in record and record[key] not in (None, "")
+            }
+        )
+    return {
+        "ok": True,
+        "duration_ms": round((time.monotonic() - started) * 1000),
+        "services": services,
+    }
 
 
 def collect_diagnostics() -> dict[str, Any]:
@@ -182,7 +207,7 @@ def collect_diagnostics() -> dict[str, Any]:
 
     compose: dict[str, Any] = {}
     for stack in ("core", "media", "automation"):
-        compose[stack] = _run(_compose_argv(stack) + ["ps", "--format", "json"], timeout=20)
+        compose[stack] = _compose_status(stack)
 
     return {
         "generated_at": int(time.time()),
@@ -193,7 +218,7 @@ def collect_diagnostics() -> dict[str, Any]:
                 "Docker Compose container state and health",
                 "repository git status",
                 "disk usage for the repository filesystem",
-                "fixed versioned infrastructure configuration files",
+                "the fixed local action allowlist",
             ],
             "excluded": [
                 "application logs",
@@ -219,7 +244,6 @@ def collect_diagnostics() -> dict[str, Any]:
         "compose": compose,
         # Do not expose names of untracked local files to the model or Telegram.
         "git": _run(["git", "status", "--short", "--untracked-files=no"], timeout=10),
-        "configuration_sources": _diagnostic_sources(),
         "disk": [_disk_summary(STACK_DIR)],
     }
 

@@ -8,9 +8,10 @@ i5-7500. `automation-stack.service` avvia:
 - **Ollama**: inferenza locale raggiungibile soltanto da n8n.
 
 Non viene usata una GPU. Il modello selezionato è `qwen3.5:4b`, quantizzato
-Q4 e grande circa 3,4 GB su disco. Ollama ha un limite di 6 GB, contesto 8K,
-una sola richiesta parallela e un solo modello caricato; modelli o contesti
-più grandi saturerebbero rapidamente CPU e RAM.
+Q4 e grande circa 3,4 GB su disco. Ollama ha un limite massimo di 8 GB,
+contesto 4K, una sola richiesta parallela e un solo modello caricato. Il
+modello residente occupa normalmente circa 4-5 GB: il limite non è RAM
+preallocata.
 
 Ollama non pubblica porte sull'host. Usa una seconda rete Docker senza servizi
 collegati soltanto per le connessioni uscenti necessarie a scaricare un modello;
@@ -27,10 +28,10 @@ TAILSCALE_FQDN=mini-pc.example-tailnet.ts.net
 N8N_WEBHOOK_DOMAIN=mini-pc.example-tailnet.ts.net
 N8N_CHAT_PATH=/webhook/replace-with-the-production-chat-path
 OLLAMA_MODEL=qwen3.5:4b
-OLLAMA_CONTEXT_LENGTH=8192
+OLLAMA_CONTEXT_LENGTH=4096
 OLLAMA_NUM_PARALLEL=1
 OLLAMA_MAX_LOADED_MODELS=1
-OLLAMA_KEEP_ALIVE=5m
+OLLAMA_KEEP_ALIVE=30m
 ```
 
 `N8N_WEBHOOK_DOMAIN` deve essere uguale a `TAILSCALE_FQDN`. Non aggiungere una
@@ -111,6 +112,11 @@ Nel nodo **Ollama Chat Model** selezionare `qwen3.5:4b`. Per il primo test
 usare temperatura `0.2`-`0.4`; se l'interfaccia espone il controllo del
 ragionamento, tenerlo basso o disattivato finché non sono state misurate
 latenza e RAM.
+
+Per AI Ops usare i valori più conservativi già presenti nel workflow:
+temperatura `0`, thinking disattivato, quattro thread, contesto `4096`, context
+batch `1024` e massimo `768` token generati. Il contesto più grande usa più RAM
+ma su questo processore aumenta anche la latenza; non è un acceleratore.
 
 Per collegare la ricerca Internet privata e i file Nextcloud in sola lettura,
 proseguire con [ai-connectors.md](ai-connectors.md).
