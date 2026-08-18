@@ -93,6 +93,24 @@ locale. Non inoltrare automaticamente documenti Nextcloud, segreti o cronologia
 della chat. Usare Qwen per la traduzione locale dei documenti privati oppure
 richiedere una conferma umana prima di usare DeepL.
 
+## AI Ops locale
+
+Il workflow di manutenzione usa `qwen3.5:4b` dentro Ollama. Prompt e diagnostica
+non vengono inviati a un fornitore AI remoto; il comando e i rapporti passano
+però attraverso Telegram. Il profilo di raccolta esclude log applicativi,
+`.env`, credenziali, database, file Nextcloud e media.
+
+n8n non riceve il socket Docker e non esegue shell. Un gateway host separato
+ascolta soltanto su Unix socket, valida azioni tipizzate contro
+`config/ai-ops/policy.json` e accetta solo target in allowlist. Shell, patch e
+percorsi arbitrari sono rifiutati anche dopo l'approvazione.
+
+Ogni azione richiede conferma Telegram da una combinazione esatta di user ID e
+chat ID. La credenziale che marca il piano come approvato è montata soltanto
+nel poller Telegram, non in n8n. I piani scadono dopo 15 minuti, sono monouso e
+restano registrati localmente per audit. Vedi
+[n8n-ai-ops-local.md](n8n-ai-ops-local.md).
+
 ## StreamingCommunity downloader
 
 Il pannello è raggiungibile soltanto attraverso Tailscale e usa

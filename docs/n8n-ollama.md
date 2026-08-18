@@ -115,6 +115,10 @@ latenza e RAM.
 Per collegare la ricerca Internet privata e i file Nextcloud in sola lettura,
 proseguire con [ai-connectors.md](ai-connectors.md).
 
+Per la diagnosi operativa manuale con piano Qwen e approvazione Telegram,
+seguire [n8n-ai-ops-local.md](n8n-ai-ops-local.md). Questo workflow usa l'API
+Ollama interna direttamente e non richiede account o credito OpenAI.
+
 ## 6. Postgres Chat Memory
 
 La memoria usa lo stesso PostgreSQL già impiegato da n8n. La tabella

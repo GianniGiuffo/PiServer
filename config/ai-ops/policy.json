@@ -1,0 +1,45 @@
+{
+  "plan_ttl_seconds": 900,
+  "max_actions_per_plan": 3,
+  "diagnostic_units": [
+    "core-stack.service",
+    "media-stack.service",
+    "automation-stack.service",
+    "backup.service",
+    "backup.timer",
+    "media-recovery.service",
+    "media-recovery.timer"
+  ],
+  "diagnostic_files": [
+    "Caddyfile",
+    "compose.yaml",
+    "compose.media.yaml",
+    "compose.automation.yaml"
+  ],
+  "restartable_systemd_units": [
+    "core-stack.service",
+    "media-stack.service",
+    "backup.timer",
+    "media-recovery.timer"
+  ],
+  "restartable_compose_services": {
+    "caddy": "core",
+    "pihole": "core",
+    "vaultwarden": "core",
+    "homepage": "core",
+    "uptime-kuma": "core",
+    "nextcloud": "media",
+    "nextcloud-cron": "media",
+    "jellyfin": "media",
+    "immich-server": "media",
+    "lidarr": "media",
+    "slskd": "media",
+    "navidrome": "media",
+    "aurral": "media",
+    "searxng": "automation"
+  },
+  "maintenance_tasks": [
+    "preflight",
+    "recover-media-stack"
+  ]
+}
