@@ -22,12 +22,7 @@ case "${STACK}" in
     ;;
   automation)
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.automation.yaml")
-    SERVICES=(n8n-postgres ollama ollama-model-init searxng ai-ops-bridge n8n)
-    if [[ -r /etc/raspberry-server/ai-ops-telegram-bot-token ]]; then
-      SERVICES+=(ai-ops-telegram)
-    else
-      echo "AI Ops Telegram bot token is absent; its polling bridge will not start." >&2
-    fi
+    SERVICES=(n8n-postgres ollama ollama-model-init searxng n8n)
     ;;
   *)
     echo "Unknown stack '${STACK}'." >&2

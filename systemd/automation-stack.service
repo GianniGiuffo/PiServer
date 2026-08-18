@@ -1,8 +1,8 @@
 [Unit]
 Description=Start n8n, PostgreSQL, Ollama and SearXNG
 Wants=network-online.target
-After=network-online.target docker.service core-stack.service ai-ops-gateway.service
-Requires=docker.service core-stack.service ai-ops-gateway.service
+After=network-online.target docker.service core-stack.service
+Requires=docker.service core-stack.service
 ConditionPathExists=__REPO_DIR__/.env
 
 [Service]

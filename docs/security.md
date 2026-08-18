@@ -93,26 +93,6 @@ locale. Non inoltrare automaticamente documenti Nextcloud, segreti o cronologia
 della chat. Usare Qwen per la traduzione locale dei documenti privati oppure
 richiedere una conferma umana prima di usare DeepL.
 
-## AI Ops remoto
-
-Il workflow Telegram di manutenzione usa l'API OpenAI remota: descrizione del
-problema, stato dei servizi e configurazioni infrastrutturali versionate
-ammesse lasciano il server. Il profilo iniziale esclude log applicativi, `.env`,
-credenziali, database, file Nextcloud e media. Non
-incollare nel comando Telegram dati che non devono essere inviati a OpenAI.
-
-n8n non riceve il socket Docker e non esegue shell. Un gateway host root
-separato ascolta soltanto su Unix socket, valida azioni tipizzate contro
-`config/ai-ops/policy.json` e richiede un piano monouso approvato via Telegram.
-Il bridge Unix/TCP e il poller Telegram sono su reti Docker interne; il polling
-è solo in uscita e non rende pubblico alcun webhook n8n.
-
-Ogni modifica richiede conferma. La diagnostica di base in sola lettura non la
-richiede. I piani scadono dopo 15 minuti, non possono essere riutilizzati e
-restano registrati localmente per l'audit. La credenziale che marca un piano
-come approvato è montata soltanto nel poller Telegram, non in n8n. Vedi
-[n8n-ai-ops.md](n8n-ai-ops.md).
-
 ## StreamingCommunity downloader
 
 Il pannello è raggiungibile soltanto attraverso Tailscale e usa

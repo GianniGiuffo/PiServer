@@ -21,7 +21,7 @@ case "${STACK}" in
     ;;
   automation)
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.automation.yaml")
-    SERVICES=(ai-ops-telegram n8n ai-ops-bridge searxng ollama-model-init ollama n8n-postgres)
+    SERVICES=(n8n searxng ollama-model-init ollama n8n-postgres)
     ;;
   *)
     echo "Unknown stack '${STACK}'." >&2
