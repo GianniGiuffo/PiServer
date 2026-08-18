@@ -20,9 +20,22 @@ REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 # configuration directory. Files such as backup.env can remain root-only.
 install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server
 install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server/sites
+install -d -m 0700 -o root -g root /var/lib/raspberry-server/ai-ops
+
+# These independent tokens authenticate n8n to the root gateway and to the
+# Telegram sending bridge. Preserve existing values across reinstalls.
+for token_file in ai-ops-token ai-ops-approval-token ai-ops-telegram-bridge-token; do
+  if [[ ! -s /etc/raspberry-server/${token_file} ]]; then
+    umask 0027
+    openssl rand -hex 32 > "/etc/raspberry-server/${token_file}"
+  fi
+  chown root:"${TARGET_GROUP}" "/etc/raspberry-server/${token_file}"
+  chmod 0640 "/etc/raspberry-server/${token_file}"
+done
 
 for unit in \
   core-stack.service media-stack.service automation-stack.service \
+  ai-ops-gateway.service \
   site-deploy.service site-deploy.timer backup.service backup.timer \
   backup-status.service backup-status.timer \
   media-status.service media-status.timer \
@@ -37,8 +50,9 @@ done
 
 systemctl daemon-reload
 systemctl enable \
-  core-stack.service site-deploy.timer backup-status.timer media-status.timer \
+  core-stack.service ai-ops-gateway.service site-deploy.timer backup-status.timer media-status.timer \
   media-recovery.timer
+systemctl start ai-ops-gateway.service
 if [[ -r ${REPO_DIR}/.env ]]; then
   bash "${REPO_DIR}/scripts/refresh-backup-status.sh" auto
   bash "${REPO_DIR}/scripts/refresh-media-status.sh"
@@ -49,11 +63,14 @@ cat <<EOF
 Installed systemd units.
 
 - core-stack.service, site-deploy.timer, backup-status.timer and
-  media-status.timer are enabled for the next boot. media-recovery.timer
+  media-status.timer are enabled for the next boot. ai-ops-gateway.service
+  exposes only its local Unix socket. media-recovery.timer
   retries an enabled media stack when its storage becomes available.
 - Enable backup.timer only after Restic is configured and tested.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
 - Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
   reachable; it refreshes metadata and searches recent releases every Monday.
 - Enable automation-stack.service when n8n/Ollama should start.
+- Before enabling the AI Ops Telegram workflow, create the root-only bot token
+  file described in docs/n8n-ai-ops.md.
 EOF

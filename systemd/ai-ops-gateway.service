@@ -1,0 +1,46 @@
+[Unit]
+Description=PiServer allowlisted AI operations gateway
+After=local-fs.target docker.service
+Requires=docker.service
+ConditionPathExists=__REPO_DIR__/config/ai-ops/policy.json
+ConditionPathExists=/etc/raspberry-server/ai-ops-token
+ConditionPathExists=/etc/raspberry-server/ai-ops-approval-token
+
+[Service]
+Type=simple
+User=root
+Group=__RPI_GROUP__
+WorkingDirectory=__REPO_DIR__
+Environment=AI_OPS_STACK_DIR=__REPO_DIR__
+Environment=AI_OPS_POLICY_FILE=__REPO_DIR__/config/ai-ops/policy.json
+Environment=AI_OPS_STATE_DIR=/var/lib/raspberry-server/ai-ops
+Environment=AI_OPS_TOKEN_FILE=/etc/raspberry-server/ai-ops-token
+Environment=AI_OPS_APPROVAL_TOKEN_FILE=/etc/raspberry-server/ai-ops-approval-token
+Environment=AI_OPS_SOCKET=/run/piserver-ai-ops/gateway.sock
+ExecStart=/usr/bin/python3 __REPO_DIR__/scripts/ai-ops-gateway.py
+Restart=on-failure
+RestartSec=5s
+RuntimeDirectory=piserver-ai-ops
+RuntimeDirectoryMode=0750
+UMask=0007
+
+# The service is root because approved systemd/Docker operations need it. Its
+# filesystem and network view are nevertheless reduced to the required scope.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=__REPO_DIR__ /var/lib/raspberry-server/ai-ops /run/piserver-ai-ops
+
+[Install]
+WantedBy=multi-user.target
