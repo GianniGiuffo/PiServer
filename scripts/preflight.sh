@@ -15,7 +15,7 @@ if grep -Eq 'CHANGE_ME|render-group-number' "${STACK_ENV}"; then
   exit 1
 fi
 
-required=(docker tailscale restic findmnt)
+required=(awk docker tailscale restic findmnt flock timeout)
 for command_name in "${required[@]}"; do
   command -v "${command_name}" >/dev/null || {
     echo "Missing required command: ${command_name}" >&2

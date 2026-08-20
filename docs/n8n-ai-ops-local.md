@@ -217,8 +217,7 @@ workflows/n8n-ai-ops-telegram-local.json
 
 Aprire tutti i nodi che richiedono credenziali e selezionare quella corretta:
 
-- `PiServer AI Ops Gateway` per diagnostica, registrazione, esecuzione e
-  annullamento del piano;
+- `PiServer AI Ops Gateway` per diagnostica, registrazione, esecuzione e annullamento del piano;
 - `PiServer AI Ops Telegram Bridge` per messaggi e callback Telegram.
 - `PiServer Ollama locale` nel nodo **Ollama Chat Model**.
 

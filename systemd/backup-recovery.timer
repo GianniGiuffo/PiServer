@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically recover overdue PiServer backups
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=backup-recovery.service
+
+[Install]
+WantedBy=timers.target

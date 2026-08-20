@@ -41,6 +41,39 @@ con capacità adeguata.
 
 Esempio con disco USB montato in `/mnt/piserver-backup`:
 
+Individuare UUID e filesystem senza basarsi sul nome variabile `/dev/sdX`:
+
+```bash
+lsblk -f
+sudo blkid
+sudo install -d -m 0750 /mnt/piserver-backup
+```
+
+Per un filesystem `ext4`, aggiungere a `/etc/fstab` una riga con l'UUID reale:
+
+```fstab
+UUID=UUID_REALE /mnt/piserver-backup ext4 defaults,noatime,nofail,x-systemd.automount,x-systemd.idle-timeout=10min,x-systemd.device-timeout=10s 0 2
+```
+
+L'automount consente di recuperare il disco dopo una riconnessione; il timeout
+di inattività smonta il filesystem reale dieci minuti dopo l'ultima operazione,
+riducendo il tempo nel quale una rimozione fisica sarebbe pericolosa. Applicare
+la configurazione e verificare che origine e filesystem siano quelli attesi:
+
+```bash
+sudo systemctl daemon-reload
+sudo mount /mnt/piserver-backup
+findmnt -T /mnt/piserver-backup
+```
+
+Soltanto dopo questa verifica creare il marker identificativo:
+
+```bash
+sudo touch /mnt/piserver-backup/.piserver-restic-backup
+```
+
+Configurare poi Restic:
+
 ```bash
 sudo install -d -m 0700 /etc/restic /etc/raspberry-server
 sudo sh -c 'umask 077; openssl rand -base64 48 > /etc/restic/password'
@@ -58,6 +91,11 @@ sudo bash -c '
   restic init
 '
 ```
+
+`scripts/check-backup-target.sh` richiede un mount reale, rifiuta `autofs` e
+percorsi locali sostitutivi e verifica il marker o la configurazione del
+repository Restic. In questo modo un disco assente o errato non può far
+scrivere il backup sull'SSD del server.
 
 Per SFTP/S3 usare il relativo `RESTIC_REPOSITORY` e omettere
 `RESTIC_MOUNTPOINT`. Eventuali credenziali restano in `backup.env`, mode `0600`.
@@ -81,7 +119,7 @@ sudo bash -c '
     grep -E "vaultwarden|pihole|uptime-kuma|streamingcommunity|aurral|lidarr|slskd|navidrome|nextcloud.sql|immich.sql|n8n.sql"
 '
 
-sudo systemctl enable --now backup.timer
+sudo systemctl enable --now backup.timer backup-recovery.timer
 systemctl list-timers backup.timer
 sudo bash scripts/refresh-backup-status.sh auto
 ```
@@ -92,6 +130,50 @@ Dopo ogni esecuzione `backup.sh` aggiorna automaticamente stato, ultimo
 successo e prossimo avvio; un errore conserva la data dell'ultimo backup
 riuscito e imposta lo stato su **Fallito**. `backup-status.timer`, installato
 insieme alle altre unità, riallinea il prossimo orario ogni cinque minuti.
+`backup-recovery.timer` controlla ogni cinque minuti soltanto quando l'ultimo
+backup riuscito ha più di 26 ore. Se il supporto è tornato disponibile, avvia
+subito il backup perso senza attendere la notte seguente. Non opera quando
+`backup.timer` è disabilitato.
+
+Ogni esecuzione ha inoltre un lock esclusivo e timeout espliciti. Per un
+repository locale, Restic rimuove automaticamente gli eventuali lock rimasti
+da un processo interrotto, dopo avere verificato che nessun altro backup sia
+attivo.
+
+## Rimozione e riconnessione del disco USB
+
+Non scollegare il supporto mentre `backup.service` è attivo. Prima della
+rimozione:
+
+```bash
+sudo systemctl stop backup.timer backup-recovery.timer
+sudo systemctl stop backup.service
+sudo sync
+sudo umount /mnt/piserver-backup
+```
+
+Dopo che `umount` termina, non accedere di nuovo al percorso prima di avere
+scollegato il disco: l'automount lo monterebbe nuovamente. Dopo la
+riconnessione:
+
+```bash
+sudo systemctl start backup.timer backup-recovery.timer
+```
+
+Il recovery timer monta e verifica il supporto soltanto se il backup è
+scaduto. Per forzare immediatamente una verifica e un backup:
+
+```bash
+cd /opt/raspberry-server
+sudo bash scripts/check-backup-target.sh
+sudo systemctl start backup.service
+sudo journalctl -u backup.service -n 100 --no-pager
+```
+
+Se una rimozione improvvisa produce errori di filesystem, non inizializzare e
+non formattare il disco. Identificare prima la partizione con `lsblk -f`,
+smontarla e usare `fsck` sul dispositivo esatto; non eseguire `fsck` su un
+filesystem montato.
 
 La retention è di 7 snapshot giornalieri, 4 settimanali e 12 mensili. I vecchi
 snapshot con tag storico `raspberry-server` non vengono eliminati

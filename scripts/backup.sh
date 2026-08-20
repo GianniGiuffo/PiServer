@@ -13,6 +13,24 @@ STACK_ENV=${REPO_DIR}/.env
 # shellcheck source=scripts/read-stack-path.sh
 source "${SCRIPT_DIR}/read-stack-path.sh"
 
+# Prevent a direct/manual run from overlapping the systemd service.
+exec 9>/run/lock/raspberry-server-backup.lock
+if ! flock -n 9; then
+  echo "Another PiServer backup is already running." >&2
+  exit 75
+fi
+
+BACKUP_STARTED_EPOCH=$(date +%s)
+early_failure_status() {
+  local exit_status=$?
+  if (( exit_status != 0 )); then
+    local duration=$(( $(date +%s) - BACKUP_STARTED_EPOCH ))
+    bash "${SCRIPT_DIR}/refresh-backup-status.sh" failure "${duration}" ||
+      echo "WARNING: failed to update Homepage backup status." >&2
+  fi
+}
+trap early_failure_status EXIT
+
 if [[ ! -r ${BACKUP_ENV} ]]; then
   echo "Missing ${BACKUP_ENV}; see docs/backup-and-restore.md." >&2
   exit 1
@@ -34,9 +52,12 @@ STAGING_DIR=$(read_stack_value "${STACK_ENV}" STAGING_DIR)
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is required in ${BACKUP_ENV}}"
 : "${RESTIC_PASSWORD_FILE:?RESTIC_PASSWORD_FILE is required in ${BACKUP_ENV}}"
 
-if [[ -n ${RESTIC_MOUNTPOINT:-} ]] && ! mountpoint -q "${RESTIC_MOUNTPOINT}"; then
-  echo "Restic disk is not mounted at ${RESTIC_MOUNTPOINT}; refusing to continue." >&2
-  exit 1
+bash "${SCRIPT_DIR}/check-backup-target.sh"
+
+# Once an existing local repository has been verified, persist an explicit
+# disk identity marker for future stale/wrong-mount protection.
+if [[ -n ${RESTIC_MOUNTPOINT:-} ]]; then
+  touch "${RESTIC_MOUNTPOINT}/.piserver-restic-backup"
 fi
 
 mkdir -p "${STAGING_DIR}"
@@ -68,7 +89,6 @@ UPTIME_STOPPED=false
 VAULTWARDEN_STOPPED=false
 PIHOLE_STOPPED=false
 BACKUP_COMPLETED=false
-BACKUP_STARTED_EPOCH=$(date +%s)
 
 cleanup() {
   local exit_status=$?
@@ -258,8 +278,16 @@ RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/slskd/logs"
 )
 
-restic backup --tag pi-server "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"
-restic forget --prune --tag pi-server \
+RESTIC_OPERATION_TIMEOUT=${RESTIC_OPERATION_TIMEOUT:-2h}
+if [[ -n ${RESTIC_MOUNTPOINT:-} ]]; then
+  # This repository is on a disk attached only to this host. Clear locks left
+  # by an interrupted process after systemd confirms no other run is active.
+  timeout --foreground --kill-after=1min 10min restic unlock
+fi
+timeout --foreground --kill-after=5min "${RESTIC_OPERATION_TIMEOUT}" \
+  restic backup --tag pi-server "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"
+timeout --foreground --kill-after=5min "${RESTIC_OPERATION_TIMEOUT}" \
+  restic forget --prune --tag pi-server \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12
 
 rm -f \

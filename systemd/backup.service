@@ -7,5 +7,7 @@ After=network-online.target docker.service
 Type=oneshot
 WorkingDirectory=__REPO_DIR__
 ExecStart=/usr/bin/bash __REPO_DIR__/scripts/backup.sh
+TimeoutStartSec=5h
+TimeoutStopSec=10min
 Nice=19
 IOSchedulingClass=idle

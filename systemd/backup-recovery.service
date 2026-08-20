@@ -1,0 +1,11 @@
+[Unit]
+Description=Recover an overdue PiServer backup when its target returns
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/recover-backup.sh
+TimeoutStartSec=3min
+Nice=19
