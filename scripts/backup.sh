@@ -282,11 +282,11 @@ RESTIC_OPERATION_TIMEOUT=${RESTIC_OPERATION_TIMEOUT:-2h}
 if [[ -n ${RESTIC_MOUNTPOINT:-} ]]; then
   # This repository is on a disk attached only to this host. Clear locks left
   # by an interrupted process after systemd confirms no other run is active.
-  timeout --foreground --kill-after=1min 10min restic unlock
+  timeout --foreground --kill-after=1m 10m restic unlock
 fi
-timeout --foreground --kill-after=5min "${RESTIC_OPERATION_TIMEOUT}" \
+timeout --foreground --kill-after=5m "${RESTIC_OPERATION_TIMEOUT}" \
   restic backup --tag pi-server "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"
-timeout --foreground --kill-after=5min "${RESTIC_OPERATION_TIMEOUT}" \
+timeout --foreground --kill-after=5m "${RESTIC_OPERATION_TIMEOUT}" \
   restic forget --prune --tag pi-server \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12
 

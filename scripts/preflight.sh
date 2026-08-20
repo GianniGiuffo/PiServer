@@ -23,6 +23,11 @@ for command_name in "${required[@]}"; do
   }
 done
 
+if ! timeout --foreground --kill-after=1s 1s true; then
+  echo "The installed timeout command lacks the required GNU options." >&2
+  exit 1
+fi
+
 docker compose --project-directory "${REPO_DIR}" \
   -f "${REPO_DIR}/compose.yaml" config --quiet
 docker compose --project-directory "${REPO_DIR}" \
