@@ -211,6 +211,8 @@ Sul mini PC installare `config/backup/remote-state-backup.env.example` come
   `/etc/rack-pi/rest-server-minipc-password` dentro la URL;
 - la vecchia `/etc/restic/password` per cifrare/aprire lo storico;
 - `RESTIC_SKIP_RETENTION=true`, perché il client è append-only.
+- `BACKUP_TIMER_MANAGED_EXTERNALLY=true`, affinché reinstallazioni future delle
+  unità mantengano disabilitati i timer locali gestiti ora da `rack-pi`.
 
 Installare `config/backup/photos-backup.env.example` come
 `/etc/raspberry-server/photos-backup.env`, ma lasciare
@@ -259,14 +261,43 @@ Film, serie, musica e download restano in directory esterne e non sono inclusi.
 
 ## 8. Timer, retention e controlli
 
-Dopo un backup manuale riuscito:
+Dopo un backup manuale riuscito, sul mini PC rendere persistente il passaggio
+della pianificazione al Raspberry:
+
+```bash
+sudo systemctl disable --now backup.timer backup-recovery.timer
+systemctl is-enabled backup.timer backup-recovery.timer
+```
+
+Entrambi devono risultare `disabled`. Non mascherarli: le unità restano
+disponibili per un eventuale ritorno controllato alla modalità standalone, ma
+non partono al boot. `scripts/install-systemd.sh` rispetta
+`BACKUP_TIMER_MANAGED_EXTERNALLY=true` e non riabilita il recovery locale.
+
+Sul Raspberry abilitare sia i servizi di boot sia tutti i timer:
 
 ```bash
 sudo systemctl enable --now \
+  docker.service tailscaled.service \
+  rack-core-stack.service rack-rest-server.service \
+  rack-backup-status.timer rack-storage-status.timer \
   rack-backup.timer rack-backup-recovery.timer \
   rack-retention.timer rack-integrity.timer rack-restore-test.timer
 systemctl list-timers 'rack-*'
 ```
+
+Verificare la persistenza prima del reboot:
+
+```bash
+systemctl is-enabled \
+  docker.service tailscaled.service \
+  rack-core-stack.service rack-rest-server.service \
+  rack-backup-status.timer rack-storage-status.timer \
+  rack-backup.timer rack-backup-recovery.timer \
+  rack-retention.timer rack-integrity.timer rack-restore-test.timer
+```
+
+Ogni riga deve essere `enabled`.
 
 - backup giornaliero tra 04:15 e 05:15;
 - retry orario se stato/rack superano 26 ore o foto abilitate superano 8 giorni;

@@ -60,6 +60,13 @@ class RackPiArchitectureTests(unittest.TestCase):
         self.assertIn("14d 2m 1y", maintenance)
         self.assertIn("7d 1m 6m", maintenance)
 
+    def test_minipc_legacy_timers_stay_disabled_in_rack_mode(self) -> None:
+        remote_env = self.read("config/backup/remote-state-backup.env.example")
+        installer = self.read("scripts/install-systemd.sh")
+        self.assertIn("BACKUP_TIMER_MANAGED_EXTERNALLY=true", remote_env)
+        self.assertIn("systemctl disable --now backup.timer backup-recovery.timer", installer)
+        self.assertIn("BACKUP_TIMER_MANAGED_EXTERNALLY", installer)
+
     def test_rack_phase_contains_no_nut_or_fan_runtime(self) -> None:
         runtime_files = [
             RACK / "compose.yaml",

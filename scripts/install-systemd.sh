@@ -50,26 +50,39 @@ for unit in \
 done
 
 systemctl daemon-reload
+
+BACKUP_TIMER_MANAGED_EXTERNALLY=false
+if [[ -r /etc/raspberry-server/backup.env ]] &&
+   grep -Eq '^[[:space:]]*BACKUP_TIMER_MANAGED_EXTERNALLY=true([[:space:]]*(#.*)?)?$' \
+     /etc/raspberry-server/backup.env; then
+  BACKUP_TIMER_MANAGED_EXTERNALLY=true
+fi
+
 systemctl enable \
-  core-stack.service ai-ops-gateway.service site-deploy.timer backup-status.timer media-status.timer \
-  media-recovery.timer backup-recovery.timer
+  core-stack.service ai-ops-gateway.service site-deploy.timer backup-status.timer \
+  media-status.timer media-recovery.timer
+if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} == true ]]; then
+  systemctl disable --now backup.timer backup-recovery.timer
+else
+  systemctl enable backup-recovery.timer
+fi
 systemctl start ai-ops-gateway.service
 if [[ -r ${REPO_DIR}/.env ]]; then
   bash "${REPO_DIR}/scripts/refresh-backup-status.sh" auto
   bash "${REPO_DIR}/scripts/refresh-media-status.sh"
-  systemctl start \
-    backup-status.timer backup-recovery.timer media-status.timer media-recovery.timer
+  systemctl start backup-status.timer media-status.timer media-recovery.timer
+  if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} != true ]]; then
+    systemctl start backup-recovery.timer
+  fi
 fi
 
 cat <<EOF
 Installed systemd units.
 
 - core-stack.service, ai-ops-gateway.service, site-deploy.timer,
-  backup-status.timer, backup-recovery.timer and media-status.timer are enabled
-  for the next boot.
+  backup-status.timer and media-status.timer are enabled for the next boot.
   The AI Ops gateway exposes only a local Unix socket. media-recovery.timer
   retries an enabled media stack when its storage becomes available.
-- Enable backup.timer only after Restic is configured and tested.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
 - Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
   reachable; it refreshes metadata and searches recent releases every Monday.
@@ -77,3 +90,9 @@ Installed systemd units.
 - Before enabling the local AI Ops workflow, create the root-only Telegram bot
   token file described in docs/n8n-ai-ops-local.md.
 EOF
+
+if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} == true ]]; then
+  echo "- backup.timer and backup-recovery.timer remain disabled: an external orchestrator owns the schedule."
+else
+  echo "- backup-recovery.timer is enabled; enable backup.timer only after Restic is configured and tested."
+fi
