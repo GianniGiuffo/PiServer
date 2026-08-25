@@ -1,0 +1,11 @@
+[Unit]
+Description=Restore representative files from each Restic repository
+After=rack-backup.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__RACK_DIR__
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/repository-maintenance.sh restore
+TimeoutStartSec=8h
+Nice=19
+IOSchedulingClass=idle

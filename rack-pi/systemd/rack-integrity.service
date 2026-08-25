@@ -1,0 +1,11 @@
+[Unit]
+Description=Read ten percent of every Restic repository
+After=rack-backup.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__RACK_DIR__
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/repository-maintenance.sh integrity
+TimeoutStartSec=24h
+Nice=19
+IOSchedulingClass=idle

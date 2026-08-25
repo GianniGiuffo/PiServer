@@ -1,0 +1,192 @@
+name: rack-pi
+
+x-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  pihole:
+    image: ${PIHOLE_IMAGE:?Set PIHOLE_IMAGE in rack-pi/.env}
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD:?Set PIHOLE_PASSWORD}
+      FTLCONF_webserver_api_app_sudo: "true"
+      FTLCONF_dns_listeningMode: ALL
+      FTLCONF_dns_upstreams: 9.9.9.9;149.112.112.112
+      FTLCONF_database_maxDBdays: ${PIHOLE_MAX_DB_DAYS:-30}
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR}/pihole:/etc/pihole
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "127.0.0.1:8081:80/tcp"
+    networks:
+      - rack
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+  # Pi-hole v6 selective replication. DHCP and host-specific upstream/listening
+  # settings are deliberately not copied from the mini-PC.
+  nebula-sync:
+    image: ${NEBULA_SYNC_IMAGE:?Set NEBULA_SYNC_IMAGE}
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      - pihole
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      PRIMARY: "https://${MINIPC_TAILSCALE_FQDN}:8444|${MINIPC_PIHOLE_SYNC_PASSWORD:?Set sync password}"
+      REPLICAS: "http://pihole|${RACK_PI_PIHOLE_SYNC_PASSWORD:?Set sync password}"
+      FULL_SYNC: "false"
+      RUN_GRAVITY: "true"
+      CRON: "*/15 * * * *"
+      SYNC_CONFIG_DNS: "true"
+      SYNC_CONFIG_DNS_EXCLUDE: upstreams,listeningMode
+      SYNC_GRAVITY_GROUP: "true"
+      SYNC_GRAVITY_AD_LIST: "true"
+      SYNC_GRAVITY_AD_LIST_BY_GROUP: "true"
+      SYNC_GRAVITY_DOMAIN_LIST: "true"
+      SYNC_GRAVITY_DOMAIN_LIST_BY_GROUP: "true"
+      SYNC_GRAVITY_CLIENT: "true"
+      SYNC_GRAVITY_CLIENT_BY_GROUP: "true"
+    extra_hosts:
+      - "${MINIPC_TAILSCALE_FQDN}:${MINIPC_TAILSCALE_IP}"
+    networks:
+      - rack
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+  docker-socket-proxy:
+    image: ${DOCKER_SOCKET_PROXY_IMAGE:?Set DOCKER_SOCKET_PROXY_IMAGE}
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      CONTAINERS: "1"
+      EVENTS: "1"
+      INFO: "1"
+      PING: "1"
+      VERSION: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+  monitoring-api:
+    image: ${MONITORING_API_IMAGE:?Set MONITORING_API_IMAGE}
+    restart: unless-stopped
+    mem_limit: 64m
+    user: "65534:65534"
+    command:
+      - python
+      - /app/monitoring-api.py
+    environment:
+      NETWORK_INTERFACE: ${SERVER_NETWORK_INTERFACE:-auto}
+      MEDIA_MOUNTPOINT: ${BACKUP_MOUNTPOINT:?Set BACKUP_MOUNTPOINT}
+      MEDIA_STATUS_FILE: /status/storage.json
+      BACKUP_STATUS_FILE: /status/backup.json
+    volumes:
+      - ../scripts/monitoring-api.py:/app/monitoring-api.py:ro
+      - /proc/stat:/host/proc/stat:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
+      - /proc/uptime:/host/proc/uptime:ro
+      - /proc/net/dev:/host/proc/net/dev:ro
+      - /proc/1/mounts:/host/proc/mounts:ro
+      - /sys:/host/sys:ro
+      - ${DATA_DIR:?Set DATA_DIR}/monitoring:/status:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - monitoring
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+  homepage:
+    image: ${HOMEPAGE_IMAGE:?Set HOMEPAGE_IMAGE}
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: ${RACK_PI_TAILSCALE_FQDN:?Set RACK_PI_TAILSCALE_FQDN}
+      HOMEPAGE_VAR_RACK_PI_FQDN: ${RACK_PI_TAILSCALE_FQDN}
+      HOMEPAGE_VAR_MINIPC_FQDN: ${MINIPC_TAILSCALE_FQDN:?Set MINIPC_TAILSCALE_FQDN}
+    volumes:
+      - ./config/homepage:/app/config:ro
+    tmpfs:
+      - /app/config/logs
+    ports:
+      - "127.0.0.1:3000:3000/tcp"
+    extra_hosts:
+      - "${MINIPC_TAILSCALE_FQDN}:${MINIPC_TAILSCALE_IP}"
+    networks:
+      - rack
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+  uptime-kuma:
+    image: ${UPTIME_KUMA_IMAGE:?Set UPTIME_KUMA_IMAGE}
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      # Recommended upstream for Raspberry Pi when SQLite reports locking.
+      UPTIME_KUMA_SQLITE_SINGLE_CONNECTION: "true"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR}/uptime-kuma:/app/data
+    ports:
+      - "127.0.0.1:3001:3001/tcp"
+    extra_hosts:
+      - "${MINIPC_TAILSCALE_FQDN}:${MINIPC_TAILSCALE_IP}"
+    networks:
+      - rack
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+  # Started only by rack-rest-server.service after the USB disk and its marker
+  # pass validation. It never receives an automatic Docker restart policy.
+  rest-server:
+    profiles: [backup]
+    image: ${REST_SERVER_IMAGE:?Set REST_SERVER_IMAGE}
+    restart: "no"
+    mem_limit: 256m
+    environment:
+      PASSWORD_FILE: /run/secrets/rest-server.htpasswd
+      OPTIONS: --append-only --private-repos
+    volumes:
+      - ${BACKUP_MOUNTPOINT:?Set BACKUP_MOUNTPOINT}/repositories:/data
+      - /etc/rack-pi/rest-server.htpasswd:/run/secrets/rest-server.htpasswd:ro
+    ports:
+      - "${RACK_PI_TAILSCALE_IP:?Set RACK_PI_TAILSCALE_IP}:8000:8000/tcp"
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - rack
+    security_opt:
+      - no-new-privileges:true
+    logging: *bounded-logging
+
+networks:
+  rack:
+  monitoring:
+    internal: true

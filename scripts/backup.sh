@@ -47,6 +47,24 @@ source "${BACKUP_ENV}"
 set +a
 umask 077
 
+RESTIC_OPERATION_TIMEOUT=${RESTIC_OPERATION_TIMEOUT:-2h}
+RESTIC_BACKUP_TAG=${RESTIC_BACKUP_TAG:-pi-server}
+RESTIC_SKIP_RETENTION=${RESTIC_SKIP_RETENTION:-false}
+if [[ ${RESTIC_SKIP_RETENTION} != true && ${RESTIC_SKIP_RETENTION} != false ]]; then
+  echo "RESTIC_SKIP_RETENTION must be true or false." >&2
+  exit 1
+fi
+
+# systemd does not define HOME for this service, so Restic otherwise disables
+# its cache and makes prune substantially slower and more CPU intensive.
+XDG_CACHE_HOME=${XDG_CACHE_HOME:-/var/cache/raspberry-server}
+if [[ ${XDG_CACHE_HOME} != /* || ${XDG_CACHE_HOME} == "/" ]]; then
+  echo "XDG_CACHE_HOME must be a non-root absolute path." >&2
+  exit 1
+fi
+install -d -m 0700 -o root -g root "${XDG_CACHE_HOME}"
+export XDG_CACHE_HOME
+
 DATA_DIR=$(read_stack_value "${STACK_ENV}" DATA_DIR)
 STAGING_DIR=$(read_stack_value "${STACK_ENV}" STAGING_DIR)
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is required in ${BACKUP_ENV}}"
@@ -190,6 +208,13 @@ if is_running MEDIA immich-postgres; then
 else
   echo "WARNING: immich-postgres is not running; this snapshot has no new Immich dump." >&2
 fi
+if [[ ${IMMICH_STOPPED} == true ]]; then
+  # Immich assets are immutable once stored, and the live photo backup runs
+  # separately. Resume uploads immediately after the consistent database dump
+  # instead of keeping the application down during the state transfer.
+  "${MEDIA[@]}" start immich-server
+  IMMICH_STOPPED=false
+fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
@@ -278,17 +303,24 @@ RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/slskd/logs"
 )
 
-RESTIC_OPERATION_TIMEOUT=${RESTIC_OPERATION_TIMEOUT:-2h}
 if [[ -n ${RESTIC_MOUNTPOINT:-} ]]; then
   # This repository is on a disk attached only to this host. Clear locks left
   # by an interrupted process after systemd confirms no other run is active.
   timeout --foreground --kill-after=1m 10m restic unlock
 fi
 timeout --foreground --kill-after=5m "${RESTIC_OPERATION_TIMEOUT}" \
-  restic backup --tag pi-server "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"
-timeout --foreground --kill-after=5m "${RESTIC_OPERATION_TIMEOUT}" \
-  restic forget --prune --tag pi-server \
-  --keep-daily 7 --keep-weekly 4 --keep-monthly 12
+  restic backup --tag "${RESTIC_BACKUP_TAG}" \
+  "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"
+
+# A remote append-only Rest Server deliberately refuses forget/prune. In that
+# layout retention is performed locally by the protected rack-pi administrator.
+if [[ ${RESTIC_SKIP_RETENTION} == true ]]; then
+  echo "Retention delegated to the repository host."
+elif [[ ${RESTIC_SKIP_RETENTION} == false ]]; then
+  timeout --foreground --kill-after=5m "${RESTIC_OPERATION_TIMEOUT}" \
+    restic forget --prune --tag "${RESTIC_BACKUP_TAG}" \
+    --keep-daily 7 --keep-weekly 4 --keep-monthly 12
+fi
 
 rm -f \
   "${STAGING_DIR}/nextcloud.sql" \

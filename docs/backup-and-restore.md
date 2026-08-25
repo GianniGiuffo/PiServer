@@ -1,5 +1,12 @@
 # Backup e ripristino
 
+Questa pagina descrive anche la modalità standalone storica, nella quale il
+repository è collegato direttamente al mini PC. La modalità raccomandata con il
+Raspberry usa invece il timer e il disco USB su `rack-pi`; la migrazione completa
+è in [rack-pi.md](rack-pi.md). Lo stesso `scripts/backup.sh` supporta entrambe:
+con `RESTIC_SKIP_RETENTION=true` il mini PC aggiunge snapshot a Rest Server
+append-only e retention/prune vengono eseguiti localmente dal Raspberry.
+
 ## Cosa viene salvato
 
 Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
@@ -138,7 +145,8 @@ subito il backup perso senza attendere la notte seguente. Non opera quando
 Ogni esecuzione ha inoltre un lock esclusivo e timeout espliciti. Per un
 repository locale, Restic rimuove automaticamente gli eventuali lock rimasti
 da un processo interrotto, dopo avere verificato che nessun altro backup sia
-attivo.
+attivo. La cache locale sotto `/var/cache/raspberry-server` evita che prune
+ricarichi e ricostruisca inutilmente gli indici a ogni esecuzione.
 
 ## Rimozione e riconnessione del disco USB
 
@@ -175,9 +183,16 @@ non formattare il disco. Identificare prima la partizione con `lsblk -f`,
 smontarla e usare `fsck` sul dispositivo esatto; non eseguire `fsck` su un
 filesystem montato.
 
-La retention è di 7 snapshot giornalieri, 4 settimanali e 12 mensili. I vecchi
+La retention standalone è di 7 snapshot giornalieri, 4 settimanali e 12 mensili. I vecchi
 snapshot con tag storico `raspberry-server` non vengono eliminati
 automaticamente dal nuovo tag `pi-server`.
+
+Con `rack-pi` le retention sono separate per tag e repository: stato mini PC e
+Raspberry 14 giorni, 2 mesi settimanali e 1 anno mensile; foto 7 giorni, 1 mese
+settimanale e 6 mesi mensile. Le finestre `--keep-within*` evitano che snapshot
+con timestamp ostili sostituiscano quelli validi durante la manutenzione di un
+repository alimentato da un client append-only. I tag storici non sono
+selezionati e restano conservati.
 
 ## Restore test non distruttivo
 

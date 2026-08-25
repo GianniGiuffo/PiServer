@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh rack USB storage status every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=rack-storage-status.service
+
+[Install]
+WantedBy=timers.target

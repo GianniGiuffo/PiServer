@@ -1,0 +1,11 @@
+[Unit]
+Description=Quarterly non-destructive Restic restore test
+
+[Timer]
+OnCalendar=*-01,04,07,10-03 07:30:00
+Persistent=true
+RandomizedDelaySec=1h
+Unit=rack-restore-test.service
+
+[Install]
+WantedBy=timers.target

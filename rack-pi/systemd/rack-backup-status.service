@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh rack backup status for Homepage
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/refresh-backup-status.sh
+TimeoutStartSec=3min

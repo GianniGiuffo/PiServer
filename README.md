@@ -1,4 +1,4 @@
-# PiServer sul Dell OptiPlex 7050 Tiny
+# PiServer sul Dell OptiPlex e Raspberry `rack-pi`
 
 Configurazione riproducibile per un home server Debian 13 con Docker Compose.
 La repo contiene configurazione, script di bootstrap, unità systemd, backup
@@ -12,6 +12,15 @@ Hardware di riferimento:
 - 16 GB di RAM;
 - SSD interno da 240 GB per sistema, configurazioni e database;
 - disco da circa 4 TB condiviso in LAN e montato in `/srv/media`.
+- Raspberry Pi 4 da 4 GB con Raspberry Pi OS Lite 64 bit e microSD da 64 GB;
+- HDD USB ext4 da 500 GB sul Raspberry per i repository Restic.
+
+Il Raspberry è un secondo host indipendente: offre Pi-hole secondario,
+Homepage e Uptime Kuma, coordina via SSH ristretto i backup del mini PC e serve
+i repository Restic in modalità append-only sulla Tailnet. La configurazione è
+in [`rack-pi`](rack-pi) e la procedura completa è in
+[`docs/rack-pi.md`](docs/rack-pi.md). NUT e controllo ventole saranno aggiunti
+soltanto dopo la scelta dell'hardware.
 
 ## Servizi
 
@@ -108,12 +117,17 @@ sua rottura.
 La procedura completa e i comandi di restore sono in
 [docs/backup-and-restore.md](docs/backup-and-restore.md).
 
+Con `rack-pi`, il timer giornaliero risiede sul Raspberry, il mini PC può solo
+aggiungere snapshot al proprio repository remoto e le foto hanno repository e
+retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
+
 ## Documentazione
 
 - [Prima installazione](docs/first-boot.md)
 - [Storage di rete e struttura delle directory](docs/storage.md)
 - [Migrazione dal Raspberry Pi](docs/minipc-migration.md)
 - [Backup e ripristino](docs/backup-and-restore.md)
+- [Raspberry rack-pi, DNS secondario e backup remoto](docs/rack-pi.md)
 - [Accesso remoto e sicurezza](docs/security.md)
 - [Configurazione iniziale dei servizi](docs/service-setup.md)
 - [Stack musicale](docs/music-stack.md)

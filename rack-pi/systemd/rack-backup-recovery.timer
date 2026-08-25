@@ -1,0 +1,11 @@
+[Unit]
+Description=Check hourly for overdue rack backups
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+AccuracySec=2min
+Unit=rack-backup-recovery.service
+
+[Install]
+WantedBy=timers.target

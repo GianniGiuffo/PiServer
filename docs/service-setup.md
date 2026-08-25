@@ -66,7 +66,9 @@ sudo bash scripts/refresh-backup-status.sh auto
 
 La banda mostra orari relativi aggiornati da Homepage. `backup-status.timer`
 ricalcola ogni cinque minuti il prossimo avvio effettivo; il backup resta
-programmato alle 03:15 con un ritardo casuale massimo di 30 minuti.
+programmato alle 04:15 con un ritardo casuale massimo di un'ora. Quando è
+attivo `rack-pi`, il prossimo avvio effettivo è gestito dal timer sul Raspberry;
+il mini PC conserva questo orario soltanto come fallback visuale.
 
 Homepage mostra due controlli distinti per i servizi configurati:
 

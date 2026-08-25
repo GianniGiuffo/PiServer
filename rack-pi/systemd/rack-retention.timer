@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly Restic retention and structural check
+
+[Timer]
+OnCalendar=Sun *-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=30min
+Unit=rack-retention.service
+
+[Install]
+WantedBy=timers.target

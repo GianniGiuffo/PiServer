@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh rack backup status every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=rack-backup-status.service
+
+[Install]
+WantedBy=timers.target

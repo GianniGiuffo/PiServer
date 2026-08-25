@@ -214,6 +214,11 @@ sudo systemctl enable --now backup.timer
 sudo systemctl start backup.service
 ```
 
+Questo abilita la modalità standalone con repository collegato al mini PC. Se
+il backup è coordinato dal Raspberry `rack-pi`, non abilitare questi due timer:
+seguire [rack-pi.md](rack-pi.md), installare il client SSH ristretto e abilitare
+`rack-backup.timer` sul Raspberry.
+
 ## 12. Disco da 4 TB e servizi media
 
 Quando il disco è disponibile, seguire [storage.md](storage.md) e preparare lo

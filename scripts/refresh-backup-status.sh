@@ -62,11 +62,12 @@ fi
 if [[ -z ${last_success} && -r ${BACKUP_ENV} ]]; then
   set -a
   # shellcheck disable=SC1090
-  source "${BACKUP_ENV}"
-  set +a
+source "${BACKUP_ENV}"
+set +a
+BACKUP_TAG=${RESTIC_BACKUP_TAG:-pi-server}
   if [[ -z ${RESTIC_MOUNTPOINT:-} ]] || mountpoint -q "${RESTIC_MOUNTPOINT}"; then
     snapshot_json=$(
-      timeout 30s restic snapshots --tag pi-server --latest 1 --json 2>/dev/null ||
+      timeout 30s restic snapshots --tag "${BACKUP_TAG}" --latest 1 --json 2>/dev/null ||
         true
     )
     if [[ -n ${snapshot_json} ]]; then
@@ -87,11 +88,15 @@ if [[ -n ${next_run_raw} && ${next_run_raw} != n/a ]]; then
   next_run=$(date --date="${next_run_raw}" --iso-8601=seconds 2>/dev/null || true)
 fi
 if [[ -z ${next_run} ]]; then
-  today_run=$(date --date="today 03:15" +%s)
+  schedule_time=${BACKUP_SCHEDULE_TIME:-04:15}
+  if [[ ! ${schedule_time} =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
+    schedule_time=04:15
+  fi
+  today_run=$(date --date="today ${schedule_time}" +%s)
   if (( $(date +%s) < today_run )); then
-    next_run=$(date --date="today 03:15" --iso-8601=seconds)
+    next_run=$(date --date="today ${schedule_time}" --iso-8601=seconds)
   else
-    next_run=$(date --date="tomorrow 03:15" --iso-8601=seconds)
+    next_run=$(date --date="tomorrow ${schedule_time}" --iso-8601=seconds)
   fi
 fi
 

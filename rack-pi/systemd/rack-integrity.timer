@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly Restic ten-percent data verification
+
+[Timer]
+OnCalendar=*-*-02 07:30:00
+Persistent=true
+RandomizedDelaySec=1h
+Unit=rack-integrity.service
+
+[Install]
+WantedBy=timers.target

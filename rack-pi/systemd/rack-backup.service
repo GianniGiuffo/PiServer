@@ -1,0 +1,13 @@
+[Unit]
+Description=Orchestrate mini-PC, photo and rack-pi backups
+Wants=network-online.target
+After=network-online.target rack-rest-server.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__RACK_DIR__
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/backup-orchestrator.sh
+TimeoutStartSec=8h
+TimeoutStopSec=10min
+Nice=19
+IOSchedulingClass=idle

@@ -1,0 +1,18 @@
+[Unit]
+Description=Start rack-pi DNS and monitoring services
+Wants=network-online.target
+After=network-online.target docker.service tailscaled.service
+Requires=docker.service
+ConditionPathExists=__RACK_DIR__/.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=__RACK_DIR__
+ExecStart=/usr/bin/docker compose up -d pihole nebula-sync docker-socket-proxy monitoring-api homepage uptime-kuma
+ExecStop=/usr/bin/docker compose stop pihole nebula-sync docker-socket-proxy monitoring-api homepage uptime-kuma
+TimeoutStartSec=10min
+TimeoutStopSec=3min
+
+[Install]
+WantedBy=multi-user.target

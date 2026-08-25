@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh rack USB storage status for Homepage
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/refresh-storage-status.sh
+TimeoutStartSec=2min

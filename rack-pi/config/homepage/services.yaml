@@ -1,0 +1,119 @@
+- Sistema rack:
+    - Raspberry:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/server
+          refreshInterval: 5000
+          mappings:
+            - field: cpu_percent
+              label: CPU
+              format: percent
+            - field: memory_percent
+              label: Memoria
+              format: percent
+            - field: temperature_c
+              label: Temperatura
+              format: float
+              suffix: " °C"
+            - field: uptime_seconds
+              label: Uptime
+              format: duration
+    - HDD backup:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/nas
+          refreshInterval: 10000
+          mappings:
+            - field: status
+              label: Stato
+            - field: free_bytes
+              label: Liberi
+              format: bytes
+            - field: total_bytes
+              label: Totali
+              format: bytes
+            - field: used_percent
+              label: Utilizzo
+              format: percent
+    - Rete:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/network
+          refreshInterval: 5000
+          mappings:
+            - field: interface
+              label: Interfaccia
+            - field: rx_bps
+              label: Entrata
+              format: bitrate
+            - field: tx_bps
+              label: Uscita
+              format: bitrate
+    - Backup:
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/backup
+          refreshInterval: 15000
+          mappings:
+            - field: status
+              label: Stato
+            - field: minipc_last_success
+              label: Mini PC
+              format: relativeDate
+              locale: it
+            - field: photos_last_success
+              label: Foto
+              format: relativeDate
+              locale: it
+            - field: next_run
+              label: Prossimo
+              format: relativeDate
+              locale: it
+
+- Servizi rack:
+    - Pi-hole secondario:
+        icon: pi-hole.png
+        href: https://{{HOMEPAGE_VAR_RACK_PI_FQDN}}:8444/admin/
+        siteMonitor: http://pihole/admin/
+        description: DNS replica LAN e Tailnet
+        server: local
+        container: rack-pi-pihole-1
+    - Uptime Kuma rack:
+        icon: uptime-kuma.png
+        href: https://{{HOMEPAGE_VAR_RACK_PI_FQDN}}:8448/
+        siteMonitor: http://uptime-kuma:3001/
+        description: Monitoraggio del mini PC
+        server: local
+        container: rack-pi-uptime-kuma-1
+    - Replica Pi-hole:
+        icon: mdi-database-sync
+        description: Sincronizzazione ogni 15 minuti
+        server: local
+        container: rack-pi-nebula-sync-1
+    - Repository Restic:
+        icon: mdi-backup-restore
+        description: Endpoint append-only sulla Tailnet
+        server: local
+        container: rack-pi-rest-server-1
+
+- Mini PC:
+    - Homepage mini PC:
+        icon: homepage.png
+        href: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}/
+        siteMonitor: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}/
+        description: Dashboard applicativa
+    - Pi-hole principale:
+        icon: pi-hole.png
+        href: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}:8444/admin/
+        siteMonitor: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}:8444/admin/
+        description: DNS principale
+    - Immich:
+        icon: immich.png
+        href: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}:8447/
+        siteMonitor: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}:8447/api/server/ping
+        description: Foto protette da Restic
+    - Uptime Kuma mini PC:
+        icon: uptime-kuma.png
+        href: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}:8448/
+        siteMonitor: https://{{HOMEPAGE_VAR_MINIPC_FQDN}}:8448/
+        description: Controllo inverso di rack-pi

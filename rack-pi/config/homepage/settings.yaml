@@ -1,0 +1,24 @@
+title: Rack Pi
+description: Diagnostica e continuita del rack
+language: it
+theme: dark
+color: slate
+headerStyle: boxed
+hideVersion: true
+disableIndexing: true
+statusStyle: dot
+target: _self
+fullWidth: true
+
+layout:
+  Sistema rack:
+    style: row
+    columns: 4
+    header: false
+    useEqualHeights: true
+  Servizi rack:
+    style: row
+    columns: 4
+  Mini PC:
+    style: row
+    columns: 4

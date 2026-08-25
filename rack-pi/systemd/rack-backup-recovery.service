@@ -1,0 +1,8 @@
+[Unit]
+Description=Retry overdue rack backups
+
+[Service]
+Type=oneshot
+WorkingDirectory=__RACK_DIR__
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/recover-overdue-backup.sh
+TimeoutStartSec=5min

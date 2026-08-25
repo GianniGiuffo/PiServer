@@ -20,13 +20,18 @@
 | Navidrome | Tailscale Serve `8452` | no |
 | Lidarr Web UI | Tailscale Serve `8453` | no |
 | slskd Web UI | Tailscale Serve `8454` | no; la porta P2P `50300` resta chiusa |
+| Homepage `rack-pi` | Tailscale Serve `443` sul Raspberry | no |
+| Pi-hole secondario | DNS LAN/Tailnet + Serve `8444` | no |
+| Uptime Kuma `rack-pi` | Tailscale Serve `8448` | no |
+| Rest Server append-only | IPv4 Tailscale `rack-pi:8000` | no |
+| SSH backup mini PC | IPv4 Tailscale `mini-pc:2222`, solo `pibackup` | no |
 | Soulseek peer port `50300` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
 | Ollama, SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 | proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
-4533, 5030, 5031, 50300, 5678, 6379, 8000, 8096, 8686 o 11434.
+4533, 5030, 5031, 50300, 5678, 6379, 8000, 8096, 8686, 11434 o 2222.
 
 ## Vaultwarden
 
@@ -145,6 +150,28 @@ locale. `check-media-mount.sh` richiede sia un mount reale sia il marker
 Il media remoto non è coperto dal backup Restic di configurazione. Un guasto del
 disco da 4 TB comporterà la perdita dei file finché non verrà predisposta una
 seconda copia.
+
+## Raspberry `rack-pi` e backup remoto
+
+Rest Server ascolta soltanto sull'IPv4 Tailscale di `rack-pi`, usa autenticazione
+bcrypt e modalità append-only/private-repos. HTTP non è esposto alla LAN: il
+trasporto è protetto da Tailscale e i pack Restic sono già cifrati end-to-end.
+Le operazioni distruttive `forget` e `prune` avvengono soltanto localmente sul
+Raspberry dopo avere fermato l'endpoint remoto.
+
+Il mini PC non accetta una shell amministrativa dal Raspberry. L'utente
+`pibackup` ha password bloccata, chiave Ed25519 limitata all'IP Tailscale del
+Raspberry, opzione OpenSSH `restrict`, forced command e una sola regola sudo
+senza argomenti. La host key del mini PC viene confrontata fuori banda e poi
+fissata in un `known_hosts` root-only. L'automazione usa OpenSSH sulla porta
+dedicata 2222, limitata al solo `pibackup`, perché la porta Tailnet 22 continua
+a essere gestita da Tailscale SSH per gli accessi interattivi.
+
+Il repository delle configurazioni del Raspberry usa password e percorso
+separati e non è raggiungibile dalle credenziali `minipc`. La chiavetta storica
+viene conservata offline dopo la migrazione. Rimane accettato il rischio di sito
+singolo: non esiste una copia off-site contro furto, incendio o perdita
+simultanea del rack.
 
 ## Pi-hole e Tailscale
 
