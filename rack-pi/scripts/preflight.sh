@@ -27,7 +27,13 @@ done
 docker compose --project-directory "${RACK_DIR}" \
   -f "${RACK_DIR}/compose.yaml" config --quiet
 if ss -H -lntu '( sport = :53 )' 2>/dev/null | grep -q .; then
-  echo "WARNING: port 53 is already occupied; Pi-hole cannot start."
+  if docker compose --project-directory "${RACK_DIR}" \
+      -f "${RACK_DIR}/compose.yaml" ps --services --status running | \
+      grep -qx pihole; then
+    echo "Port 53 is occupied by the expected running Pi-hole container."
+  else
+    echo "WARNING: port 53 is occupied by a process other than this running Pi-hole."
+  fi
 fi
 
 configured_ip=$(grep -m1 '^RACK_PI_TAILSCALE_IP=' "${ENV_FILE}" | cut -d= -f2- | tr -d '\r')
