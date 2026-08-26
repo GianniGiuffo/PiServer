@@ -176,6 +176,10 @@ services:
       - ${DATA_DIR:?Set DATA_DIR in .env}/uptime-kuma:/app/data
     ports:
       - "127.0.0.1:3001:3001/tcp"
+    extra_hosts:
+      # Resolve rack-pi's certificate hostname even though the mini PC does
+      # not accept Tailscale DNS configuration.
+      - "${RACK_PI_TAILSCALE_FQDN:?Set RACK_PI_TAILSCALE_FQDN in .env}:${RACK_PI_TAILSCALE_IP:?Set RACK_PI_TAILSCALE_IP in .env}"
     networks:
       - web
       - nextcloud-access

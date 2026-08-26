@@ -365,8 +365,21 @@ UPTIME_KUMA_MAINTENANCE_PUSH_URL=http://127.0.0.1:3001/api/push/TOKEN_MAINTENANC
 
 Gli script aggiungono autonomamente `status`, `msg` e `ping`; non copiare quindi
 la query string mostrata da Kuma. Sul mini PC aggiungere monitor inversi per
-`rack-pi`, Pi-hole secondario e Homepage. Mantenere retention Uptime Kuma
-contenuta per limitare le scritture sulla microSD.
+`rack-pi`, Pi-hole secondario e Homepage. Poiché il mini PC mantiene
+`accept-dns=false`, impostare nel suo `/opt/raspberry-server/.env` anche:
+
+```dotenv
+RACK_PI_TAILSCALE_FQDN=rack-pi.example-tailnet.ts.net
+RACK_PI_TAILSCALE_IP=100.64.0.4
+```
+
+Usare i valori restituiti sul Raspberry da `tailscale status --json | jq -r
+'.Self.DNSName'` (rimuovendo il punto finale) e `tailscale ip -4`. Il Compose
+del mini PC inserisce questa corrispondenza nel container Uptime Kuma, così i
+monitor HTTPS raggiungono Tailscale Serve mantenendo il nome valido del
+certificato. Dopo la modifica ricreare soltanto il servizio con `docker compose
+up -d --force-recreate uptime-kuma`. Mantenere retention Uptime Kuma contenuta
+per limitare le scritture sulla microSD.
 
 ## Riferimenti dei componenti
 

@@ -26,6 +26,16 @@ class RackPiArchitectureTests(unittest.TestCase):
         self.assertNotIn("/var/run/docker.sock", homepage)
         self.assertIn("docker-socket-proxy", compose)
 
+    def test_minipc_uptime_kuma_resolves_rack_pi_fqdn(self) -> None:
+        compose = self.read("compose.yaml")
+        uptime_kuma = compose.split("  uptime-kuma:", 1)[1].split("networks:", 1)[0]
+        env_example = self.read(".env.example")
+        self.assertIn("extra_hosts:", uptime_kuma)
+        self.assertIn("${RACK_PI_TAILSCALE_FQDN", uptime_kuma)
+        self.assertIn("${RACK_PI_TAILSCALE_IP", uptime_kuma)
+        self.assertIn("RACK_PI_TAILSCALE_FQDN=", env_example)
+        self.assertIn("RACK_PI_TAILSCALE_IP=", env_example)
+
     def test_rack_homepage_matches_horizontal_system_layout(self) -> None:
         settings = self.read("rack-pi/config/homepage/settings.yaml")
         services = self.read("rack-pi/config/homepage/services.yaml")
