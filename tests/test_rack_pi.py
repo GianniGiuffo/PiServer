@@ -26,6 +26,27 @@ class RackPiArchitectureTests(unittest.TestCase):
         self.assertNotIn("/var/run/docker.sock", homepage)
         self.assertIn("docker-socket-proxy", compose)
 
+    def test_rack_homepage_matches_horizontal_system_layout(self) -> None:
+        settings = self.read("rack-pi/config/homepage/settings.yaml")
+        services = self.read("rack-pi/config/homepage/services.yaml")
+        css = self.read("rack-pi/config/homepage/custom.css")
+        rack_layout = settings.split("  Sistema rack:", 1)[1].split(
+            "  Servizi rack:", 1
+        )[0]
+        self.assertIn("style: row", rack_layout)
+        self.assertIn("columns: 4", rack_layout)
+        self.assertIn("header: false", rack_layout)
+        for card_id in (
+            "rack-system-server",
+            "rack-system-nas",
+            "rack-system-network",
+            "rack-system-backup",
+        ):
+            self.assertIn(f"id: {card_id}", services)
+            self.assertIn(f"#{card_id} .service-block", css)
+        self.assertIn("flex-direction: column-reverse", css)
+        self.assertIn("#information-widgets", css)
+
     def test_pihole_replication_does_not_copy_dhcp_or_upstreams(self) -> None:
         compose = self.read("rack-pi/compose.yaml")
         nebula = compose.split("  nebula-sync:", 1)[1].split(
@@ -66,6 +87,19 @@ class RackPiArchitectureTests(unittest.TestCase):
         self.assertIn("BACKUP_TIMER_MANAGED_EXTERNALLY=true", remote_env)
         self.assertIn("systemctl disable --now backup.timer backup-recovery.timer", installer)
         self.assertIn("BACKUP_TIMER_MANAGED_EXTERNALLY", installer)
+
+    def test_backup_disk_check_triggers_automount_via_child_path(self) -> None:
+        disk_check = self.read("rack-pi/scripts/check-backup-disk.sh")
+        marker_assignment = disk_check.index(
+            "marker=${BACKUP_MOUNTPOINT}/.rack-pi-restic"
+        )
+        marker_stat = disk_check.index('stat -- "${marker}"')
+        findmnt = disk_check.index("findmnt -rn --mountpoint")
+        self.assertLess(marker_assignment, marker_stat)
+        self.assertLess(marker_stat, findmnt)
+        self.assertIn('awk \'$2 != "autofs" { print; exit }\'', disk_check)
+        self.assertNotIn('timeout 30s mount "${BACKUP_MOUNTPOINT}"', disk_check)
+        self.assertIn("systemd-escape --path --suffix=mount", disk_check)
 
     def test_rack_phase_contains_no_nut_or_fan_runtime(self) -> None:
         runtime_files = [

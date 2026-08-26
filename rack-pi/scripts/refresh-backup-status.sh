@@ -57,9 +57,39 @@ elif [[ -z ${minipc_last} || -z ${rack_last} ]]; then
 elif [[ ${PHOTOS_ENABLED:-false} == true && -z ${photos_last} ]]; then
   status="Foto mai salvate"
 fi
-if [[ -r ${attempt_file} ]] &&
-   [[ $(jq -r '.status // empty' "${attempt_file}" 2>/dev/null || true) == failure ]]; then
+attempt_status=
+if [[ -r ${attempt_file} ]]; then
+  attempt_status=$(jq -r '.status // empty' "${attempt_file}" 2>/dev/null || true)
+fi
+if [[ ${attempt_status} == failure ]]; then
   status="Fallito"
+elif [[ ${attempt_status} == success && ${status} == Pronto ]]; then
+  status="Riuscito"
+fi
+
+# Overall success is the oldest latest snapshot among every enabled set: it is
+# the point by which mini-PC and rack-pi (and photos, when enabled) were all
+# protected. Detailed per-repository timestamps remain in the JSON as well.
+overall_last=
+if [[ -n ${minipc_last} && -n ${rack_last} ]]; then
+  overall_last=${minipc_last}
+  overall_epoch=$(date --date="${overall_last}" +%s 2>/dev/null || echo 0)
+  rack_epoch=$(date --date="${rack_last}" +%s 2>/dev/null || echo 0)
+  if (( rack_epoch > 0 && (overall_epoch == 0 || rack_epoch < overall_epoch) )); then
+    overall_last=${rack_last}
+    overall_epoch=${rack_epoch}
+  fi
+  if [[ ${PHOTOS_ENABLED:-false} == true && -n ${photos_last} ]]; then
+    photos_epoch=$(date --date="${photos_last}" +%s 2>/dev/null || echo 0)
+    if (( photos_epoch > 0 && (overall_epoch == 0 || photos_epoch < overall_epoch) )); then
+      overall_last=${photos_last}
+    fi
+  fi
+fi
+
+duration_seconds=
+if [[ ${attempt_status} == success ]]; then
+  duration_seconds=$(jq -r '.duration_seconds // empty' "${attempt_file}" 2>/dev/null || true)
 fi
 
 next_run_raw=$(systemctl show rack-backup.timer \
@@ -76,13 +106,17 @@ jq -n \
   --arg minipc "${minipc_last}" \
   --arg photos "${photos_last}" \
   --arg rack "${rack_last}" \
+  --arg last "${overall_last}" \
   --arg next "${next_run}" \
+  --arg duration "${duration_seconds}" \
   '{
     status:$status,
+    last_success:(if $last=="" then null else $last end),
     minipc_last_success:(if $minipc=="" then null else $minipc end),
     photos_last_success:(if $photos=="" then null else $photos end),
     rack_pi_last_success:(if $rack=="" then null else $rack end),
-    next_run:(if $next=="" then null else $next end)
+    next_run:(if $next=="" then null else $next end),
+    duration_seconds:(if $duration=="" then null else ($duration | tonumber) end)
   }' > "${temporary}"
 chmod 0644 "${temporary}"
 mv -f "${temporary}" "${status_file}"

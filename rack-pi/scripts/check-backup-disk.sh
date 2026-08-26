@@ -18,18 +18,26 @@ if [[ ${BACKUP_MOUNTPOINT} != /* || ${BACKUP_MOUNTPOINT} == / ]]; then
   exit 1
 fi
 
-# Access activates x-systemd.automount; an explicit retry covers a stale unit.
-timeout 30s stat -- "${BACKUP_MOUNTPOINT}" >/dev/null 2>&1 || true
+marker=${BACKUP_MOUNTPOINT}/.rack-pi-restic
+
+# Looking up the mountpoint itself can stop at the autofs layer without
+# activating the underlying ext4 filesystem. Access a child path instead; the
+# lookup triggers x-systemd.automount even when the marker does not yet exist.
+timeout 30s stat -- "${marker}" >/dev/null 2>&1 || true
 record=$(findmnt -rn --mountpoint "${BACKUP_MOUNTPOINT}" \
-  --output TARGET,FSTYPE,SOURCE 2>/dev/null || true)
+  --output TARGET,FSTYPE,SOURCE 2>/dev/null |
+  awk '$2 != "autofs" { print; exit }' || true)
 read -r target filesystem source <<<"${record}"
-if [[ ${target:-} != "${BACKUP_MOUNTPOINT}" || ${filesystem:-} == autofs ]]; then
-  timeout 30s mount "${BACKUP_MOUNTPOINT}" >/dev/null 2>&1 || true
+if [[ ${target:-} != "${BACKUP_MOUNTPOINT}" ]]; then
+  mount_unit=$(systemd-escape --path --suffix=mount "${BACKUP_MOUNTPOINT}")
+  timeout 30s systemctl start "${mount_unit}" >/dev/null 2>&1 || true
+  timeout 30s stat -- "${marker}" >/dev/null 2>&1 || true
   record=$(findmnt -rn --mountpoint "${BACKUP_MOUNTPOINT}" \
-    --output TARGET,FSTYPE,SOURCE 2>/dev/null || true)
+    --output TARGET,FSTYPE,SOURCE 2>/dev/null |
+    awk '$2 != "autofs" { print; exit }' || true)
   read -r target filesystem source <<<"${record}"
 fi
-if [[ ${target:-} != "${BACKUP_MOUNTPOINT}" || ${filesystem:-} == autofs ]]; then
+if [[ ${target:-} != "${BACKUP_MOUNTPOINT}" ]]; then
   echo "Backup disk is not mounted at ${BACKUP_MOUNTPOINT}." >&2
   exit 1
 fi
@@ -38,7 +46,6 @@ if [[ ${filesystem:-} != ext4 ]]; then
   exit 1
 fi
 
-marker=${BACKUP_MOUNTPOINT}/.rack-pi-restic
 if [[ ${1:-} == --initialize-marker ]]; then
   touch "${marker}"
   chmod 0600 "${marker}"

@@ -137,8 +137,13 @@ esatto, creare GPT, una partizione ext4 e l'etichetta `rack-backup`. Montarla in
 `/mnt/rack-backup` tramite UUID con:
 
 ```fstab
-UUID=UUID_REALE /mnt/rack-backup ext4 defaults,noatime,nofail,x-systemd.automount,x-systemd.idle-timeout=10min,x-systemd.device-timeout=30s 0 2
+UUID=UUID_REALE /mnt/rack-backup ext4 defaults,noatime,nofail,x-systemd.device-timeout=30s 0 2
 ```
+
+Il disco di backup è dedicato e sempre collegato: viene quindi montato
+normalmente durante il boot. `nofail` permette comunque al Raspberry di
+avviarsi se il disco è assente, mentre evita un livello `autofs` sovrapposto al
+filesystem ext4.
 
 ```bash
 sudo systemctl daemon-reload
@@ -313,16 +318,53 @@ ostili: stato/rack 14 giorni, 2 mesi settimanali e 1 anno mensile; foto 7 giorni
 
 ## 9. Homepage e Uptime Kuma
 
-Aprire `https://RACK_PI_FQDN/` e configurare Uptime Kuma su `:8448`. Aggiungere
-`notificationBot` come canale Telegram e almeno:
+Aprire `https://RACK_PI_FQDN/` e configurare Uptime Kuma su `:8448`. La riga
+superiore di Homepage replica il layout del mini PC: quattro card orizzontali
+**Server**, **NAS**, **Rete** e **Backup**, con le etichette sopra ai valori.
+
+In Uptime Kuma riutilizzare il token e il chat ID del bot Telegram `StatusBot`.
+Salvare la notifica con nome `StatusBot · rack-pi`, abilitare il template
+Telegram in formato **Plain Text** e usare:
+
+```jinja
+Origine: rack-pi
+{% if monitorJSON %}Monitor: {{ monitorJSON['name'] }}{% endif %}
+{{ msg }}
+```
+
+Il prefisso resta presente anche nel messaggio di prova, mentre il nome del
+monitor identifica il servizio controllato. Non copiare token o chat ID nei
+file Git: rimangono nel database locale di Uptime Kuma, protetto dai permessi
+del relativo volume.
+
+Nel Kuma del mini PC modificare allo stesso modo la notifica Telegram già
+esistente, sostituendo soltanto la prima riga con `Origine: mini-pc`. In questo
+modo ogni messaggio del bot dichiara esplicitamente quale delle due istanze lo
+ha generato.
+
+Aggiungere almeno:
 
 - ping mini PC LAN e Tailscale;
 - Homepage, Pi-hole, Immich, Vaultwarden e Uptime Kuma del mini PC;
 - Push monitor **Backup rack**;
 - Push monitor **Manutenzione Restic**.
 
-Inserire le URL locali complete dei due Push monitor in
-`/etc/rack-pi/orchestrator.env`. Sul mini PC aggiungere monitor inversi per
+Per evitare falsi `Down`, impostare nei due monitor Push un **Heartbeat
+Interval** coerente con i timer: `108000` secondi (30 ore) per **Backup rack** e
+`691200` secondi (8 giorni) per **Manutenzione Restic**. Il secondo riceve
+comunque almeno il segnale della retention settimanale; integrity e restore
+test usano lo stesso monitor e inviano immediatamente un eventuale errore.
+
+Inserire in `/etc/rack-pi/orchestrator.env` le URL base locali dei due Push
+monitor, fermandosi prima del primo `?`. Per esempio:
+
+```dotenv
+UPTIME_KUMA_BACKUP_PUSH_URL=http://127.0.0.1:3001/api/push/TOKEN_BACKUP
+UPTIME_KUMA_MAINTENANCE_PUSH_URL=http://127.0.0.1:3001/api/push/TOKEN_MAINTENANCE
+```
+
+Gli script aggiungono autonomamente `status`, `msg` e `ping`; non copiare quindi
+la query string mostrata da Kuma. Sul mini PC aggiungere monitor inversi per
 `rack-pi`, Pi-hole secondario e Homepage. Mantenere retention Uptime Kuma
 contenuta per limitare le scritture sulla microSD.
 
