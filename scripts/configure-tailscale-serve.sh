@@ -27,6 +27,7 @@ tailscale serve --bg --https=8451 --set-path=/ http://127.0.0.1:3002
 tailscale serve --bg --https=8452 --set-path=/ http://127.0.0.1:4533
 tailscale serve --bg --https=8453 --set-path=/ http://127.0.0.1:8686
 tailscale serve --bg --https=8454 --set-path=/ http://127.0.0.1:5030
+tailscale serve --bg --https=8455 --set-path=/ http://127.0.0.1:8084
 
 echo
 echo "Private services configured:"
@@ -43,5 +44,6 @@ echo "  8451 Aurral"
 echo "  8452 Navidrome"
 echo "  8453 Lidarr"
 echo "  8454 slskd"
+echo "  8455 Gaming PC controller"
 echo
 echo "Confirm with: tailscale serve status"

@@ -35,7 +35,7 @@ done
 
 for unit in \
   core-stack.service media-stack.service automation-stack.service \
-  ai-ops-gateway.service \
+  ai-ops-gateway.service gaming-pc-controller.service \
   site-deploy.service site-deploy.timer backup.service backup.timer \
   backup-recovery.service backup-recovery.timer \
   backup-status.service backup-status.timer \
@@ -83,6 +83,8 @@ Installed systemd units.
   backup-status.timer and media-status.timer are enabled for the next boot.
   The AI Ops gateway exposes only a local Unix socket. media-recovery.timer
   retries an enabled media stack when its storage becomes available.
+- gaming-pc-controller.service is installed but remains disabled until the
+  dedicated setup and Windows host-key verification are complete.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
 - Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
   reachable; it refreshes metadata and searches recent releases every Monday.

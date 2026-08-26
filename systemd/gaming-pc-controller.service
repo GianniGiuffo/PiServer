@@ -1,0 +1,42 @@
+[Unit]
+Description=PiServer Tailnet-only gaming PC power controller
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+Requires=tailscaled.service
+ConditionPathExists=/etc/raspberry-server/gaming/gaming.env
+ConditionPathExists=/etc/raspberry-server/gaming/id_ed25519
+ConditionPathExists=/etc/raspberry-server/gaming/known_hosts
+ConditionPathExists=/etc/raspberry-server/gaming/session-token
+
+[Service]
+Type=simple
+User=__RPI_USER__
+Group=__RPI_GROUP__
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=/etc/raspberry-server/gaming/gaming.env
+ExecStart=/usr/bin/python3 __REPO_DIR__/scripts/gaming-pc-controller.py
+Restart=on-failure
+RestartSec=5s
+StateDirectory=raspberry-server/gaming-controller
+StateDirectoryMode=0750
+UMask=0027
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/raspberry-server/gaming-controller
+
+[Install]
+WantedBy=multi-user.target

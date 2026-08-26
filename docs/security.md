@@ -25,13 +25,16 @@
 | Uptime Kuma `rack-pi` | Tailscale Serve `8448` | no |
 | Rest Server append-only | IPv4 Tailscale `rack-pi:8000` | no |
 | SSH backup mini PC | IPv4 Tailscale `mini-pc:2222`, solo `pibackup` | no |
+| Controller PC gaming | Tailscale Serve `8455`, backend solo loopback | no |
+| Sunshine sul PC gaming | IPv4 Tailscale del PC, porte GameStream | no |
 | Soulseek peer port `50300` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
 | Ollama, SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 | proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
-4533, 5030, 5031, 50300, 5678, 6379, 8000, 8096, 8686, 11434 o 2222.
+4533, 5030, 5031, 50300, 5678, 6379, 8000, 8084, 8096, 8455, 8686,
+11434, 2222 o per le porte Sunshine 47984-48010.
 
 ## Vaultwarden
 
@@ -186,6 +189,32 @@ Non serve duplicare in SearXNG le blocklist gestite da Pi-hole. Pi-hole resta
 però un filtro DNS, non una protezione completa contro URL arbitrari o SSRF:
 gli strumenti HTTP e RSS controllati dal modello devono usare destinazioni
 fisse o validate.
+
+## Cloud gaming
+
+Il controller gaming è un processo host distinto da `monitoring-api`: la
+seconda resta read-only. Il backend ascolta esclusivamente su `127.0.0.1:8084`
+e riceve richieste umane tramite Tailscale Serve `8455`. Autorizza soltanto i
+login elencati e si fida degli header di identità perché una connessione di
+rete non può raggiungere direttamente il loopback. Le azioni web richiedono
+anche un token CSRF effimero.
+
+Il magic packet contiene soltanto il MAC fisso configurato e viene inviato al
+broadcast LAN fisso. Lo spegnimento usa una chiave Ed25519 dedicata, host key
+verificata fuori banda, IP Tailscale del mini PC come unica sorgente e un
+forced command Windows che rifiuta shell, SFTP e comandi diversi da
+`shutdown`. L'account `gaming` resta non amministratore.
+
+Sunshine e OpenSSH sul PC Windows accettano soltanto sorgenti Tailnet tramite
+Windows Firewall; UPnP resta disabilitato. Il token condiviso con i callback
+Sunshine può soltanto marcare inizio/fine sessione e non accende né spegne il
+PC. L'auto-spegnimento si arma esclusivamente quando il controller ha inviato
+il Wake-on-LAN e fallisce in modo conservativo lasciando il PC acceso.
+
+Windows 10 Home 22H2 non riceve gli aggiornamenti di sicurezza ordinari dopo
+il 14 ottobre 2025. Per questa macchina è accettato temporaneamente il rischio
+residuo senza ESU; l'isolamento Tailnet riduce l'esposizione in ingresso ma non
+sostituisce le patch contro contenuti, launcher o software vulnerabile.
 
 ## Manutenzione
 

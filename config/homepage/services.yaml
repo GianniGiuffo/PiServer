@@ -168,6 +168,10 @@
         container: raspberry-server-slskd-1
 
 - Automazione e controllo:
+    - Gaming PC:
+        icon: mdi-controller-classic
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8455/
+        description: Accensione e spegnimento Tailnet
     - n8n:
         icon: n8n.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8449/

@@ -15,7 +15,7 @@ if grep -Eq 'CHANGE_ME|render-group-number' "${STACK_ENV}"; then
   exit 1
 fi
 
-required=(awk docker tailscale restic findmnt flock timeout)
+required=(awk docker tailscale restic findmnt flock timeout ssh)
 for command_name in "${required[@]}"; do
   command -v "${command_name}" >/dev/null || {
     echo "Missing required command: ${command_name}" >&2
@@ -36,6 +36,11 @@ docker compose --project-directory "${REPO_DIR}" \
 docker compose --project-directory "${REPO_DIR}" \
   -f "${REPO_DIR}/compose.yaml" \
   -f "${REPO_DIR}/compose.automation.yaml" config --quiet
+
+if [[ -r /etc/raspberry-server/gaming/gaming.env ]]; then
+  python3 "${REPO_DIR}/scripts/gaming-pc-controller.py" \
+    --check-config /etc/raspberry-server/gaming/gaming.env
+fi
 
 if ss -H -lntu '( sport = :53 )' 2>/dev/null | grep -q .; then
   echo "WARNING: port 53 is already in use; Pi-hole cannot bind it until the conflict is removed." >&2
