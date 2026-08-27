@@ -275,54 +275,114 @@ Get-Item "$SetupDir\id_ed25519.pub", "$SetupDir\session-token"
 
 ### Eseguire l'installer Windows
 
-Aprire ora una nuova PowerShell con **Esegui come amministratore**. Se la
-repository è nel percorso attuale di questo progetto, eseguire:
+Aprire una nuova PowerShell con **Esegui come amministratore**. Copiare ed
+eseguire i comandi seguenti **uno alla volta e nell'ordine indicato**. Ogni
+blocco contiene intenzionalmente una sola riga, così la copia dall'interfaccia
+non può invertire l'ordine e non servono backtick.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-$SetupDir = Join-Path $env:USERPROFILE "Downloads\PiServerGamingSetup"
-Set-Location "F:\GitHub\source\repos\PiServer\windows\gaming"
-
-$InstallParams = @{
-    GamingUser             = "gaming"
-    MiniPcTailscaleIp      = "100.x.y.z"
-    ControllerUrl          = "https://mini-pc.example-tailnet.ts.net:8455"
-    ControllerPublicKeyPath = Join-Path $SetupDir "id_ed25519.pub"
-    SessionTokenFile       = Join-Path $SetupDir "session-token"
-}
-
-Test-Path -LiteralPath $InstallParams.ControllerPublicKeyPath
-Test-Path -LiteralPath $InstallParams.SessionTokenFile
-
-.\install-gaming-host.ps1 @InstallParams
 ```
 
-I due `Test-Path` devono restituire entrambi `True`. Se uno restituisce
-`False`, non eseguire l'ultima riga: individuare prima dove è stato copiato il
-file corrispondente.
+```powershell
+$SetupDir = Join-Path $env:USERPROFILE "Downloads\PiServerGamingSetup"
+```
 
-Questa forma usa il *parameter splatting* di PowerShell e non richiede il
-carattere di continuazione backtick. Il backtick funziona soltanto quando è
-l'ultimissimo carattere della riga: uno spazio successivo o una copia da testo
-formattato spezza il comando e fa interpretare parametri come
-`-SessionTokenFile` quali comandi autonomi.
+```powershell
+Set-Location "F:\GitHub\source\repos\PiServer\windows\gaming"
+```
 
-Incollare esclusivamente il contenuto del blocco di codice. L'URL deve essere
-una normale stringa fra virgolette, non la sintassi Markdown
-`[URL](URL)`, e il nome corretto è `id_ed25519.pub`, senza barra inversa prima
-dell'underscore.
+Controllare il percorso effettivo usato dalla PowerShell amministrativa:
 
-Sostituire con valori reali:
+```powershell
+$SetupDir
+```
 
-- `MiniPcTailscaleIp` è l'IPv4 Tailscale del **mini PC**, non quello del PC
-  gaming;
-- `ControllerUrl` è il MagicDNS FQDN del **mini PC**, con `https://` e porta
-  `8455`, senza aggiungere altri percorsi;
-- `GamingUser` deve coincidere con l'account locale standard creato prima;
-- i due percorsi finali devono puntare ai file appena trasferiti.
+```powershell
+Test-Path -LiteralPath $SetupDir
+```
 
-La definizione di `$SetupDir` è ripetuta perché le variabili non passano dalla
-prima finestra PowerShell alla nuova finestra amministrativa.
+```powershell
+Get-ChildItem -LiteralPath $SetupDir -Force -ErrorAction SilentlyContinue
+```
+
+Se la cartella restituisce `False`, crearla:
+
+```powershell
+New-Item -ItemType Directory -Force -Path $SetupDir
+```
+
+Verificare separatamente i due file richiesti:
+
+```powershell
+Test-Path -LiteralPath (Join-Path $SetupDir "id_ed25519.pub")
+```
+
+```powershell
+Test-Path -LiteralPath (Join-Path $SetupDir "session-token")
+```
+
+Entrambi devono restituire `True`. Se uno restituisce `False`, non eseguire
+l'installer. La PowerShell amministrativa potrebbe usare un profilo diverso
+da quello dal quale sono stati scaricati i file. Cercarli senza mostrarne il
+contenuto:
+
+```powershell
+Get-ChildItem "C:\Users" -Filter "id_ed25519.pub" -File -Recurse -ErrorAction SilentlyContinue
+```
+
+```powershell
+Get-ChildItem "C:\Users" -Filter "session-token" -File -Recurse -ErrorAction SilentlyContinue
+```
+
+Se entrambi vengono trovati nella stessa cartella, impostare `$SetupDir` al
+percorso restituito, per esempio:
+
+```powershell
+$SetupDir = "C:\Users\20tom\Downloads\PiServerGamingSetup"
+```
+
+Se non vengono trovati, trasferirli dal mini PC. Verificare prima che il client
+OpenSSH di Windows fornisca `scp`:
+
+```powershell
+Get-Command scp
+```
+
+Con il mini PC raggiungibile all'IPv4 Tailscale `100.95.133.122`, sostituire
+`UTENTE_LINUX` con lo stesso utente passato a
+`setup-gaming-controller.sh`, quindi eseguire una riga alla volta:
+
+```powershell
+scp UTENTE_LINUX@100.95.133.122:/etc/raspberry-server/gaming/id_ed25519.pub "$SetupDir\id_ed25519.pub"
+```
+
+```powershell
+scp UTENTE_LINUX@100.95.133.122:/etc/raspberry-server/gaming/session-token "$SetupDir\session-token"
+```
+
+Non trasferire `id_ed25519` senza estensione: è la chiave privata e deve
+rimanere sul mini PC. Dopo la copia, ripetere i due `Test-Path` e continuare
+soltanto quando restituiscono entrambi `True`.
+
+Eseguire infine l'installer con una singola riga. L'esempio seguente contiene
+l'IP e il FQDN reali attualmente raccolti per il mini PC:
+
+```powershell
+.\install-gaming-host.ps1 -GamingUser "gaming" -MiniPcTailscaleIp "100.95.133.122" -ControllerUrl "https://mini-pc.taila86e78.ts.net:8455" -ControllerPublicKeyPath (Join-Path $SetupDir "id_ed25519.pub") -SessionTokenFile (Join-Path $SetupDir "session-token")
+```
+
+L'URL deve essere una normale stringa fra virgolette, non la sintassi Markdown
+`[URL](URL)`. Il nome corretto è `id_ed25519.pub`, senza barra inversa prima
+dell'underscore. `MiniPcTailscaleIp` e `ControllerUrl` indicano entrambi il
+**mini PC**, non il PC gaming; `GamingUser` deve coincidere con l'account locale
+standard creato in precedenza.
+
+L'installer è idempotente: se una precedente esecuzione è stata interrotta,
+ripara prima i permessi dei propri file e quelli di `C:\ProgramData\ssh`. Per
+OpenSSH applica ricorsivamente l'ACL richiesta dal servizio, con proprietario
+`SYSTEM` e accesso limitato a `SYSTEM` e `Administrators`; questo comprende
+anche la cartella `logs`, che alcune versioni di OpenSSH verificano all'avvio.
 
 Lo script:
 

@@ -185,6 +185,32 @@ class GamingArchitectureTests(unittest.TestCase):
         self.assertIn("-RemoteAddress $MiniPcTailscaleIp.IPAddressToString", installer)
         self.assertIn('"100.64.0.0/10"', installer)
         self.assertIn("-LocalPort 47984,47989,48010", installer)
+        self.assertIn("sshd_config_default", installer)
+        self.assertIn("& $sshKeygen -A", installer)
+        self.assertIn("function Set-RestrictedOpenSshAcl", installer)
+        self.assertIn("function Set-RestrictedOpenSshTree", installer)
+        self.assertIn("$acl.RemoveAccessRuleSpecific($rule)", installer)
+        self.assertIn("Set-RestrictedOpenSshTree -Directory $sshProgramData", installer)
+        self.assertIn('$sshdService.Status -ne "Running"', installer)
+
+    def test_windows_installer_repairs_acl_before_overwriting_managed_files(self) -> None:
+        installer = self.read("windows/gaming/install-gaming-host.ps1")
+        self.assertLess(
+            installer.index("& takeown.exe /F $programDir /A"),
+            installer.index('Copy-Item -LiteralPath (Join-Path $PSScriptRoot "gaming-power.ps1")'),
+        )
+        self.assertLess(
+            installer.index("& takeown.exe /F $authorizedKeys /A"),
+            installer.index("Set-Content -LiteralPath $authorizedKeys"),
+        )
+        self.assertLess(
+            installer.index("& $sshKeygen -A"),
+            installer.index("Set-RestrictedOpenSshTree -Directory $sshProgramData"),
+        )
+        self.assertLess(
+            installer.index("Set-RestrictedOpenSshTree -Directory $sshProgramData"),
+            installer.index("Start-Service -Name sshd"),
+        )
 
     def test_homepage_links_to_controller_without_embedding_secrets(self) -> None:
         homepage = self.read("config/homepage/services.yaml")
