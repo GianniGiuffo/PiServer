@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the Rest Server backup mount every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Unit=rack-rest-server-recovery.service
+
+[Install]
+WantedBy=timers.target

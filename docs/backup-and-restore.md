@@ -28,7 +28,16 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, il downloader e i quattro servizi
 musicali vengono fermati brevemente per rendere coerenti i rispettivi database.
 Nextcloud entra in maintenance mode. n8n e Immich vengono fermati mentre viene
-creato il loro dump PostgreSQL.
+creato il loro dump PostgreSQL. Immich riparte subito dopo il dump; gli altri
+servizi fermati ripartono nella fase finale del backup, anche in caso di errore.
+
+Prima di fermare qualsiasi servizio viene verificata la leggibilità effettiva
+del repository con `restic cat config`, senza cache né lock e con timeout di
+30 secondi. Un repository non disponibile lascia le applicazioni online.
+Per Rest Server, `run-restic-backup.py` sorveglia anche il trasferimento: se il
+repository diventa illeggibile, interrompe Restic e lascia allo script il
+riavvio dei servizi. I backup riusciti mantengono il timeout di trasferimento
+configurato; non vengono interrotti soltanto perché sono lunghi.
 
 ## Cosa non viene salvato
 

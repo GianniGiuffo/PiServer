@@ -30,7 +30,7 @@ esac
 apt-get update
 apt-get install -y --no-install-recommends \
   apache2-utils ca-certificates curl dnsutils e2fsprogs git gnupg jq \
-  openssh-client parted restic rsync smartmontools
+  openssh-client parted python3 restic rsync smartmontools
 
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg \

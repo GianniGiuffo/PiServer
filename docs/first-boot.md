@@ -76,7 +76,7 @@ Per Vaultwarden creare una password amministrativa distinta dalla master
 password e salvarne l'hash:
 
 ```bash
-docker run --rm -it vaultwarden/server:1.36.0 /vaultwarden hash
+docker run --rm -it vaultwarden/server:1.37.1 /vaultwarden hash
 ```
 
 Inserire l'intera riga `$argon2id$...` tra apici singoli in

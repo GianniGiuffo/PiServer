@@ -451,7 +451,8 @@ General > Global Prep Commands**. Aggiungere **una sola voce** con i seguenti
 campi; i nomi possono apparire come `Do`, `Undo` ed `Elevated` a seconda della
 versione di Sunshine.
 
-- lasciare `Elevated` disabilitato;
+- abilitare `Elevated`; Sunshine è installato come servizio e, in questa
+  modalità, il callback deve essere avviato nel contesto del servizio;
 - incollare tutto il comando `Do` su una sola riga;
 - incollare tutto il comando `Undo` su una sola riga.
 
@@ -471,11 +472,22 @@ Salvare e usare il comando di riavvio di Sunshine presente nell'interfaccia.
 Non creare due prep command separate: `Do` e `Undo` devono appartenere alla
 stessa voce, così Sunshine associa correttamente apertura e chiusura.
 
-Sunshine normalmente annulla l'avvio di un'applicazione se una prep command
-fallisce. `gaming-session.ps1` gestisce internamente gli errori e restituisce
-sempre successo: un problema di rete non impedisce quindi di giocare e, per
-sicurezza, lascia il PC acceso. Questi callback non possono accendere o
+L'opzione `Elevated` non trasforma l'account locale `gaming` in amministratore:
+stabilisce soltanto come Sunshine, già in esecuzione come servizio, avvia il
+processo PowerShell. Sunshine annulla l'avvio di un'applicazione se non riesce
+ad avviare una prep command o se questa restituisce un errore.
+`gaming-session.ps1` gestisce internamente gli errori di rete e restituisce
+successo: un controller non raggiungibile non deve quindi impedire di giocare
+e, per sicurezza, lascia il PC acceso. Questi callback non possono accendere o
 spegnere Windows; modificano soltanto lo stato `session_active` del controller.
+
+Se Moonlight raggiunge l'host ma, subito dopo il tentativo di apertura di
+`Desktop`, mostra un errore generico sulle porte TCP, controllare il log di
+Sunshine. Una riga `Executing Do Cmd` seguita da `exited with code` indica che
+è la prep command ad avere annullato la sessione, non necessariamente il
+firewall. Per ripristinare subito lo streaming, eliminare temporaneamente la
+voce da **Global Prep Commands**, salvare, riavviare Sunshine e riprovare. Non
+lasciare una copia parziale con il solo comando `Do`.
 
 ## 7. Verificare e fissare la host key dal mini PC
 
@@ -650,6 +662,10 @@ In Tailscale:
   `VPN sempre attiva` se la voce è disponibile;
 - in **Impostazioni > App > Tailscale > Batteria**, scegliere utilizzo senza
   restrizioni o escludere l'app dall'ottimizzazione;
+- aprire **Tailscale > profilo > App-based split tunneling** e verificare che
+  Moonlight non sia nell'elenco delle applicazioni escluse: un'app esclusa può
+  raggiungere il PC sulla LAN di casa, ma non l'indirizzo `100.x.y.z` quando la
+  Switch usa un hotspot;
 - dalla console Tailscale rinominare il dispositivo `switch-cloud`, senza
   assegnargli un tag perché il controller richiede un'identità utente;
 - aprire dal browser Android `https://FQDN_MINI_PC:8455/` e verificare che la
@@ -667,6 +683,14 @@ l'host ed è normale. Con il PC acceso e Sunshine pronto:
 5. verificare che in Moonlight compaiano almeno `Desktop` o l'applicazione
    configurata in Sunshine;
 6. avviare prima `Desktop`, poi Steam Big Picture o il gioco desiderato.
+
+Un riquadro trovato automaticamente sul Wi-Fi di casa può conservare
+l'indirizzo LAN `192.168.x.y`. Questo riquadro non è una prova del collegamento
+remoto: durante il primo test con hotspot premere nuovamente `+` e aggiungere
+esplicitamente l'IPv4 Tailscale `100.x.y.z` del PC. Se Moonlight unisce le due
+voci, verificare il test mentre la Switch è già scollegata dal Wi-Fi domestico;
+se continua a usare l'indirizzo LAN, eliminare il vecchio riquadro e aggiungere
+di nuovo soltanto l'indirizzo Tailscale.
 
 Impostazioni iniziali consigliate:
 
@@ -694,6 +718,20 @@ tailscale ping switch-cloud
 aggiungere latenza; in quel caso ridurre bitrate e verificare copertura mobile,
 upload domestico e packet loss.
 
+Non configurare sul telefono hotspot una subnet Tailscale, un exit node o la
+condivisione della VPN: non serve e Android normalmente non inoltra agli utenti
+dell'hotspot il tunnel VPN del telefono. Tailscale deve essere attivo sulla
+Switch e il telefono deve limitarsi a fornire l'accesso a Internet.
+
+L'avviso `DNS unavailable` è separato dal percorso Moonlight quando si usa
+l'IPv4 Tailscale. Per una prova immediata, sulla Switch disabilitare **Use
+Tailscale DNS settings**: il tunnel verso gli indirizzi `100.x.y.z` rimane
+attivo, ma i nomi MagicDNS non vengono risolti. Se così l'avviso sparisce, il
+resolver privato configurato nei **Global nameservers** non è raggiungibile
+dalla rete mobile. La soluzione permanente è rendere raggiungibile quel DNS
+attraverso la Tailnet oppure sostituirlo con un resolver pubblico supportato;
+non è necessario modificare Moonlight se usa direttamente l'IP del PC.
+
 ## 10. Collaudo completo
 
 Eseguire nell'ordine e correggere ogni punto prima di passare al successivo:
@@ -720,7 +758,9 @@ Eseguire nell'ordine e correggere ogni punto prima di passare al successivo:
     `GAMING_IDLE_TIMEOUT_SECONDS=300`, riavviare il controller e poi
     ripristinare `1800`.
 11. **Hotspot:** disattivare il Wi-Fi normale della Switch, collegarla al
-    telefono e ripetere accensione, stream e spegnimento.
+    telefono, verificare che Moonlight non sia escluso dallo split tunneling,
+    aggiungere manualmente l'IPv4 Tailscale del PC e ripetere accensione,
+    stream e spegnimento. Non usare una subnet o la VPN del telefono.
 
 Per il test da cinque minuti sul mini PC:
 
@@ -754,6 +794,8 @@ tailscale serve status
 | `Accendi` non avvia il PC | Ricontrollare MAC Ethernet, broadcast LAN, BIOS, ErP, Avvio rapido e proprietà WoL della scheda Intel. Mini PC e fisso devono condividere la LAN/VLAN. |
 | Rimane `Windows online, Sunshine non pronto` | Sul PC controllare il servizio Sunshine, `https://localhost:47990` e le regole `PiServer-Sunshine-*` di Windows Firewall. |
 | Moonlight non raggiunge l'host | Verificare di avere inserito l'IPv4 Tailscale del PC gaming e provare `tailscale ping` nei due sensi. |
+| Moonlight segnala porte TCP ma il tentativo compare nel log Sunshine | Cercare `Executing Do Cmd` seguito da `exited with code`: rimuovere temporaneamente la global prep command, riavviare Sunshine e verificare che `Desktop` parta. Quando si reinserisce la voce, abilitare `Elevated`. |
+| Tailscale Android mostra `DNS unavailable` | Verificare in **DNS > Global nameservers** che il resolver sia raggiungibile dalla Tailnet sia su UDP sia su TCP 53. Per isolare il problema usare in Moonlight l'IPv4 Tailscale del PC. Se il resolver Pi-hole pubblicato da Docker non risponde attraverso `tailscale0`, rimuoverlo dai nameserver globali e disattivare `Override DNS servers`: MagicDNS continua a risolvere i nodi Tailscale, mentre Internet usa il DNS della rete Wi-Fi o dell'hotspot. |
 | Immagine nera o monitor errato | Ripetere `dxgi-info.exe`, verificare `Output Name` e rifare il test EDID con il monitor HDMI. |
 | La pagina non mostra la sessione attiva | Eseguire manualmente `gaming-session.ps1 start`; controllare URL, token e accesso PC gaming → mini PC TCP `8455`. |
 | `Spegni` viene rifiutato | Leggere il journal del controller, verificare servizio `sshd`, host key fissata, firewall SSH e diritto di arresto dell'account `gaming`. |

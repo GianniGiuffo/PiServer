@@ -1,0 +1,8 @@
+[Unit]
+Description=Recover Rest Server after a backup disk reconnect
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/recover-rest-server.sh
+TimeoutStartSec=3min

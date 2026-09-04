@@ -36,7 +36,7 @@ CODENAME=${VERSION_CODENAME:?Cannot determine the Debian codename}
 apt-get update
 apt-get install -y --no-install-recommends \
   ca-certificates cifs-utils curl dnsutils e2fsprogs git gnupg \
-  intel-gpu-tools jq lm-sensors nfs-common openssh-client parted restic rsync \
+  intel-gpu-tools jq lm-sensors nfs-common openssh-client parted python3 restic rsync \
   smartmontools
 
 install -m 0755 -d /etc/apt/keyrings

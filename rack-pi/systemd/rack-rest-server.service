@@ -1,8 +1,10 @@
 [Unit]
 Description=Serve append-only Restic repositories on rack-pi
 Wants=network-online.target
-After=network-online.target docker.service tailscaled.service
+After=network-online.target docker.service tailscaled.service __BACKUP_MOUNT_UNIT__
 Requires=docker.service
+BindsTo=__BACKUP_MOUNT_UNIT__
+RequiresMountsFor=__BACKUP_MOUNTPOINT__
 StartLimitIntervalSec=10min
 StartLimitBurst=3
 ConditionPathExists=__RACK_DIR__/.env
@@ -12,7 +14,7 @@ ConditionPathExists=/etc/rack-pi/rest-server.htpasswd
 Type=simple
 WorkingDirectory=__RACK_DIR__
 ExecStartPre=/usr/bin/bash __RACK_DIR__/scripts/check-backup-disk.sh
-ExecStart=/usr/bin/docker compose --profile backup up rest-server
+ExecStart=/usr/bin/docker compose --profile backup up --force-recreate --no-deps rest-server
 ExecStop=/usr/bin/docker compose --profile backup stop rest-server
 Restart=on-failure
 RestartSec=2min

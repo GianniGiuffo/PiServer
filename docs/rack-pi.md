@@ -154,6 +154,33 @@ findmnt -T /mnt/rack-backup
 Non creare manualmente il marker: `setup-repositories.sh` lo fa solo dopo avere
 verificato un mount ext4 reale.
 
+### Disconnessioni e alimentazione USB
+
+L'UUID di `/etc/fstab` identifica il filesystem anche quando il kernel rinomina
+il disco da `/dev/sda` a `/dev/sdb`. Il percorso resta `/mnt/rack-backup`;
+`check-backup-disk.sh` rifiuta UUID diversi e filesystem read-only o shutdown.
+
+Un container già avviato può conservare il vecchio bind mount dopo una
+disconnessione. `rack-rest-server.service` è legato al mount systemd e ricrea
+il solo container Rest Server a ogni avvio. Il timer
+`rack-rest-server-recovery.timer` verifica ogni minuto che host e container
+vedano lo stesso filesystem e riescano a leggere le configurazioni Restic.
+Quando il disco ritorna recupera il servizio, senza riattivare un Rest Server
+disabilitato intenzionalmente e senza interferire con backup o manutenzione.
+Lo stesso controllo viene eseguito prima di invocare il backup del mini PC.
+
+I servizi del mini PC vengono fermati soltanto dopo una lettura autenticata
+del repository, con timeout breve. Durante il trasferimento verso Rest Server
+un controllo ogni 15 secondi rileva la perdita del repository e interrompe
+Restic, consentendo il riavvio ordinato delle applicazioni. Non si deve
+attendere la sequenza completa di retry HTTP 500.
+
+Queste protezioni software non risolvono una sottotensione fisica. In presenza
+di avvisi `Undervoltage detected` o ripetute disconnessioni USB, verificare
+alimentatore e cavi; se necessario alimentare separatamente l'hard disk.
+Non scollegare il disco durante le scritture e non aumentare artificialmente
+i limiti di corrente USB.
+
 ## 5. Migrare senza perdere lo storico
 
 Sul mini PC fermare la vecchia pianificazione, eseguire l'ultimo snapshot locale

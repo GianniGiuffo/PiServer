@@ -46,6 +46,23 @@ if [[ ${filesystem:-} != ext4 ]]; then
   exit 1
 fi
 
+# Device names can change after USB reconnects. Accept only the filesystem
+# identified by the UUID in fstab, at its configured permanent mountpoint.
+fstab_source=$(findmnt --fstab --target "${BACKUP_MOUNTPOINT}" -n -o SOURCE)
+mounted_uuid=$(findmnt -rn --mountpoint "${BACKUP_MOUNTPOINT}" -o UUID)
+if [[ ${fstab_source} != UUID=* || -z ${mounted_uuid} ||
+      ${fstab_source#UUID=} != "${mounted_uuid}" ]]; then
+  echo "Backup mount must match its UUID= entry in /etc/fstab." >&2
+  exit 1
+fi
+mount_options=$(findmnt -rn --mountpoint "${BACKUP_MOUNTPOINT}" -o OPTIONS)
+case ",${mount_options}," in
+  *,ro,*|*,shutdown,*)
+    echo "Backup filesystem is read-only or shut down; refusing backup." >&2
+    exit 1
+    ;;
+esac
+
 if [[ ${1:-} == --initialize-marker ]]; then
   touch "${marker}"
   chmod 0600 "${marker}"

@@ -17,7 +17,7 @@ fi
   echo "Set the operating-system hostname to rack-pi before continuing." >&2
   exit 1
 }
-for command_name in docker tailscale restic findmnt flock timeout jq ssh; do
+for command_name in docker tailscale restic findmnt flock timeout jq ssh python3 curl; do
   command -v "${command_name}" >/dev/null || {
     echo "Missing command: ${command_name}" >&2
     exit 1

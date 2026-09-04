@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="jpr_primary_dark">#4C36B5</color>
+    <color name="jpr_accent">#00A4DC</color>
+    <color name="jpr_background">#F7F7FC</color>
+</resources>

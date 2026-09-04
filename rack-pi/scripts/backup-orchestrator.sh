@@ -22,6 +22,12 @@ if ! flock -n 9; then
   exit 75
 fi
 
+exec 8>/run/lock/rack-pi-repository-maintenance.lock
+if ! flock -n 8; then
+  echo "Repository maintenance or storage recovery is active; backup deferred." >&2
+  exit 75
+fi
+
 status_dir=/srv/rack-pi/data/monitoring
 attempt_file=${status_dir}/backup-attempt.json
 install -d -m 0755 -o root -g root "${status_dir}"
@@ -45,28 +51,7 @@ disk_result=0
 bash "${SCRIPT_DIR}/check-backup-disk.sh" || disk_result=$?
 
 if (( disk_result == 0 )); then
-  if ! systemctl is-active --quiet rack-rest-server.service; then
-    systemctl reset-failed rack-rest-server.service || true
-    systemctl start rack-rest-server.service || remote_result=$?
-  fi
-  if (( remote_result == 0 )); then
-    rack_env=${SCRIPT_DIR}/../.env
-    rest_server_ip=$(grep -m1 '^RACK_PI_TAILSCALE_IP=' "${rack_env}" 2>/dev/null |
-      cut -d= -f2- | tr -d '\r' || true)
-    rest_server_ready=false
-    for _ in {1..30}; do
-      if [[ -n ${rest_server_ip} ]] &&
-         curl -sS --max-time 2 -o /dev/null "http://${rest_server_ip}:8000/"; then
-        rest_server_ready=true
-        break
-      fi
-      sleep 2
-    done
-    if [[ ${rest_server_ready} != true ]]; then
-      echo "Rest Server did not become reachable on the configured Tailscale IP." >&2
-      remote_result=1
-    fi
-  fi
+  bash "${SCRIPT_DIR}/ensure-rest-server.sh" || remote_result=$?
   if (( remote_result == 0 )); then
     : "${MINIPC_SSH_HOST:?MINIPC_SSH_HOST is required}"
     : "${MINIPC_SSH_USER:?MINIPC_SSH_USER is required}"

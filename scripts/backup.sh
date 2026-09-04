@@ -308,9 +308,13 @@ if [[ -n ${RESTIC_MOUNTPOINT:-} ]]; then
   # by an interrupted process after systemd confirms no other run is active.
   timeout --foreground --kill-after=1m 10m restic unlock
 fi
-timeout --foreground --kill-after=5m "${RESTIC_OPERATION_TIMEOUT}" \
-  restic backup --tag "${RESTIC_BACKUP_TAG}" \
-  "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}"
+backup_command=(restic backup --tag "${RESTIC_BACKUP_TAG}"
+  "${RESTIC_EXCLUDES[@]}" "${BACKUP_PATHS[@]}")
+if [[ ${RESTIC_REPOSITORY} == rest:* ]]; then
+  backup_command=(python3 "${SCRIPT_DIR}/run-restic-backup.py" "${backup_command[@]}")
+fi
+timeout --foreground --kill-after=30s "${RESTIC_OPERATION_TIMEOUT}" \
+  "${backup_command[@]}"
 
 # A remote append-only Rest Server deliberately refuses forget/prune. In that
 # layout retention is performed locally by the protected rack-pi administrator.

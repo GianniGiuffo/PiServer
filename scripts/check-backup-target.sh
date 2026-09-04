@@ -15,8 +15,19 @@ set +a
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is required in ${BACKUP_ENV}}"
 : "${RESTIC_PASSWORD_FILE:?RESTIC_PASSWORD_FILE is required in ${BACKUP_ENV}}"
 
+# Verify the actual encrypted repository before any application is stopped.
+# A listening HTTP server can still return 500 for a disconnected bind mount.
+check_repository() {
+  if ! timeout --foreground --kill-after=5s 30s \
+      restic --no-cache --no-lock cat config >/dev/null 2>&1; then
+    echo "Restic repository is not readable; applications will remain online." >&2
+    return 1
+  fi
+}
+
 # Remote repositories do not have a host mount to validate.
 if [[ -z ${RESTIC_MOUNTPOINT:-} ]]; then
+  check_repository
   exit 0
 fi
 
@@ -64,4 +75,5 @@ if ! timeout 30s stat -- "${marker}" >/dev/null 2>&1 &&
   exit 1
 fi
 
-echo "Verified Restic target: ${RESTIC_REPOSITORY}"
+check_repository
+echo "Verified Restic target on ${RESTIC_MOUNTPOINT}."
