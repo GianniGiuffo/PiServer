@@ -43,7 +43,13 @@ if [[ -r /etc/raspberry-server/gaming/gaming.env ]]; then
 fi
 
 if ss -H -lntu '( sport = :53 )' 2>/dev/null | grep -q .; then
-  echo "WARNING: port 53 is already in use; Pi-hole cannot bind it until the conflict is removed." >&2
+  if docker compose --project-directory "${REPO_DIR}" \
+      -f "${REPO_DIR}/compose.yaml" ps --services --status running | \
+      grep -qx pihole; then
+    echo "Port 53 is occupied by the expected running Pi-hole container."
+  else
+    echo "WARNING: port 53 is occupied by a process other than this running Pi-hole." >&2
+  fi
 fi
 
 if [[ ! -e /dev/dri/renderD128 ]]; then
