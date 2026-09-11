@@ -38,6 +38,8 @@ COMPOSE=(
   -f "${REPO_DIR}/compose.media.yaml"
 )
 OCC=("${COMPOSE[@]}" exec -T --user www-data nextcloud php occ)
+LOCAL_APP_DIR=${REPO_DIR}/config/nextcloud-apps/public_share_domain
+CONTAINER_APP_DIR=/var/www/html/custom_apps/public_share_domain
 
 "${COMPOSE[@]}" config --quiet
 
@@ -70,6 +72,17 @@ fi
   --value="https://${NEXTCLOUD_PUBLIC_DOMAIN}"
 "${OCC[@]}" config:system:set auth.bruteforce.protection.enabled \
   --type=boolean --value=true
+
+# The Files UI intentionally builds copied links from window.location rather
+# than using the public URL returned by the OCS API. Install the bundled local
+# app into the persistent Nextcloud volume, then enable it. Copying instead of
+# bind-mounting keeps the official image's startup permission repair intact.
+"${COMPOSE[@]}" exec -T --user root nextcloud \
+  mkdir -p "${CONTAINER_APP_DIR}"
+"${COMPOSE[@]}" cp "${LOCAL_APP_DIR}/." "nextcloud:${CONTAINER_APP_DIR}"
+"${COMPOSE[@]}" exec -T --user root nextcloud \
+  chown -R www-data:www-data "${CONTAINER_APP_DIR}"
+"${OCC[@]}" app:enable public_share_domain
 
 # Password and expiry stay selectable per link; anonymous uploads are not part
 # of this deployment's download-only sharing model.

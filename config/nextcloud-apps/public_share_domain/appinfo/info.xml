@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+  <id>public_share_domain</id>
+  <name>Public Share Domain</name>
+  <summary>Copies public share links with the configured public hostname.</summary>
+  <description>Rewrites only copied /s/token URLs from the private Tailnet origin to overwrite.cli.url.</description>
+  <version>1.0.0</version>
+  <licence>agpl</licence>
+  <author>PiServer</author>
+  <namespace>PublicShareDomain</namespace>
+  <category>tools</category>
+  <dependencies>
+    <nextcloud min-version="32" max-version="33" />
+  </dependencies>
+</info>

@@ -57,18 +57,20 @@ docker compose -f compose.yaml -f compose.media.yaml ps caddy cloudflared nextcl
 Nextcloud accetta sia `TAILSCALE_FQDN` sia `NEXTCLOUD_PUBLIC_DOMAIN`. La UI
 completa rimane raggiungibile soltanto su `https://TAILSCALE_FQDN:8445`.
 Tailscale Serve inoltra quella porta al bind locale Caddy `18084` (listener
-container `8084`); Caddy
-presenta il dominio pubblico a Nextcloud solo per l'API delle condivisioni, così
-il pulsante di copia genera automaticamente URL sotto
-`https://cloud.tommasofrancescon.it` senza esporre il login pubblico.
+container `8084`). Caddy presenta il dominio pubblico a Nextcloud per l'API
+delle condivisioni; l'app locale `public_share_domain` corregge il link copiato
+dalla UI, senza esporre il login pubblico.
 
 Non viene forzato `overwritehost`, perché cambierebbe anche URL, redirect e asset
-della UI privata. `overwrite.cli.url` usa il dominio pubblico soltanto per email
-e URL generati dai job in background.
+della UI privata. `overwrite.cli.url` definisce il dominio pubblico per email,
+job in background e per `public_share_domain`. Nextcloud costruisce il link del
+pulsante **Copia** direttamente dall'indirizzo aperto nel browser; l'app modifica
+esclusivamente gli URL `/s/<token>` passati agli appunti.
 
 `scripts/configure-public-sharing.sh` rimuove l'eventuale `overwritehost`
-persistito, aggiunge il dominio pubblico senza cancellare quelli esistenti e
-imposta l'URL CLI pubblico. Per verificare manualmente il risultato:
+persistito, aggiunge il dominio pubblico senza cancellare quelli esistenti,
+imposta l'URL CLI pubblico e abilita l'app locale. Per verificare manualmente il
+risultato:
 
 ```bash
 cd /opt/raspberry-server
@@ -76,6 +78,8 @@ docker compose -f compose.yaml -f compose.media.yaml exec --user www-data nextcl
   php occ config:system:get trusted_domains
 docker compose -f compose.yaml -f compose.media.yaml exec --user www-data nextcloud \
   php occ config:system:get overwrite.cli.url
+docker compose -f compose.yaml -f compose.media.yaml exec --user www-data nextcloud \
+  php occ app:list | grep public_share_domain
 ```
 
 Creare e copiare il link dalla normale UI privata su

@@ -44,6 +44,17 @@ class PublicSharingConfigTests(unittest.TestCase):
         self.assertNotIn("OVERWRITEHOST:", nextcloud)
         self.assertIn("OVERWRITECLIURL: https://${NEXTCLOUD_PUBLIC_DOMAIN", nextcloud)
 
+    def test_nextcloud_copy_link_app_is_installed_and_enabled(self) -> None:
+        configure = self.read("scripts/configure-public-sharing.sh")
+        javascript = self.read(
+            "config/nextcloud-apps/public_share_domain/js/public-share-domain.js"
+        )
+
+        self.assertIn('cp "${LOCAL_APP_DIR}/." "nextcloud:${CONTAINER_APP_DIR}"', configure)
+        self.assertIn('app:enable public_share_domain', configure)
+        self.assertIn("source.origin !== window.location.origin", javascript)
+        self.assertIn("(?:index\\.php\\/)?s\\/[^/]+", javascript)
+
     def test_navidrome_shares_are_revocable_and_downloads_opt_in(self) -> None:
         media = self.read("compose.media.yaml")
         navidrome = self.service_block(media, "navidrome", "aurral")
