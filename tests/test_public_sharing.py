@@ -28,8 +28,8 @@ class PublicSharingConfigTests(unittest.TestCase):
         nextcloud = self.service_block(media, "nextcloud", "nextcloud-readonly")
         navidrome = self.service_block(media, "navidrome", "aurral")
 
-        self.assertIn('"127.0.0.1:8084:8084/tcp"', caddy)
-        self.assertEqual(caddy.count('"127.0.0.1:8084:8084/tcp"'), 1)
+        self.assertIn('"127.0.0.1:18084:8084/tcp"', caddy)
+        self.assertEqual(caddy.count('"127.0.0.1:18084:8084/tcp"'), 1)
         self.assertIn('"127.0.0.1:8082:80/tcp"', nextcloud)
         self.assertNotIn('"8082:80/tcp"', nextcloud.replace('"127.0.0.1:8082:80/tcp"', ""))
         self.assertIn('"127.0.0.1:4533:4533/tcp"', navidrome)
@@ -89,7 +89,7 @@ class PublicSharingConfigTests(unittest.TestCase):
         self.assertIn("/ocs/v2.php/apps/files_sharing/api/v1/shares*", private_cloud)
         self.assertIn("header_up Host {$NEXTCLOUD_PUBLIC_DOMAIN}", private_cloud)
         self.assertIn("handle {", private_cloud)
-        self.assertIn("http://127.0.0.1:8084", serve)
+        self.assertIn("http://127.0.0.1:18084", serve)
 
     def test_configurator_preserves_domains_and_safe_share_defaults(self) -> None:
         script = self.read("scripts/configure-public-sharing.sh")

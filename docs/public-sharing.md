@@ -56,7 +56,8 @@ docker compose -f compose.yaml -f compose.media.yaml ps caddy cloudflared nextcl
 
 Nextcloud accetta sia `TAILSCALE_FQDN` sia `NEXTCLOUD_PUBLIC_DOMAIN`. La UI
 completa rimane raggiungibile soltanto su `https://TAILSCALE_FQDN:8445`.
-Tailscale Serve inoltra quella porta al listener locale Caddy `8084`; Caddy
+Tailscale Serve inoltra quella porta al bind locale Caddy `18084` (listener
+container `8084`); Caddy
 presenta il dominio pubblico a Nextcloud solo per l'API delle condivisioni, così
 il pulsante di copia genera automaticamente URL sotto
 `https://cloud.tommasofrancescon.it` senza esporre il login pubblico.

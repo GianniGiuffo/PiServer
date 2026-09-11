@@ -23,7 +23,7 @@ services:
       - "127.0.0.1:8083:8083/tcp"
       # Full Nextcloud UI for Tailscale Serve; the public vhost remains
       # independently restricted to tokenized share routes in Caddy.
-      - "127.0.0.1:8084:8084/tcp"
+      - "127.0.0.1:18084:8084/tcp"
     networks:
       - web
       # Caddy reaches Nextcloud only through its existing restricted frontend
