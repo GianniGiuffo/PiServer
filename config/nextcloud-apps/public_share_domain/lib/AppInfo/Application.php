@@ -10,6 +10,7 @@ use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
 use OCP\EventDispatcher\IEventDispatcher;
+use OCP\IUserSession;
 use OCP\Util;
 
 final class Application extends App implements IBootstrap
@@ -27,11 +28,16 @@ final class Application extends App implements IBootstrap
 
     public function boot(IBootContext $context): void
     {
-        $context->injectFn(function (IEventDispatcher $dispatcher): void {
+        $context->injectFn(function (
+            IEventDispatcher $dispatcher,
+            IUserSession $userSession,
+        ): void {
             $dispatcher->addListener(
                 BeforeTemplateRenderedEvent::class,
-                static function (): void {
-                    Util::addScript(self::APP_ID, 'public-share-domain');
+                static function () use ($userSession): void {
+                    if ($userSession->isLoggedIn()) {
+                        Util::addScript(self::APP_ID, 'public-share-domain');
+                    }
                 },
             );
         });

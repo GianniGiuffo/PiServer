@@ -49,11 +49,15 @@ class PublicSharingConfigTests(unittest.TestCase):
         javascript = self.read(
             "config/nextcloud-apps/public_share_domain/js/public-share-domain.js"
         )
+        application = self.read(
+            "config/nextcloud-apps/public_share_domain/lib/AppInfo/Application.php"
+        )
 
         self.assertIn('cp "${LOCAL_APP_DIR}/." "nextcloud:${CONTAINER_APP_DIR}"', configure)
         self.assertIn('app:enable public_share_domain', configure)
         self.assertIn("source.origin !== window.location.origin", javascript)
         self.assertIn("(?:index\\.php\\/)?s\\/[^/]+", javascript)
+        self.assertIn("$userSession->isLoggedIn()", application)
 
     def test_navidrome_shares_are_revocable_and_downloads_opt_in(self) -> None:
         media = self.read("compose.media.yaml")
