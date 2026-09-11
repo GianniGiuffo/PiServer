@@ -31,7 +31,7 @@ soltanto dopo la scelta dell'hardware.
 | Pi-hole DNS | LAN e Tailnet | SSD locale + Restic |
 | Homepage | Tailnet, porta 443 | configurazione in Git |
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
-| Nextcloud | Tailnet 8445 + HTTPS pubblico autenticato/link via tunnel | DB/config su SSD, file su `/srv/media` |
+| Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
 | StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
@@ -48,7 +48,7 @@ soltanto dopo la scelta dell'hardware.
 | Controller PC gaming | Tailnet, porta 8455 | stato minimo su SSD, nessuna credenziale Windows |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
-Vaultwarden, l'endpoint web autenticato di Nextcloud e soltanto `/share/*` di
+Vaultwarden, soltanto le route dei link pubblici Nextcloud e `/share/*` di
 Navidrome; editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
 router deve essere inoltrata.
 

@@ -17,7 +17,7 @@ tailscale serve reset
 tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:3000
 tailscale serve --bg --https=8443 --set-path=/ http://127.0.0.1:8083
 tailscale serve --bg --https=8444 --set-path=/ http://127.0.0.1:8081
-tailscale serve --bg --https=8445 --set-path=/ http://127.0.0.1:8082
+tailscale serve --bg --https=8445 --set-path=/ http://127.0.0.1:8084
 tailscale serve --bg --https=8446 --set-path=/ http://127.0.0.1:8096
 tailscale serve --bg --https=8447 --set-path=/ http://127.0.0.1:2283
 tailscale serve --bg --https=8448 --set-path=/ http://127.0.0.1:3001

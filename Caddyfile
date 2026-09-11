@@ -50,19 +50,102 @@ http://{$VAULTWARDEN_DOMAIN} {
 	header -Server
 }
 
-# Nextcloud public links support an optional password and optional expiry per
-# share. The application stays on a loopback-only host port; only cloudflared
-# and this Docker network path can reach it from outside the Tailnet.
+# The Tailnet-facing Nextcloud proxy keeps the full application private. Only
+# calls which create or read shares are presented to Nextcloud with the public
+# hostname, so copied links use NEXTCLOUD_PUBLIC_DOMAIN even though the user is
+# working on the private Tailnet URL.
+http://:8084 {
+	@share_api path /ocs/v1.php/apps/files_sharing/api/v1/shares* /ocs/v2.php/apps/files_sharing/api/v1/shares*
+	handle @share_api {
+		reverse_proxy nextcloud:80 {
+			header_up Host {$NEXTCLOUD_PUBLIC_DOMAIN}
+			header_up X-Forwarded-Host {$NEXTCLOUD_PUBLIC_DOMAIN}
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+		}
+	}
+	handle {
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 8445
+		}
+	}
+	header -Server
+}
+
+# Public Nextcloud is deliberately not the full application. These matchers
+# include only tokenized share pages, their token-aware data endpoints and the
+# static assets required to render previews. Login, user APIs, private WebDAV,
+# status.php and the normal UI fall through to the final 404.
 http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
-	encode zstd gzip
-	reverse_proxy nextcloud:80 {
-		# Cloudflare terminates public HTTPS before the private Docker hop.
-		header_up X-Forwarded-Proto https
-		header_up X-Forwarded-Port 443
-		# cloudflared is the only public ingress to Caddy. Preserve the client IP
-		# so Nextcloud's brute-force protection does not group every visitor.
-		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
-		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	@share_pages {
+		method GET HEAD POST OPTIONS
+		path /s/* /index.php/s/*
+	}
+	@share_data {
+		method GET HEAD POST PROPFIND OPTIONS
+		path /public.php/dav/files/* /apps/files_sharing/publicpreview/* /index.php/apps/files_sharing/publicpreview/* /apps/files_sharing/shareinfo /index.php/apps/files_sharing/shareinfo
+	}
+	@share_text_viewer {
+		method GET HEAD POST PUT OPTIONS
+		path /apps/text/public/* /index.php/apps/text/public/* /ocs/v2.php/apps/text/api/v1/public/*
+	}
+	@share_assets {
+		method GET HEAD
+		path_regexp publicAssets ^/(?:core|dist|js|svg|apps/(?:files_sharing|viewer|files_pdfviewer|text|theming))/.*\.(?:css|js|mjs|map|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf)$
+	}
+	@share_theme {
+		method GET HEAD
+		path /apps/theming/css/* /apps/theming/favicon/* /apps/theming/icon/* /apps/theming/manifest/* /apps/theming/theme/*
+	}
+
+	handle @share_pages {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle @share_data {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle @share_text_viewer {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle @share_assets {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle @share_theme {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle {
+		respond 404
 	}
 	header -Server
 }

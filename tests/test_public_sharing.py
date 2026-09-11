@@ -22,10 +22,14 @@ class PublicSharingConfigTests(unittest.TestCase):
         self.assertIn("NAVIDROME_PUBLIC_DOMAIN:", core)
 
     def test_no_new_public_host_ports_are_added(self) -> None:
+        core = self.read("compose.yaml")
         media = self.read("compose.media.yaml")
+        caddy = self.service_block(core, "caddy", "cloudflared")
         nextcloud = self.service_block(media, "nextcloud", "nextcloud-readonly")
         navidrome = self.service_block(media, "navidrome", "aurral")
 
+        self.assertIn('"127.0.0.1:8084:8084/tcp"', caddy)
+        self.assertEqual(caddy.count('"127.0.0.1:8084:8084/tcp"'), 1)
         self.assertIn('"127.0.0.1:8082:80/tcp"', nextcloud)
         self.assertNotIn('"8082:80/tcp"', nextcloud.replace('"127.0.0.1:8082:80/tcp"', ""))
         self.assertIn('"127.0.0.1:4533:4533/tcp"', navidrome)
@@ -58,6 +62,34 @@ class PublicSharingConfigTests(unittest.TestCase):
         self.assertIn("path /share /share/*", public_music)
         self.assertIn("reverse_proxy navidrome:4533", public_music)
         self.assertIn("respond 404", public_music)
+
+    def test_caddy_exposes_only_nextcloud_public_share_routes(self) -> None:
+        caddy = self.read("Caddyfile")
+        public_cloud = caddy.split("http://{$NEXTCLOUD_PUBLIC_DOMAIN}", 1)[1].split(
+            "http://{$NAVIDROME_PUBLIC_DOMAIN}", 1
+        )[0]
+
+        self.assertIn("path /s/* /index.php/s/*", public_cloud)
+        self.assertIn("/public.php/dav/files/*", public_cloud)
+        self.assertIn("/index.php/apps/files_sharing/publicpreview/*", public_cloud)
+        self.assertIn("@share_assets", public_cloud)
+        self.assertIn("respond 404", public_cloud)
+        self.assertNotIn("path /login", public_cloud)
+        self.assertNotIn("path /remote.php", public_cloud)
+        share_data = public_cloud.split("@share_data", 1)[1].split("}", 1)[0]
+        self.assertNotIn("PUT", share_data)
+
+    def test_tailnet_proxy_rewrites_only_share_api_urls(self) -> None:
+        caddy = self.read("Caddyfile")
+        serve = self.read("scripts/configure-tailscale-serve.sh")
+        private_cloud = caddy.split("http://:8084", 1)[1].split(
+            "http://{$NEXTCLOUD_PUBLIC_DOMAIN}", 1
+        )[0]
+
+        self.assertIn("/ocs/v2.php/apps/files_sharing/api/v1/shares*", private_cloud)
+        self.assertIn("header_up Host {$NEXTCLOUD_PUBLIC_DOMAIN}", private_cloud)
+        self.assertIn("handle {", private_cloud)
+        self.assertIn("http://127.0.0.1:8084", serve)
 
     def test_configurator_preserves_domains_and_safe_share_defaults(self) -> None:
         script = self.read("scripts/configure-public-sharing.sh")

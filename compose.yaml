@@ -21,6 +21,9 @@ services:
     ports:
       # Private Hugo pages are published only through Tailscale Serve.
       - "127.0.0.1:8083:8083/tcp"
+      # Full Nextcloud UI for Tailscale Serve; the public vhost remains
+      # independently restricted to tokenized share routes in Caddy.
+      - "127.0.0.1:8084:8084/tcp"
     networks:
       - web
       # Caddy reaches Nextcloud only through its existing restricted frontend

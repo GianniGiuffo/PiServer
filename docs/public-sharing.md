@@ -47,16 +47,23 @@ cd /opt/raspberry-server
 bash scripts/preflight.sh
 sudo systemctl restart core-stack.service
 sudo systemctl restart media-stack.service
+sudo bash scripts/configure-tailscale-serve.sh
 sudo bash scripts/configure-public-sharing.sh
 docker compose -f compose.yaml -f compose.media.yaml ps caddy cloudflared nextcloud navidrome
 ```
 
 ## 2. Nextcloud
 
-Nextcloud accetta sia `TAILSCALE_FQDN` sia `NEXTCLOUD_PUBLIC_DOMAIN`. Non viene
-forzato `overwritehost`, perché un valore unico romperebbe uno dei due percorsi.
-`overwrite.cli.url` usa invece il dominio pubblico per email e URL generati dai
-job in background.
+Nextcloud accetta sia `TAILSCALE_FQDN` sia `NEXTCLOUD_PUBLIC_DOMAIN`. La UI
+completa rimane raggiungibile soltanto su `https://TAILSCALE_FQDN:8445`.
+Tailscale Serve inoltra quella porta al listener locale Caddy `8084`; Caddy
+presenta il dominio pubblico a Nextcloud solo per l'API delle condivisioni, così
+il pulsante di copia genera automaticamente URL sotto
+`https://cloud.tommasofrancescon.it` senza esporre il login pubblico.
+
+Non viene forzato `overwritehost`, perché cambierebbe anche URL, redirect e asset
+della UI privata. `overwrite.cli.url` usa il dominio pubblico soltanto per email
+e URL generati dai job in background.
 
 `scripts/configure-public-sharing.sh` rimuove l'eventuale `overwritehost`
 persistito, aggiunge il dominio pubblico senza cancellare quelli esistenti e
@@ -70,10 +77,10 @@ docker compose -f compose.yaml -f compose.media.yaml exec --user www-data nextcl
   php occ config:system:get overwrite.cli.url
 ```
 
-Aprire `https://cloud.tommasofrancescon.it` quando si deve creare e copiare un
-link destinato all'esterno. Un link creato mentre si usa l'hostname Tailnet
-conterrà quell'hostname; in quel caso sostituire soltanto origine e porta con
-`https://cloud.tommasofrancescon.it`, lasciando invariato `/s/TOKEN`.
+Creare e copiare il link dalla normale UI privata su
+`https://TAILSCALE_FQDN:8445`. Il link restituito deve iniziare con
+`https://cloud.tommasofrancescon.it/s/`; non è necessario aprire il dominio
+pubblico per accedere come utente.
 
 In **Administration settings > Sharing**:
 
@@ -89,10 +96,11 @@ Per condividere un file o una cartella scegliere **Share > Create a new share
 link**. Impostare la password solo quando serve e lasciare vuota la scadenza.
 Il token rimane valido finché il link non viene eliminato con **Unshare**.
 
-Il dominio pubblico inoltra l'applicazione Nextcloud completa perché anteprime,
-download, autenticazione dei link protetti e risorse statiche usano endpoint
-diversi da `/s/`. I dati privati continuano a richiedere l'autenticazione
-Nextcloud; la sola conoscenza del dominio non permette di leggerli.
+Il dominio pubblico non inoltra l'applicazione Nextcloud completa. Caddy ammette
+soltanto `/s/*`, il DAV pubblico tokenizzato, gli endpoint pubblici di anteprima
+e visualizzazione e gli asset statici indispensabili. `/`, `/login`,
+`/status.php`, `/remote.php/*` e le API utente non raggiungono Nextcloud e
+restituiscono `404`.
 
 ## 3. Navidrome
 
@@ -124,10 +132,11 @@ Con Wi-Fi e Tailscale disattivati sul telefono:
 1. aprire un link Nextcloud senza password e verificarne anteprima e download;
 2. aprire un secondo link Nextcloud protetto e verificare che una password
    errata venga rifiutata;
-3. aprire un link Navidrome e verificare riproduzione e, se selezionato,
+3. aprire `https://cloud.tommasofrancescon.it/` e `/login` e verificare `404`;
+4. aprire un link Navidrome e verificare riproduzione e, se selezionato,
    download;
-4. aprire `https://music.tommasofrancescon.it/` e verificare una risposta 404;
-5. revocare entrambi i link e verificare che non siano più utilizzabili.
+5. aprire `https://music.tommasofrancescon.it/` e verificare una risposta 404;
+6. revocare entrambi i link e verificare che non siano più utilizzabili.
 
 Controllare infine che il router non abbia nuove regole NAT/UPnP e che Docker
 continui a mostrare `127.0.0.1:8082` e `127.0.0.1:4533` come soli bind host.

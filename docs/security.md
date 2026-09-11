@@ -10,7 +10,7 @@
 | Homepage | Tailscale Serve `443` | no |
 | area privata sito | Tailscale Serve `8443` | no |
 | Pi-hole dashboard | Tailscale Serve `8444` | no |
-| Nextcloud | Tailscale Serve `8445`; dominio pubblico via tunnel | solo link/app autenticata |
+| Nextcloud | Tailscale Serve `8445`; dominio pubblico filtrato dal tunnel | solo link pubblici e relativi asset |
 | Jellyfin | Tailscale Serve `8446` | no |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
@@ -150,11 +150,12 @@ credenziale bearer e va revocato se viene inoltrato alla persona sbagliata.
 Navidrome non supporta password per singolo link; usare Nextcloud quando la
 password è necessaria.
 
-Nextcloud è raggiungibile anche dal proprio dominio pubblico per permettere
-anteprime, download e password native dei link. Gli account restano protetti
-dall'autenticazione Nextcloud: usare 2FA, mantenere attiva la protezione
-brute-force e non abilitare upload anonimi se non sono necessari. I link senza
-password sono segreti bearer e restano validi finché non vengono revocati.
+Il dominio pubblico Nextcloud non espone l'applicazione completa. Caddy consente
+soltanto le pagine tokenizzate `/s/*`, gli endpoint pubblici di download,
+anteprima e visualizzazione e gli asset statici necessari; root, login, API
+utente, WebDAV privato e `status.php` rispondono `404`. La UI completa resta su
+Tailscale Serve `8445`. I link senza password sono segreti bearer e restano
+validi finché non vengono revocati.
 
 ## Storage di rete
 
