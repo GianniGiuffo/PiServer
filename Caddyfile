@@ -49,3 +49,40 @@ http://{$VAULTWARDEN_DOMAIN} {
 	}
 	header -Server
 }
+
+# Nextcloud public links support an optional password and optional expiry per
+# share. The application stays on a loopback-only host port; only cloudflared
+# and this Docker network path can reach it from outside the Tailnet.
+http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy nextcloud:80 {
+		# Cloudflare terminates public HTTPS before the private Docker hop.
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Port 443
+		# cloudflared is the only public ingress to Caddy. Preserve the client IP
+		# so Nextcloud's brute-force protection does not group every visitor.
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	}
+	header -Server
+}
+
+# Navidrome has anonymous tokenized shares but no per-share password. Expose
+# only its public share handler; login, API and the normal UI stay Tailnet-only.
+http://{$NAVIDROME_PUBLIC_DOMAIN} {
+	@public_share {
+		method GET HEAD OPTIONS
+		path /share /share/*
+	}
+	handle @public_share {
+		encode zstd gzip
+		reverse_proxy navidrome:4533 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+		}
+	}
+	handle {
+		respond 404
+	}
+	header -Server
+}

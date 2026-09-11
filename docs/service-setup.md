@@ -156,6 +156,9 @@ I file risiedono in `/srv/media/nextcloud`; configurazione, app e PostgreSQL
 restano sull'SSD. Non installare componenti Office o riconoscimento AI finché
 non ne è stata valutata la RAM.
 
+Per i link pubblici con password facoltativa e senza scadenza obbligatoria,
+seguire [public-sharing.md](public-sharing.md). Non aprire porte sul router.
+
 ## Jellyfin
 
 Aprire `https://TAILSCALE_FQDN:8446/`, creare l'amministratore e aggiungere le

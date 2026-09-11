@@ -31,12 +31,12 @@ soltanto dopo la scelta dell'hardware.
 | Pi-hole DNS | LAN e Tailnet | SSD locale + Restic |
 | Homepage | Tailnet, porta 443 | configurazione in Git |
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
-| Nextcloud | Tailnet, porta 8445 | DB/config su SSD, file su `/srv/media` |
+| Nextcloud | Tailnet 8445 + HTTPS pubblico autenticato/link via tunnel | DB/config su SSD, file su `/srv/media` |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
 | StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
 | Aurral | Tailnet, porta 8451 | config su SSD, musica su `/srv/media/music` |
-| Navidrome | Tailnet, porta 8452 | DB su SSD, musica in sola lettura |
+| Navidrome | Tailnet 8452 + `/share/*` pubblico via Cloudflare Tunnel | DB su SSD, musica in sola lettura |
 | Lidarr | Tailnet, porta 8453 | config su SSD, libreria su `/srv/media/music` |
 | slskd | Tailnet, porta 8454 | config su SSD, transito su `/srv/media/music` |
 | n8n | Tailnet, porta 8449 | SSD locale + Restic |
@@ -47,9 +47,10 @@ soltanto dopo la scelta dell'hardware.
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
 | Controller PC gaming | Tailnet, porta 8455 | stato minimo su SSD, nessuna credenziale Windows |
 
-Tailscale è installato sull'host, non in Docker. Cloudflare espone soltanto il
-sito e Vaultwarden; editor, webhook e chat n8n restano nella Tailnet. Nessuna
-porta del router deve essere inoltrata.
+Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
+Vaultwarden, l'endpoint web autenticato di Nextcloud e soltanto `/share/*` di
+Navidrome; editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
+router deve essere inoltrata.
 
 ## Tre stack indipendenti
 
@@ -132,7 +133,8 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Accesso remoto e sicurezza](docs/security.md)
 - [Configurazione iniziale dei servizi](docs/service-setup.md)
 - [Stack musicale](docs/music-stack.md)
-- [Cloudflare Tunnel](docs/cloudflare-tunnel.md)
+- [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
+- [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)
 - [n8n e Ollama](docs/n8n-ollama.md)
 - [Connettori AI: SearXNG e Nextcloud in sola lettura](docs/ai-connectors.md)
 - [Connettori AI: GitHub in sola lettura e DeepL](docs/n8n-github-deepl.md)

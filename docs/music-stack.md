@@ -49,8 +49,12 @@ creato prima del passaggio. Non tentare il downgrade usando il database
 aggiornato.
 
 Il database Aurral viene migrato automaticamente. Il compose usa la directory
-host corretta montata su `/config`; i file in `/srv/media/music/aurral` non
-vengono spostati.
+host corretta montata su `/config`. Con la 2.8, Aurral migra anche i percorsi
+musicali delle vecchie playlist all'interno di `/srv/media/music/aurral`:
+prima verifica e indicizza la destinazione, poi aggiorna i riferimenti e
+rimuove il file precedente. Attendere il completamento prima di verificare
+le playlist in Navidrome o eliminare il backup temporaneo di aggiornamento.
+Non serve un container deemix: questo stack mantiene slskd e yt-dlp.
 
 Sul server:
 
@@ -126,7 +130,7 @@ nano .env
 Aggiungere le immagini:
 
 ```dotenv
-AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.2.0
+AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.8.0
 LIDARR_IMAGE=lscr.io/linuxserver/lidarr:nightly
 SLSKD_IMAGE=slskd/slskd:0.26.0
 NAVIDROME_IMAGE=deluan/navidrome:0.63.2
@@ -343,6 +347,13 @@ Path: /data/aurral
 Non aggiungere `/data` o `/data/.downloads`: includerebbero file parziali e
 duplicati.
 
+Le condivisioni pubbliche sono abilitate dal compose e usano il dominio
+`NAVIDROME_PUBLIC_DOMAIN`; Caddy pubblica soltanto `/share/*`. Download e
+revoca restano scelte della singola condivisione. Navidrome non dispone di una
+password per singolo link: per una traccia protetta usare la condivisione del
+file in Nextcloud. La configurazione completa è in
+[public-sharing.md](public-sharing.md).
+
 ### Album sdoppiati in Navidrome
 
 Navidrome raggruppa la musica usando i tag incorporati nei file, non le
@@ -421,8 +432,8 @@ Completare l'onboarding:
    `/data/aurral`; il compose rende scrivibile soltanto questa sottodirectory;
 6. aprire **Download Clients > slskd**, usare URL `http://slskd:5030` e la
    `SLSKD_API_KEY`, quindi eseguire il test di connessione;
-7. lasciare slskd con priorità `10`, scegliere il formato preferito e tenere
-   **Strict format only** disabilitato durante i primi test;
+7. lasciare slskd con priorità `10`; in **Download Clients > Quality profile**
+   scegliere le qualità accettate, includendo M4A se si usa il fallback yt-dlp;
 8. in **Download Clients > yt-dlp**, lasciare attivo il fallback con priorità
    `50`, staging `/config/_staging`, quindi eseguire il test. Disabilitarlo qui
    se non si vogliono download da YouTube/web;
@@ -438,7 +449,7 @@ come upstream di Pi-hole. Questo evita dipendenze circolari dal DNS del host
 dopo un riavvio, mentre i nomi dei servizi (`lidarr`, `navidrome`, `slskd`)
 continuano a essere risolti dal DNS interno di Docker.
 
-Aurral `2.2.0` include già yt-dlp e ffmpeg: non installare un altro container.
+Aurral `2.8.0` include già yt-dlp e ffmpeg: non installare un altro container.
 Con le priorità indicate prova prima slskd e usa yt-dlp solo quando le sorgenti
 precedenti falliscono. L'audio ottenuto da YouTube è normalmente lossy; Aurral
 lo valida, applica i tag e invia a **Activity > Review** le corrispondenze con

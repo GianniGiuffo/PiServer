@@ -10,14 +10,14 @@
 | Homepage | Tailscale Serve `443` | no |
 | area privata sito | Tailscale Serve `8443` | no |
 | Pi-hole dashboard | Tailscale Serve `8444` | no |
-| Nextcloud | Tailscale Serve `8445` | no |
+| Nextcloud | Tailscale Serve `8445`; dominio pubblico via tunnel | solo link/app autenticata |
 | Jellyfin | Tailscale Serve `8446` | no |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
 | StreamingCommunity downloader | Tailscale Serve `8450` | no |
 | Aurral | Tailscale Serve `8451` | no |
-| Navidrome | Tailscale Serve `8452` | no |
+| Navidrome | Tailscale Serve `8452`; tunnel limitato a `/share/*` | solo link di condivisione |
 | Lidarr Web UI | Tailscale Serve `8453` | no |
 | slskd Web UI | Tailscale Serve `8454` | no; la porta P2P `50300` resta chiusa |
 | Homepage `rack-pi` | Tailscale Serve `443` sul Raspberry | no |
@@ -143,6 +143,18 @@ condivisi.
 Navidrome monta l'intera radice musicale in sola lettura. Aurral vede la
 libreria permanente in sola lettura e può scrivere soltanto il proprio output
 e consumare i download slskd completati.
+
+Il dominio pubblico Navidrome viene filtrato da Caddy: soltanto `GET`, `HEAD` e
+`OPTIONS` sotto `/share` raggiungono il container. Il token del link è una
+credenziale bearer e va revocato se viene inoltrato alla persona sbagliata.
+Navidrome non supporta password per singolo link; usare Nextcloud quando la
+password è necessaria.
+
+Nextcloud è raggiungibile anche dal proprio dominio pubblico per permettere
+anteprime, download e password native dei link. Gli account restano protetti
+dall'autenticazione Nextcloud: usare 2FA, mantenere attiva la protezione
+brute-force e non abilitare upload anonimi se non sono necessari. I link senza
+password sono segreti bearer e restano validi finché non vengono revocati.
 
 ## Storage di rete
 

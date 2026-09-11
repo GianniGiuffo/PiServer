@@ -11,6 +11,8 @@ services:
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:-unused.invalid}
       VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
+      NEXTCLOUD_PUBLIC_DOMAIN: ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
+      NAVIDROME_PUBLIC_DOMAIN: ${NAVIDROME_PUBLIC_DOMAIN:?Set NAVIDROME_PUBLIC_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
@@ -21,6 +23,9 @@ services:
       - "127.0.0.1:8083:8083/tcp"
     networks:
       - web
+      # Caddy reaches Nextcloud only through its existing restricted frontend
+      # network. Databases and the AI connector remain isolated.
+      - nextcloud-access
     security_opt:
       - no-new-privileges:true
 

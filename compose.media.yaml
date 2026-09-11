@@ -66,11 +66,12 @@ services:
       REDIS_HOST: nextcloud-redis
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?Set NEXTCLOUD_ADMIN_USER in .env}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set NEXTCLOUD_ADMIN_PASSWORD in .env}
-      NEXTCLOUD_TRUSTED_DOMAINS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}
+      NEXTCLOUD_TRUSTED_DOMAINS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env} ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
       TRUSTED_PROXIES: 172.16.0.0/12
-      OVERWRITEHOST: ${TAILSCALE_FQDN}:8445
       OVERWRITEPROTOCOL: https
-      OVERWRITECLIURL: https://${TAILSCALE_FQDN}:8445
+      # Do not force overwritehost: each browser path keeps its own hostname,
+      # so Tailnet access and the public share hostname can coexist.
+      OVERWRITECLIURL: https://${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
       PHP_MEMORY_LIMIT: 768M
       PHP_UPLOAD_LIMIT: 16G
     volumes:
@@ -297,6 +298,18 @@ services:
       ND_MUSICFOLDER: /data/library
       ND_SCANNER_PURGEMISSING: always
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
+      # The normal UI remains on Tailscale. Only /share is routed publicly by
+      # Caddy, and generated links use the public hostname below.
+      ND_ENABLESHARING: "true"
+      # Required for the per-share "Allow downloads" switch to have effect.
+      ND_ENABLEDOWNLOADS: "true"
+      ND_SHAREURL: https://${NAVIDROME_PUBLIC_DOMAIN:?Set NAVIDROME_PUBLIC_DOMAIN in .env}
+      # Navidrome 0.63 always writes an expiry; 100 years is the practical
+      # "until revoked" value and remains safely inside Go's duration range.
+      ND_DEFAULTSHAREEXPIRATION: "876000h"
+      # Keep downloads opt-in for each new share.
+      ND_DEFAULTDOWNLOADABLESHARE: "false"
+      ND_ENABLELOGREDACTING: "true"
       ND_LOGLEVEL: info
       # Required only to enable per-user Last.fm scrobbling in the Navidrome UI.
       ND_LASTFM_APIKEY: ${NAVIDROME_LASTFM_API_KEY:-}
@@ -336,7 +349,8 @@ services:
       AURRAL_DATA_DIR: /config
       # Initial v2 output path; it remains editable under Download Clients.
       DOWNLOAD_FOLDER: /data/aurral
-      TRUST_PROXY: "true"
+      # Tailscale Serve is the single proxy hop to this loopback-only port.
+      TRUST_PROXY: "1"
       AURRAL_IMAGE_PROXY_MAX_BYTES: "67108864"
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/aurral:/config
