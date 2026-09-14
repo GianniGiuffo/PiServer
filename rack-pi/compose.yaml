@@ -94,6 +94,9 @@ services:
       MEDIA_MOUNTPOINT: ${BACKUP_MOUNTPOINT:?Set BACKUP_MOUNTPOINT}
       MEDIA_STATUS_FILE: /status/storage.json
       BACKUP_STATUS_FILE: /status/backup.json
+      DOCKER_API_URL: http://docker-socket-proxy:2375
+      EXPECTED_COMPOSE_PROJECT: rack-pi
+      EXPECTED_SERVICES: pihole,nebula-sync,docker-socket-proxy,monitoring-api,homepage,uptime-kuma
     volumes:
       - ../scripts/monitoring-api.py:/app/monitoring-api.py:ro
       - /proc/stat:/host/proc/stat:ro
@@ -106,6 +109,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    ports:
+      - "127.0.0.1:8082:8080/tcp"
     networks:
       - monitoring
     healthcheck:

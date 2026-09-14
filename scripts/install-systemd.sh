@@ -20,22 +20,9 @@ REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 # configuration directory. Files such as backup.env can remain root-only.
 install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server
 install -d -m 0750 -o root -g "${TARGET_GROUP}" /etc/raspberry-server/sites
-install -d -m 0700 -o root -g root /var/lib/raspberry-server/ai-ops
-
-# Separate secrets prevent n8n from granting its own approval. Existing values
-# are preserved across reinstalls.
-for token_file in ai-ops-token ai-ops-approval-token ai-ops-telegram-bridge-token; do
-  if [[ ! -s /etc/raspberry-server/${token_file} ]]; then
-    umask 0027
-    openssl rand -hex 32 > "/etc/raspberry-server/${token_file}"
-  fi
-  chown root:"${TARGET_GROUP}" "/etc/raspberry-server/${token_file}"
-  chmod 0640 "/etc/raspberry-server/${token_file}"
-done
-
 for unit in \
   core-stack.service media-stack.service automation-stack.service \
-  ai-ops-gateway.service gaming-pc-controller.service \
+  gaming-pc-controller.service pihole-control.service \
   site-deploy.service site-deploy.timer backup.service backup.timer \
   backup-recovery.service backup-recovery.timer \
   backup-status.service backup-status.timer \
@@ -59,14 +46,13 @@ if [[ -r /etc/raspberry-server/backup.env ]] &&
 fi
 
 systemctl enable \
-  core-stack.service ai-ops-gateway.service site-deploy.timer backup-status.timer \
+  core-stack.service site-deploy.timer backup-status.timer \
   media-status.timer media-recovery.timer
 if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} == true ]]; then
   systemctl disable --now backup.timer backup-recovery.timer
 else
   systemctl enable backup-recovery.timer
 fi
-systemctl start ai-ops-gateway.service
 if [[ -r ${REPO_DIR}/.env ]]; then
   bash "${REPO_DIR}/scripts/refresh-backup-status.sh" auto
   bash "${REPO_DIR}/scripts/refresh-media-status.sh"
@@ -79,18 +65,18 @@ fi
 cat <<EOF
 Installed systemd units.
 
-- core-stack.service, ai-ops-gateway.service, site-deploy.timer,
+- core-stack.service, site-deploy.timer,
   backup-status.timer and media-status.timer are enabled for the next boot.
-  The AI Ops gateway exposes only a local Unix socket. media-recovery.timer
-  retries an enabled media stack when its storage becomes available.
+  media-recovery.timer retries an enabled media stack when its storage becomes
+  available.
 - gaming-pc-controller.service is installed but remains disabled until the
   dedicated setup and Windows host-key verification are complete.
+- Enable pihole-control.service after setting its two variables in .env and
+  regenerating Tailscale Serve routes.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
 - Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
   reachable; it refreshes metadata and searches recent releases every Monday.
-- Enable automation-stack.service when n8n/Ollama should start.
-- Before enabling the local AI Ops workflow, create the root-only Telegram bot
-  token file described in docs/n8n-ai-ops-local.md.
+- Enable automation-stack.service when n8n and SearXNG should start.
 EOF
 
 if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} == true ]]; then

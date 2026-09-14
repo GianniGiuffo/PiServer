@@ -1,9 +1,8 @@
 # GitHub e DeepL come strumenti dell'AI in n8n
 
 GitHub e DeepL sono nodi nativi di n8n e possono essere collegati direttamente
-al connettore **Tool** dell'AI Agent. Non richiedono container, porte in ingresso
-o modifiche ai limiti di memoria di n8n e Ollama. Richiedono soltanto accesso
-HTTPS in uscita e credenziali salvate nell'interfaccia di n8n.
+ai workflow. Non richiedono container o porte in ingresso. Richiedono soltanto
+accesso HTTPS in uscita e credenziali salvate nell'interfaccia di n8n.
 
 Le chiavi non vanno inserite nel `.env`, nei prompt o nei workflow esportati:
 devono rimanere nel gestore credenziali di n8n.
@@ -116,18 +115,15 @@ codice lingua.
 
 ## 3. Privacy
 
-Ollama continua a elaborare localmente la chat, ma i connettori sono servizi
-esterni:
+I connettori sono servizi esterni:
 
 - una chiamata GitHub invia parametri a GitHub e restituisce contenuti già
   ospitati su GitHub;
 - una chiamata DeepL invia a DeepL il testo da tradurre.
 
-Non collegare automaticamente l'output di Nextcloud a DeepL. Per conservare il
-modello di privacy locale, DeepL va usato solo quando l'utente chiede
-esplicitamente la traduzione di quel testo. Per documenti privati è più sicuro
-tradurre con Qwen in locale; se si vuole usare DeepL anche per essi, proteggere
-il tool con **Human review in Chat**.
+Non collegare automaticamente l'output di Nextcloud a DeepL. DeepL va usato
+solo quando l'utente chiede esplicitamente la traduzione di quel testo; per i
+documenti privati proteggere il tool con **Human review in Chat**.
 
 ## 4. Prompt di sistema
 

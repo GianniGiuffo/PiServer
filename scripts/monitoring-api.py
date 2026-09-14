@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small read-only metrics API used by Homepage's Custom API widgets."""
+"""Read-only metrics API used by Homepage's Custom API widgets."""
 
 from __future__ import annotations
 
@@ -10,7 +10,9 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode, urlparse
+from urllib.request import Request, urlopen
 
 
 PROC_STAT = Path(os.getenv("HOST_PROC_STAT", "/host/proc/stat"))
@@ -26,6 +28,14 @@ BACKUP_STATUS_FILE = Path(
     os.getenv("BACKUP_STATUS_FILE", "/status/backup.json")
 )
 NETWORK_INTERFACE = os.getenv("NETWORK_INTERFACE", "auto").strip()
+RACK_PI_STATUS_URL = os.getenv("RACK_PI_STATUS_URL", "").strip().rstrip("/")
+DOCKER_API_URL = os.getenv("DOCKER_API_URL", "").strip().rstrip("/")
+EXPECTED_COMPOSE_PROJECT = os.getenv("EXPECTED_COMPOSE_PROJECT", "").strip()
+EXPECTED_SERVICES = tuple(
+    value.strip()
+    for value in os.getenv("EXPECTED_SERVICES", "").split(",")
+    if value.strip()
+)
 
 _SAFE_INTERFACE = re.compile(r"^[A-Za-z0-9_.:-]+$")
 _VIRTUAL_PREFIXES = (
@@ -41,6 +51,12 @@ _VIRTUAL_PREFIXES = (
 
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _get_json(url: str, timeout: float = 4) -> object:
+    request = Request(url, headers={"Accept": "application/json"})
+    with urlopen(request, timeout=timeout) as response:
+        return json.load(response)
 
 
 def _read_cpu_times() -> tuple[int, int]:
@@ -297,6 +313,55 @@ class Metrics:
             "next_run": None,
         }
 
+    @staticmethod
+    def _local_raspberry() -> dict[str, object]:
+        backup = Metrics.backup()
+        services_ok = False
+        if DOCKER_API_URL and EXPECTED_COMPOSE_PROJECT and EXPECTED_SERVICES:
+            filters = json.dumps(
+                {"label": [f"com.docker.compose.project={EXPECTED_COMPOSE_PROJECT}"]},
+                separators=(",", ":"),
+            )
+            query = urlencode({"all": "1", "filters": filters})
+            try:
+                payload = _get_json(f"{DOCKER_API_URL}/containers/json?{query}")
+                states: dict[str, bool] = {}
+                if isinstance(payload, list):
+                    for container in payload:
+                        if not isinstance(container, dict):
+                            continue
+                        labels = container.get("Labels") or {}
+                        service = labels.get("com.docker.compose.service")
+                        state = container.get("State")
+                        health = (container.get("Status") or "").lower()
+                        states[service] = state == "running" and "unhealthy" not in health
+                    services_ok = all(states.get(name, False) for name in EXPECTED_SERVICES)
+            except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+                services_ok = False
+        return {
+            "status": "Online",
+            "services": "Online" if services_ok else "Offline",
+            "last_backup": backup.get("last_success"),
+        }
+
+    @staticmethod
+    def raspberry() -> dict[str, object]:
+        if not RACK_PI_STATUS_URL:
+            return Metrics._local_raspberry()
+        try:
+            payload = _get_json(f"{RACK_PI_STATUS_URL}/raspberry")
+            if isinstance(payload, dict):
+                return {
+                    "status": "Online",
+                    "services": (
+                        "Online" if payload.get("services") == "Online" else "Offline"
+                    ),
+                    "last_backup": payload.get("last_backup"),
+                }
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+            pass
+        return {"status": "Offline", "services": "Offline", "last_backup": None}
+
 
 METRICS = Metrics()
 
@@ -309,6 +374,7 @@ class Handler(BaseHTTPRequestHandler):
             "/nas": METRICS.nas,
             "/network": METRICS.network,
             "/backup": METRICS.backup,
+            "/raspberry": METRICS.raspberry,
             "/health": lambda: {"status": "ok"},
         }
         callback = routes.get(endpoint)

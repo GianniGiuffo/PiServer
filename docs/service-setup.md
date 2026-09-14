@@ -18,8 +18,8 @@ della stessa larghezza:
 
 - **Server**: CPU, memoria, temperatura e uptime dell'host;
 - **NAS**: stato del mount, spazio libero, capacità e percentuale usata;
-- **Rete**: traffico istantaneo in entrata e uscita sull'interfaccia fisica;
-- **Backup**: esito Restic, ultimo snapshot riuscito e prossimo avvio del timer.
+- **Rete**: traffico istantaneo e controllo coordinato dei due Pi-hole;
+- **Raspberry**: stato, servizi e tempo dall'ultimo backup riuscito.
 
 Il contenitore vuoto degli information widget viene nascosto da `custom.css`.
 Nelle quattro card di sistema ogni etichetta (per esempio **CPU**) è mostrata
@@ -27,9 +27,10 @@ sopra al relativo valore; il CSS è limitato agli ID `system-*` e non cambia i
 widget degli altri servizi.
 
 `monitoring-api` legge soltanto i file necessari sotto `/proc` e `/sys` e i
-JSON locali con lo stato di media e backup. Non monta `/srv/media`, non riceve
-socket Docker o systemd, non pubblica porte e risponde soltanto sulla rete
-Docker interna `monitoring`. `media-status.timer` aggiorna capacità e stato del
+JSON locali con lo stato di media e backup. Non monta `/srv/media` e non riceve
+socket Docker o systemd. Sul Raspberry consulta il proxy Docker di sola lettura
+per aggregare lo stato dei servizi; la sua API è esposta soltanto in Tailnet.
+`media-status.timer` aggiorna capacità e stato del
 NAS ogni minuto; se `/srv/media` non è un mount reale, la banda NAS mostra
 **Non montato**. Il NAS non è quindi una dipendenza di avvio di Homepage.
 Se lo stack media è abilitato, `media-recovery.timer` ritenta ogni minuto il
@@ -77,11 +78,10 @@ Homepage mostra due controlli distinti per i servizi configurati:
 - `siteMonitor` esegue una richiesta HTTP interna e verifica che
   l'applicazione risponda davvero.
 
-Le card **Ollama** e **Modello AI** sono un'eccezione intenzionale: entrambe
-mostrano soltanto l'health Docker del container Ollama e non hanno
-`siteMonitor`. La card del modello visualizza il valore `OLLAMA_MODEL` e apre
-la URL privata costruita da `N8N_WEBHOOK_DOMAIN`, porta `8449` e
-`N8N_CHAT_PATH`.
+I link delle card servizio usano `target: _blank` e si aprono in una nuova
+scheda. Il controllo Pi-hole usa un backend loopback pubblicato da Tailscale
+Serve: verifica l'identità Tailnet, non invia password al browser e ripristina
+il primo nodo se l'aggiornamento del secondo fallisce.
 
 Per questo Aurral può risultare `running` ma `unhealthy`: il processo Node è
 ancora vivo, mentre `/api/health/live` non risponde. L'healthcheck di Aurral
@@ -142,6 +142,22 @@ dig @TAILSCALE_IP example.com
 Il secondo test va eseguito da un altro dispositivo Tailnet. Impostare Pi-hole
 come DNS DHCP del router e come nameserver globale Tailscale soltanto dopo il
 test. Il mini PC mantiene `accept-dns=false`.
+
+Riutilizzare le due password applicazione già configurate per nebula-sync:
+copiarle rispettivamente da `MINIPC_PIHOLE_SYNC_PASSWORD` e
+`RACK_PI_PIHOLE_SYNC_PASSWORD` del Raspberry a
+`MINIPC_PIHOLE_CONTROL_PASSWORD` e `RACK_PI_PIHOLE_CONTROL_PASSWORD` sul mini
+PC. Indicare inoltre l'identità Tailnet autorizzata in
+`PIHOLE_CONTROL_ALLOWED_TAILSCALE_LOGINS`. Applicare le route e avviare il
+controller:
+
+```bash
+sudo bash scripts/configure-tailscale-serve.sh
+sudo systemctl enable --now pihole-control.service
+```
+
+Sul Raspberry rieseguire `sudo bash scripts/configure-tailscale-serve.sh` per
+pubblicare la sola API di stato sulla porta Tailnet 8456.
 
 ## Nextcloud
 
@@ -231,8 +247,8 @@ In **Administration > Settings**:
 4. limitare i thread a 1 o 2;
 5. impostare il dominio esterno al relativo URL Tailscale.
 
-La prima importazione resta il momento più pesante. Non eseguirla mentre Ollama
-o una transcodifica Jellyfin stanno saturando il mini PC.
+La prima importazione resta il momento più pesante. Non eseguirla mentre una
+transcodifica Jellyfin sta saturando il mini PC.
 
 Foto e video sono in `/srv/media/immich`; PostgreSQL è in
 `/srv/raspberry-server/data/immich/postgres`. Non modificare manualmente la
@@ -252,15 +268,10 @@ Dopo il restore:
 Non importare il JSON se il restore completo funziona: Bitwarden non deduplica
 gli elementi importati.
 
-## n8n e Ollama
+## n8n e SearXNG
 
-Aprire `https://TAILSCALE_FQDN:8449/`. Per Ollama usare l'URL interno
-`http://ollama:11434` e selezionare `qwen3.5:4b`. Usare **Postgres Chat
-Memory** sulla connessione interna `n8n-postgres`, tabella
-`ai_chat_memory`, condividendola tra Chat Trigger e AI Agent. Dopo aver
-attivato il Chat Trigger, copiare il percorso della Production Chat URL in
-`N8N_CHAT_PATH` e ricreare Homepage. Vedi
-[n8n-ollama.md](n8n-ollama.md).
+Aprire `https://TAILSCALE_FQDN:8449/`. Ollama e i modelli AI locali non fanno
+parte dello stack.
 
 SearXNG e il proxy WebDAV Nextcloud non pubblicano porte. n8n li raggiunge
 rispettivamente su `http://searxng:8080` e

@@ -257,7 +257,7 @@ fi
 
 # User files and reproducible caches are intentionally excluded. In particular,
 # nothing below MEDIA_DIR, Nextcloud data, Immich photos/videos, Jellyfin media,
-# thumbnails, transcodes or Ollama models enters this repository.
+# thumbnails or transcodes enters this repository.
 BACKUP_PATHS=(
   "${REPO_DIR}/.env"
   "${DATA_DIR}/pihole"

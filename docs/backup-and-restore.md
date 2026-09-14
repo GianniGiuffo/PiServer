@@ -46,7 +46,6 @@ configurato; non vengono interrotti soltanto perché sono lunghi.
 - database PostgreSQL live;
 - Redis/Valkey;
 - cache e thumbnail ricostruibili, inclusa la cache SearXNG;
-- modelli Ollama;
 - checkout e release del sito.
 
 Restic protegge la configurazione del server, non il futuro disco dati da 4 TB.

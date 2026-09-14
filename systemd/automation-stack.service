@@ -1,8 +1,8 @@
 [Unit]
-Description=Start n8n, PostgreSQL, Ollama and SearXNG
+Description=Start n8n, PostgreSQL and SearXNG
 Wants=network-online.target
-After=network-online.target docker.service core-stack.service ai-ops-gateway.service
-Requires=docker.service core-stack.service ai-ops-gateway.service
+After=network-online.target docker.service core-stack.service
+Requires=docker.service core-stack.service
 ConditionPathExists=__REPO_DIR__/.env
 
 [Service]
@@ -11,8 +11,7 @@ RemainAfterExit=yes
 WorkingDirectory=__REPO_DIR__
 ExecStart=/usr/bin/bash __REPO_DIR__/scripts/start-stack.sh automation
 ExecStop=/usr/bin/bash __REPO_DIR__/scripts/stop-stack.sh automation
-# The first start may need to download the multi-gigabyte Ollama model.
-TimeoutStartSec=30min
+TimeoutStartSec=10min
 TimeoutStopSec=5min
 
 [Install]

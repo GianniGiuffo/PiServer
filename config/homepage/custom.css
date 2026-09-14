@@ -13,6 +13,29 @@
 #system-server .service-block,
 #system-nas .service-block,
 #system-network .service-block,
-#system-backup .service-block {
+#system-raspberry .service-block {
   flex-direction: column-reverse;
+}
+
+#system-network .pihole-control {
+  position: relative;
+  z-index: 10;
+  width: calc(100% - 1rem);
+  margin: .65rem .5rem .25rem;
+  padding: .45rem .75rem;
+  border: 1px solid rgb(100 116 139 / .7);
+  border-radius: .5rem;
+  background: rgb(30 41 59 / .75);
+  color: inherit;
+  cursor: pointer;
+  font-size: .8rem;
+}
+
+#system-network .pihole-control:hover:not(:disabled) {
+  background: rgb(51 65 85 / .9);
+}
+
+#system-network .pihole-control:disabled {
+  cursor: wait;
+  opacity: .65;
 }

@@ -26,10 +26,11 @@
 | Rest Server append-only | IPv4 Tailscale `rack-pi:8000` | no |
 | SSH backup mini PC | IPv4 Tailscale `mini-pc:2222`, solo `pibackup` | no |
 | Controller PC gaming | Tailscale Serve `8455`, backend solo loopback | no |
+| Controllo Pi-hole doppio | Tailscale Serve `8456`, backend solo loopback | no |
 | Sunshine sul PC gaming | IPv4 Tailscale del PC, porte GameStream | no |
 | Soulseek peer port `50300` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
-| Ollama, SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
+| SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 | proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
@@ -57,7 +58,7 @@ ogni richiesta POST.
 Il socket Docker equivale di fatto ad accesso root. Non aggiungere nuovi
 permessi al proxy senza verificare l'endpoint richiesto.
 
-## n8n e Ollama
+## n8n
 
 L'editor, gli endpoint webhook e la chat n8n sono Tailnet-only sulla porta
 `8449`. `N8N_WEBHOOK_DOMAIN` deve coincidere con `TAILSCALE_FQDN`; non creare
@@ -66,8 +67,7 @@ un hostname e una configurazione separati, oltre a firma HMAC, token o altro
 segreto non prevedibile.
 
 `N8N_ENCRYPTION_KEY` è permanente e deve rimanere associata al relativo dump
-PostgreSQL. Ollama non pubblica alcuna porta host e n8n lo raggiunge tramite
-`http://ollama:11434`.
+PostgreSQL. Lo stack non installa Ollama né conserva modelli AI locali.
 
 Postgres Chat Memory salva il contenuto delle conversazioni nella tabella
 `ai_chat_memory` del database n8n. I dati sono protetti dai confini del server
@@ -98,26 +98,7 @@ sola lettura; non collegare all'AI Agent operazioni GitHub di scrittura.
 
 DeepL è un servizio esterno: ogni testo passato al nodo DeepL lascia il server
 locale. Non inoltrare automaticamente documenti Nextcloud, segreti o cronologia
-della chat. Usare Qwen per la traduzione locale dei documenti privati oppure
-richiedere una conferma umana prima di usare DeepL.
-
-## AI Ops locale
-
-Il workflow di manutenzione usa `qwen3.5:4b` dentro Ollama. Prompt e diagnostica
-non vengono inviati a un fornitore AI remoto; il comando e i rapporti passano
-però attraverso Telegram. Il profilo di raccolta esclude log applicativi,
-`.env`, credenziali, database, file Nextcloud e media.
-
-n8n non riceve il socket Docker e non esegue shell. Un gateway host separato
-ascolta soltanto su Unix socket, valida azioni tipizzate contro
-`config/ai-ops/policy.json` e accetta solo target in allowlist. Shell, patch e
-percorsi arbitrari sono rifiutati anche dopo l'approvazione.
-
-Ogni azione richiede conferma Telegram da una combinazione esatta di user ID e
-chat ID. La credenziale che marca il piano come approvato è montata soltanto
-nel poller Telegram, non in n8n. I piani scadono dopo 15 minuti, sono monouso e
-restano registrati localmente per audit. Vedi
-[n8n-ai-ops-local.md](n8n-ai-ops-local.md).
+della chat; richiedere una conferma umana prima di usarlo con dati privati.
 
 ## StreamingCommunity downloader
 

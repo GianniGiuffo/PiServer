@@ -52,30 +52,23 @@
             - field: tx_bps
               label: Uscita
               format: bitrate
-    - Backup:
-        id: system-backup
+    - Raspberry:
+        id: system-raspberry
         widget:
           type: customapi
-          url: http://monitoring-api:8080/backup
+          url: http://monitoring-api:8080/raspberry
           refreshInterval: 15000
           mappings:
             - field: status
               label: Stato
-            - field: last_success
-              label: Ultimo
+            - field: services
+              label: Servizi
+            - field: last_backup
+              label: Ultimo backup
               format: relativeDate
               locale: it
               style: short
               numeric: auto
-            - field: next_run
-              label: Prossimo
-              format: relativeDate
-              locale: it
-              style: short
-              numeric: auto
-            - field: duration_seconds
-              label: Durata
-              format: duration
 
 - Servizi principali:
     - Sito:
@@ -179,17 +172,6 @@
         description: Automazioni
         server: local
         container: raspberry-server-n8n-1
-    - Ollama:
-        icon: ollama.png
-        description: Motore AI locale
-        server: local
-        container: raspberry-server-ollama-1
-    - Modello AI:
-        icon: mdi-brain
-        href: "{{HOMEPAGE_VAR_N8N_CHAT_URL}}"
-        description: "{{HOMEPAGE_VAR_OLLAMA_MODEL}} · Apri la chat"
-        server: local
-        container: raspberry-server-ollama-1
     - Uptime Kuma:
         icon: uptime-kuma.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8448/

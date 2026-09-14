@@ -15,6 +15,7 @@ tailscale serve reset
 tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:3000
 tailscale serve --bg --https=8444 --set-path=/ http://127.0.0.1:8081
 tailscale serve --bg --https=8448 --set-path=/ http://127.0.0.1:3001
+tailscale serve --bg --https=8456 --set-path=/ http://127.0.0.1:8082
 
-echo "Tailnet-only services: Homepage 443, Pi-hole 8444, Uptime Kuma 8448."
+echo "Tailnet-only services: Homepage 443, Pi-hole 8444, Uptime Kuma 8448, status API 8456."
 echo "Rest Server is not proxied: it binds directly to the rack-pi Tailscale IP."

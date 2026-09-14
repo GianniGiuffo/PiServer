@@ -57,8 +57,10 @@ nano .env
 Impostare:
 
 - `TAILSCALE_FQDN` con il nome appena ottenuto;
-- `N8N_WEBHOOK_DOMAIN` con lo stesso identico nome MagicDNS; il percorso
-  `N8N_CHAT_PATH` verrà sostituito dopo aver attivato il Chat Trigger;
+- `N8N_WEBHOOK_DOMAIN` con lo stesso identico nome MagicDNS;
+- `PIHOLE_CONTROL_ALLOWED_TAILSCALE_LOGINS` con l'identità autorizzata e le due
+  variabili `*_PIHOLE_CONTROL_PASSWORD` con le password applicazione già usate
+  da nebula-sync sul Raspberry;
 - `PUID`, `PGID` e `RENDER_GID`:
 
   ```bash
@@ -126,6 +128,7 @@ cd /opt/raspberry-server
 docker compose up -d caddy pihole vaultwarden docker-socket-proxy monitoring-api homepage uptime-kuma
 docker compose ps
 sudo bash scripts/configure-tailscale-serve.sh
+sudo systemctl enable --now pihole-control.service
 tailscale serve status
 ```
 
@@ -134,6 +137,7 @@ Verificare:
 - Homepage: `https://TAILSCALE_FQDN/`;
 - Pi-hole: `https://TAILSCALE_FQDN:8444/admin/`;
 - Uptime Kuma: `https://TAILSCALE_FQDN:8448/`;
+- controllo Pi-hole doppio: `systemctl status pihole-control.service`;
 - Vaultwarden localmente:
 
   ```bash
@@ -241,11 +245,11 @@ Per la configurazione dettagliata di Homepage, Uptime Kuma, Nextcloud,
 Jellyfin, Immich, StreamingCommunity downloader e Vaultwarden seguire
 [service-setup.md](service-setup.md).
 
-## 13. n8n e Ollama
+## 13. n8n e SearXNG
 
 ```bash
 sudo systemctl enable --now automation-stack.service
 ```
 
-Proseguire con [n8n-ollama.md](n8n-ollama.md). L'editor è disponibile solo su
-`https://TAILSCALE_FQDN:8449/`.
+L'editor è disponibile solo su `https://TAILSCALE_FQDN:8449/`. Lo stack non
+installa Ollama né conserva modelli AI locali.

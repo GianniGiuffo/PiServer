@@ -23,7 +23,6 @@ configurazioni e database:
 │   ├── n8n
 │   ├── nextcloud/html
 │   ├── nextcloud/postgres
-│   ├── ollama
 │   ├── pihole
 │   ├── searxng/cache
 │   ├── streamingcommunity

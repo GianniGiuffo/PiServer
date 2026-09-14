@@ -57,6 +57,7 @@ services:
     environment:
       TZ: ${TZ:-Europe/Rome}
       FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD:?Set PIHOLE_PASSWORD in .env}
+      FTLCONF_webserver_api_app_sudo: "true"
       FTLCONF_dns_listeningMode: ALL
       FTLCONF_dns_upstreams: 9.9.9.9;149.112.112.112
     volumes:
@@ -121,6 +122,7 @@ services:
       MEDIA_MOUNTPOINT: ${MEDIA_DIR:?Set MEDIA_DIR in .env}
       MEDIA_STATUS_FILE: /status/media.json
       BACKUP_STATUS_FILE: /status/backup.json
+      RACK_PI_STATUS_URL: https://${RACK_PI_TAILSCALE_FQDN:?Set RACK_PI_TAILSCALE_FQDN in .env}:8456
     volumes:
       - ./scripts/monitoring-api.py:/app/monitoring-api.py:ro
       - /proc/stat:/host/proc/stat:ro
@@ -135,6 +137,9 @@ services:
       - /tmp
     networks:
       - monitoring
+      - web
+    extra_hosts:
+      - "${RACK_PI_TAILSCALE_FQDN}:${RACK_PI_TAILSCALE_IP:?Set RACK_PI_TAILSCALE_IP in .env}"
     healthcheck:
       test:
         - CMD
@@ -160,8 +165,6 @@ services:
       HOMEPAGE_VAR_RACK_PI_FQDN: ${RACK_PI_TAILSCALE_FQDN:?Set RACK_PI_TAILSCALE_FQDN in .env}
       HOMEPAGE_VAR_SITE_DOMAIN: ${SITE_1_DOMAIN}
       HOMEPAGE_VAR_VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN}
-      HOMEPAGE_VAR_N8N_CHAT_URL: https://${N8N_WEBHOOK_DOMAIN:?Set N8N_WEBHOOK_DOMAIN in .env}:8449${N8N_CHAT_PATH:?Set N8N_CHAT_PATH in .env}
-      HOMEPAGE_VAR_OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
     volumes:
       - ./config/homepage:/app/config:ro
     tmpfs:

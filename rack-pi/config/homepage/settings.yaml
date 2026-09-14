@@ -7,7 +7,7 @@ headerStyle: boxed
 hideVersion: true
 disableIndexing: true
 statusStyle: dot
-target: _self
+target: _blank
 fullWidth: true
 
 layout:

@@ -40,12 +40,11 @@ soltanto dopo la scelta dell'hardware.
 | Lidarr | Tailnet, porta 8453 | config su SSD, libreria su `/srv/media/music` |
 | slskd | Tailnet, porta 8454 | config su SSD, transito su `/srv/media/music` |
 | n8n | Tailnet, porta 8449 | SSD locale + Restic |
-| Ollama | solo rete Docker | modelli riproducibili, non salvati |
 | SearXNG | solo rete Docker per n8n | cache eliminabile, non salvata |
 | Nextcloud read-only connector | solo rete Docker per n8n | nessun dato proprio |
-| AI Ops locale Qwen/Telegram | polling in uscita + reti Docker interne | piani locali con scadenza |
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
 | Controller PC gaming | Tailnet, porta 8455 | stato minimo su SSD, nessuna credenziale Windows |
+| Controllo Pi-hole doppio | Tailnet, porta 8456 | nessuna credenziale nel browser |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
 Vaultwarden, soltanto le route dei link pubblici Nextcloud e `/share/*` di
@@ -57,7 +56,7 @@ router deve essere inoltrata.
 - `compose.yaml`: servizi core, sempre disponibili e senza dati utente sul NAS;
 - `compose.media.yaml`: Nextcloud, Jellyfin, Immich, downloader e stack
   musicale; parte solo dopo la verifica del mount `/srv/media`;
-- `compose.automation.yaml`: n8n, PostgreSQL, Ollama e SearXNG.
+- `compose.automation.yaml`: n8n, PostgreSQL e SearXNG.
 
 Le unità `core-stack.service`, `media-stack.service` e
 `automation-stack.service` li avviano automaticamente e in ordine. I servizi
@@ -111,8 +110,8 @@ Ripetere con `media` o `automation` dopo avere letto le note di rilascio.
 ## Backup
 
 Restic salva `.env`, configurazioni, database SQLite coerenti e dump PostgreSQL.
-Non salva foto, video, file Nextcloud, media Jellyfin, musica, download, cache,
-thumbnail o modelli Ollama. Il disco media richiede quindi una politica di
+Non salva foto, video, file Nextcloud, media Jellyfin, musica, download, cache
+o thumbnail. Il disco media richiede quindi una politica di
 backup separata se in futuro quei file dovranno essere recuperabili dopo la
 sua rottura.
 
@@ -135,8 +134,6 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Stack musicale](docs/music-stack.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
 - [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)
-- [n8n e Ollama](docs/n8n-ollama.md)
 - [Connettori AI: SearXNG e Nextcloud in sola lettura](docs/ai-connectors.md)
 - [Connettori AI: GitHub in sola lettura e DeepL](docs/n8n-github-deepl.md)
-- [AI Ops locale con Qwen, Telegram e approvazione](docs/n8n-ai-ops-local.md)
 - [Cloud gaming privato con Switch, Sunshine e Tailscale](docs/cloud-gaming.md)
