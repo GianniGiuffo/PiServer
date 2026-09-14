@@ -8,6 +8,7 @@ import os
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -57,6 +58,28 @@ def _get_json(url: str, timeout: float = 4) -> object:
     request = Request(url, headers={"Accept": "application/json"})
     with urlopen(request, timeout=timeout) as response:
         return json.load(response)
+
+
+def _relative_age(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return "Non disponibile"
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+        seconds = max(0, int((datetime.now(timezone.utc) - moment).total_seconds()))
+    except ValueError:
+        return "Non disponibile"
+    if seconds < 60:
+        return "ora"
+    if seconds < 3600:
+        minutes = seconds // 60
+        return f"{minutes} min fa"
+    if seconds < 86400:
+        hours = seconds // 3600
+        return f"{hours} {'ora' if hours == 1 else 'ore'} fa"
+    days = seconds // 86400
+    return f"{days} {'giorno' if days == 1 else 'giorni'} fa"
 
 
 def _read_cpu_times() -> tuple[int, int]:
@@ -190,6 +213,7 @@ def _media_is_mounted() -> bool:
 
 
 class Metrics:
+    _last_raspberry_backup: object = None
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._cpu_percent: float | None = None
@@ -342,6 +366,7 @@ class Metrics:
             "status": "Online",
             "services": "Online" if services_ok else "Offline",
             "last_backup": backup.get("last_success"),
+            "last_backup_age": _relative_age(backup.get("last_success")),
         }
 
     @staticmethod
@@ -351,16 +376,23 @@ class Metrics:
         try:
             payload = _get_json(f"{RACK_PI_STATUS_URL}/raspberry")
             if isinstance(payload, dict):
+                Metrics._last_raspberry_backup = payload.get("last_backup")
                 return {
                     "status": "Online",
                     "services": (
                         "Online" if payload.get("services") == "Online" else "Offline"
                     ),
                     "last_backup": payload.get("last_backup"),
+                    "last_backup_age": _relative_age(payload.get("last_backup")),
                 }
         except (HTTPError, URLError, TimeoutError, OSError, ValueError):
             pass
-        return {"status": "Offline", "services": "Offline", "last_backup": None}
+        return {
+            "status": "Offline",
+            "services": "Offline",
+            "last_backup": Metrics._last_raspberry_backup,
+            "last_backup_age": _relative_age(Metrics._last_raspberry_backup),
+        }
 
 
 METRICS = Metrics()

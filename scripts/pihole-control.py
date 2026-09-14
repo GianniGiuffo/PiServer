@@ -4,14 +4,16 @@
 from __future__ import annotations
 
 import json
+import http.client
 import os
 import secrets
+import socket
 import ssl
 import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
 
 
 class ConfigError(ValueError):
@@ -23,6 +25,7 @@ class PiHole:
     name: str
     url: str
     password: str
+    connect_host: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,9 +52,10 @@ class Config:
             raise ConfigError("set PIHOLE_CONTROL_ALLOWED_TAILSCALE_LOGINS")
         fqdn = os.environ.get("TAILSCALE_FQDN", "").strip()
         rack_fqdn = os.environ.get("RACK_PI_TAILSCALE_FQDN", "").strip()
+        rack_ip = os.environ.get("RACK_PI_TAILSCALE_IP", "").strip()
         local_password = os.environ.get("MINIPC_PIHOLE_CONTROL_PASSWORD", "")
         rack_password = os.environ.get("RACK_PI_PIHOLE_CONTROL_PASSWORD", "")
-        if not fqdn or not rack_fqdn or not local_password or not rack_password:
+        if not fqdn or not rack_fqdn or not rack_ip or not local_password or not rack_password:
             raise ConfigError("Pi-hole endpoints and both API passwords are required")
         return cls(
             bind=bind,
@@ -60,7 +64,12 @@ class Config:
             allowed_origin=f"https://{fqdn}",
             nodes=(
                 PiHole("mini PC", "http://127.0.0.1:8081/api", local_password),
-                PiHole("Raspberry", f"https://{rack_fqdn}:8444/api", rack_password),
+                PiHole(
+                    "Raspberry",
+                    f"https://{rack_fqdn}:8444/api",
+                    rack_password,
+                    rack_ip,
+                ),
             ),
         )
 
@@ -77,11 +86,35 @@ class PiHoleClient:
             headers["Content-Type"] = "application/json"
         if sid:
             headers["X-FTL-SID"] = sid
-        request = Request(f"{self.node.url}{path}", data=data, headers=headers, method=method)
-        with urlopen(request, timeout=6, context=ssl.create_default_context()) as response:
+        parsed = urlparse(self.node.url)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        if parsed.scheme == "https":
+            connection = http.client.HTTPSConnection(
+                parsed.hostname, port, timeout=6, context=ssl.create_default_context()
+            )
+        else:
+            connection = http.client.HTTPConnection(parsed.hostname, port, timeout=6)
+        if self.node.connect_host:
+            def pinned_connection(
+                _address, timeout=None, source_address=None
+            ):  # type: ignore[no-untyped-def]
+                return socket.create_connection(
+                    (self.node.connect_host, port), timeout, source_address
+                )
+
+            # Keep the Tailnet FQDN for TLS/SNI, but connect to its stable
+            # Tailscale IP on hosts where MagicDNS is intentionally disabled.
+            connection._create_connection = pinned_connection  # type: ignore[attr-defined]
+        try:
+            connection.request(method, f"{parsed.path}{path}", body=data, headers=headers)
+            response = connection.getresponse()
+            if response.status >= 400:
+                raise RuntimeError(f"{self.node.name} ha risposto HTTP {response.status}")
             if response.status == 204:
                 return {}
-            return json.load(response)
+            return json.loads(response.read())
+        finally:
+            connection.close()
 
     def _session(self) -> str:
         payload = self._request("/auth", "POST", {"password": self.node.password})
@@ -94,9 +127,14 @@ class PiHoleClient:
         sid = self._session()
         try:
             payload = self._request("/dns/blocking", sid=sid)
-            if not isinstance(payload, dict) or not isinstance(payload.get("blocking"), bool):
+            if not isinstance(payload, dict):
                 raise RuntimeError(f"risposta non valida da {self.node.name}")
-            return payload["blocking"]
+            blocking = payload.get("blocking")
+            if isinstance(blocking, bool):
+                return blocking
+            if blocking in {"enabled", "disabled"}:
+                return blocking == "enabled"
+            raise RuntimeError(f"risposta non valida da {self.node.name}")
         finally:
             try:
                 self._request("/auth", "DELETE", sid=sid)
@@ -158,8 +196,11 @@ class Handler(BaseHTTPRequestHandler):
         login = self.headers.get("Tailscale-User-Login", "").strip().lower()
         return login in self.controller.config.allowed_logins
 
-    def _origin_allowed(self) -> bool:
-        return self.headers.get("Origin") == self.controller.config.allowed_origin
+    def _origin_allowed(self, allow_missing: bool = False) -> bool:
+        origin = self.headers.get("Origin")
+        return origin == self.controller.config.allowed_origin or (
+            allow_missing and origin is None
+        )
 
     def _cors(self) -> None:
         origin = self.headers.get("Origin")
@@ -188,10 +229,10 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path != "/api/status":
+        if self.path not in {"/api/status", "/pihole-control/api/status"}:
             self._json(404, {"error": "not found"})
             return
-        if not self._identity_allowed() or not self._origin_allowed():
+        if not self._identity_allowed() or not self._origin_allowed(allow_missing=True):
             self._json(403, {"error": "accesso negato"})
             return
         try:
@@ -200,7 +241,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(502, {"error": str(error)})
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/api/toggle":
+        if self.path not in {"/api/toggle", "/pihole-control/api/toggle"}:
             self._json(404, {"error": "not found"})
             return
         if not self._identity_allowed() or not self._origin_allowed():

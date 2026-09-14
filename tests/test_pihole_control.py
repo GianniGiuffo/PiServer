@@ -46,6 +46,7 @@ class PiHoleControlTests(unittest.TestCase):
             "PIHOLE_CONTROL_ALLOWED_TAILSCALE_LOGINS": "owner@example.com",
             "TAILSCALE_FQDN": "mini.example.ts.net",
             "RACK_PI_TAILSCALE_FQDN": "rack.example.ts.net",
+            "RACK_PI_TAILSCALE_IP": "100.64.0.4",
             "MINIPC_PIHOLE_CONTROL_PASSWORD": "local-app-password",
             "RACK_PI_PIHOLE_CONTROL_PASSWORD": "rack-app-password",
         }
@@ -79,6 +80,15 @@ class PiHoleControlTests(unittest.TestCase):
             result = controller.toggle()
         self.assertEqual(states, {"mini PC": True, "Raspberry": True})
         self.assertTrue(result["blocking"])
+
+    def test_live_pihole_string_blocking_state_is_supported(self) -> None:
+        with patch.dict(os.environ, self.environment(), clear=True):
+            node = self.module.Config.from_environment().nodes[0]
+        client = self.module.PiHoleClient(node)
+        with patch.object(client, "_session", return_value="sid"), patch.object(
+            client, "_request", side_effect=[{"blocking": "enabled"}, {}]
+        ):
+            self.assertTrue(client.blocking())
 
     def test_toggle_rolls_back_when_second_node_fails(self) -> None:
         with patch.dict(os.environ, self.environment(), clear=True):
@@ -120,6 +130,8 @@ class HomepageArchitectureTests(unittest.TestCase):
         homepage = self.read("config/homepage/services.yaml")
         settings = self.read("config/homepage/settings.yaml")
         self.assertIn("id: system-raspberry", homepage)
+        self.assertIn("href: https://{{HOMEPAGE_VAR_RACK_PI_FQDN}}/", homepage)
+        self.assertNotIn("Homepage rack-pi", self.read("config/homepage/bookmarks.yaml"))
         self.assertIn("url: http://monitoring-api:8080/raspberry", homepage)
         self.assertIn("field: services", homepage)
         self.assertIn("field: last_backup", homepage)
@@ -144,12 +156,18 @@ class RaspberryStatusTests(unittest.TestCase):
         cls.module = _load_monitoring()
 
     def test_remote_raspberry_failure_is_reported_as_offline(self) -> None:
+        self.module.Metrics._last_raspberry_backup = None
         with patch.object(self.module, "RACK_PI_STATUS_URL", "https://rack:8456"), patch.object(
             self.module, "_get_json", side_effect=OSError("offline")
         ):
             self.assertEqual(
                 self.module.Metrics.raspberry(),
-                {"status": "Offline", "services": "Offline", "last_backup": None},
+                {
+                    "status": "Offline",
+                    "services": "Offline",
+                    "last_backup": None,
+                    "last_backup_age": "Non disponibile",
+                },
             )
 
     def test_all_expected_running_services_are_online(self) -> None:
@@ -177,6 +195,9 @@ class RaspberryStatusTests(unittest.TestCase):
                     "status": "Online",
                     "services": "Online",
                     "last_backup": "2026-09-14T04:15:00+02:00",
+                    "last_backup_age": self.module._relative_age(
+                        "2026-09-14T04:15:00+02:00"
+                    ),
                 },
             )
 

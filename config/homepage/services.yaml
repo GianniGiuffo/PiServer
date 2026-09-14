@@ -54,6 +54,7 @@
               format: bitrate
     - Raspberry:
         id: system-raspberry
+        href: https://{{HOMEPAGE_VAR_RACK_PI_FQDN}}/
         widget:
           type: customapi
           url: http://monitoring-api:8080/raspberry
@@ -63,12 +64,8 @@
               label: Stato
             - field: services
               label: Servizi
-            - field: last_backup
+            - field: last_backup_age
               label: Ultimo backup
-              format: relativeDate
-              locale: it
-              style: short
-              numeric: auto
 
 - Servizi principali:
     - Sito:

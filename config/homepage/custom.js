@@ -3,6 +3,20 @@
 (() => {
   const api = `${window.location.protocol}//${window.location.hostname}:8456/api`;
 
+  async function withTimeout(promise, milliseconds = 5000) {
+    let timeout;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timeout = window.setTimeout(() => reject(new Error("tempo scaduto")), milliseconds);
+        }),
+      ]);
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
   async function readJson(response) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
@@ -23,19 +37,19 @@
     button.type = "button";
     button.className = "pihole-control";
     button.textContent = "Verifica blocking Pi-hole…";
-    button.disabled = true;
+    button.disabled = false;
     button.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
       button.disabled = true;
       button.textContent = "Aggiornamento di entrambi i Pi-hole…";
       try {
-        const status = await readJson(await fetch(`${api}/status`, {cache: "no-store"}));
-        const result = await readJson(await fetch(`${api}/toggle`, {
+        const status = await readJson(await withTimeout(fetch(`${api}/status`, {cache: "no-store"})));
+        const result = await readJson(await withTimeout(fetch(`${api}/toggle`, {
           method: "POST",
           headers: {"Content-Type": "application/json", "X-CSRF-Token": status.csrf},
           body: "{}",
-        }));
+        })));
         button.textContent = labelFor(result);
       } catch (error) {
         button.textContent = `Errore Pi-hole: ${error.message}`;
@@ -43,13 +57,13 @@
         button.disabled = false;
       }
     });
-    card.appendChild(button);
+    (card.firstElementChild || card).appendChild(button);
 
     try {
-      const status = await readJson(await fetch(`${api}/status`, {cache: "no-store"}));
+      const status = await readJson(await withTimeout(fetch(`${api}/status`, {cache: "no-store"})));
       button.textContent = labelFor(status);
     } catch (error) {
-      button.textContent = `Controllo Pi-hole non disponibile`;
+      button.textContent = "Riprova controllo Pi-hole";
       button.title = error.message;
     } finally {
       button.disabled = false;

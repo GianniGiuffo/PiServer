@@ -8,6 +8,3 @@
     - Cloudflare:
         - icon: cloudflare.png
           href: https://dash.cloudflare.com/
-    - Homepage rack-pi:
-        - icon: homepage.png
-          href: https://{{HOMEPAGE_VAR_RACK_PI_FQDN}}/
