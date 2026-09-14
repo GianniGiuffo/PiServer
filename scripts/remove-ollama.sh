@@ -13,14 +13,26 @@ fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
-[[ -r ${REPO_DIR}/.env ]] || { echo "Missing readable ${REPO_DIR}/.env" >&2; exit 1; }
+ENV_FILE=${REPO_DIR}/.env
+[[ -r ${ENV_FILE} ]] || { echo "Missing readable ${ENV_FILE}" >&2; exit 1; }
 
-set -a
-# shellcheck disable=SC1091
-source "${REPO_DIR}/.env"
-set +a
+read_env_value() {
+  local key=${1:?missing key}
+  local line value
+  line=$(grep -m1 -E "^[[:space:]]*${key}=" "${ENV_FILE}" || true)
+  [[ -n ${line} ]] || return 1
+  value=${line#*=}
+  value=${value#"${value%%[![:space:]]*}"}
+  value=${value%"${value##*[![:space:]]}"}
+  if [[ (${value:0:1} == '"' && ${value: -1} == '"') || \
+        (${value:0:1} == "'" && ${value: -1} == "'") ]]; then
+    value=${value:1:-1}
+  fi
+  printf '%s' "${value}"
+}
 
-DATA_DIR=${DATA_DIR:?Set DATA_DIR in .env}
+DATA_DIR=$(read_env_value DATA_DIR) || { echo "Set DATA_DIR in .env" >&2; exit 1; }
+OLLAMA_IMAGE=$(read_env_value OLLAMA_IMAGE || true)
 data_root=$(realpath -m -- "${DATA_DIR}")
 model_dir=$(realpath -m -- "${DATA_DIR}/ollama")
 if [[ ${model_dir} != "${data_root}/ollama" || ${data_root} == / ]]; then
@@ -48,7 +60,7 @@ if [[ -d ${model_dir} ]]; then
   rmdir -- "${model_dir}"
 fi
 
-if [[ -n ${OLLAMA_IMAGE:-} ]] && docker image inspect "${OLLAMA_IMAGE}" >/dev/null 2>&1; then
+if [[ -n ${OLLAMA_IMAGE} ]] && docker image inspect "${OLLAMA_IMAGE}" >/dev/null 2>&1; then
   docker image rm "${OLLAMA_IMAGE}" || \
     echo "Ollama image is still referenced elsewhere and was left in place." >&2
 fi
