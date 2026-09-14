@@ -58,6 +58,99 @@ if ($isAdministrator) {
     throw "L'account '$GamingUser' deve rimanere un utente standard."
 }
 
+# OpenSSH starts the forced command in the standard user's security context.
+# Grant only the local shutdown right required by shutdown.exe; do not add the
+# account to Administrators and do not grant remote-administration privileges.
+if (-not ("PiServerUserRights" -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+
+public static class PiServerUserRights
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LSA_OBJECT_ATTRIBUTES
+    {
+        public uint Length;
+        public IntPtr RootDirectory;
+        public IntPtr ObjectName;
+        public uint Attributes;
+        public IntPtr SecurityDescriptor;
+        public IntPtr SecurityQualityOfService;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LSA_UNICODE_STRING
+    {
+        public ushort Length;
+        public ushort MaximumLength;
+        public IntPtr Buffer;
+    }
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaOpenPolicy(
+        IntPtr systemName,
+        ref LSA_OBJECT_ATTRIBUTES objectAttributes,
+        uint desiredAccess,
+        out IntPtr policyHandle);
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaAddAccountRights(
+        IntPtr policyHandle,
+        byte[] accountSid,
+        LSA_UNICODE_STRING[] userRights,
+        uint countOfRights);
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaClose(IntPtr policyHandle);
+
+    [DllImport("advapi32.dll")]
+    private static extern uint LsaNtStatusToWinError(uint status);
+
+    public static void Add(SecurityIdentifier sid, string right)
+    {
+        const uint POLICY_CREATE_ACCOUNT = 0x00000010;
+        const uint POLICY_LOOKUP_NAMES = 0x00000800;
+        var attributes = new LSA_OBJECT_ATTRIBUTES();
+        attributes.Length = (uint)Marshal.SizeOf(typeof(LSA_OBJECT_ATTRIBUTES));
+        IntPtr policy;
+        uint status = LsaOpenPolicy(
+            IntPtr.Zero,
+            ref attributes,
+            POLICY_CREATE_ACCOUNT | POLICY_LOOKUP_NAMES,
+            out policy);
+        if (status != 0)
+            throw new Win32Exception((int)LsaNtStatusToWinError(status));
+
+        IntPtr buffer = Marshal.StringToHGlobalUni(right);
+        try
+        {
+            byte[] binarySid = new byte[sid.BinaryLength];
+            sid.GetBinaryForm(binarySid, 0);
+            var rights = new[] {
+                new LSA_UNICODE_STRING {
+                    Length = (ushort)(right.Length * 2),
+                    MaximumLength = (ushort)((right.Length + 1) * 2),
+                    Buffer = buffer
+                }
+            };
+            status = LsaAddAccountRights(policy, binarySid, rights, 1);
+            if (status != 0)
+                throw new Win32Exception((int)LsaNtStatusToWinError(status));
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+            LsaClose(policy);
+        }
+    }
+}
+'@
+}
+[PiServerUserRights]::Add($localUser.SID, "SeShutdownPrivilege")
+
 $profile = Get-CimInstance Win32_UserProfile |
     Where-Object { $_.SID -eq $localUser.SID.Value } |
     Select-Object -First 1
@@ -333,6 +426,7 @@ if ($sshdService.Status -ne "Running" -or $sshdService.StartType -ne "Automatic"
 }
 
 Write-Host "Configurazione host gaming completata."
+Write-Host "Diritto SeShutdownPrivilege assegnato all'account '$GamingUser'."
 Write-Host "Fingerprint da verificare sul mini PC:"
 & ssh-keygen.exe -lf $ed25519HostKey -E sha256
 Write-Host "`nAggiungere ora i callback globali di Sunshine descritti in docs/cloud-gaming.md."

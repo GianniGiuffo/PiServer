@@ -273,7 +273,6 @@ class Controller:
                 if operation == "waking":
                     data["operation"] = None
                     data["operation_started"] = None
-                data["last_error"] = None
                 if data["managed_power"] and not data["session_active"]:
                     data["idle_since"] = data["idle_since"] or now
             elif operation == "waking" and now - operation_started >= self.config.wake_timeout:
@@ -519,7 +518,7 @@ def _page(csrf_token: str, login: str) -> bytes:
 <meta name="csrf-token" content="{html.escape(csrf_token, quote=True)}"><title>Gaming PC</title><link rel="stylesheet" href="/style.css"></head>
 <body><main><h1>Gaming PC</h1><p class="muted">Controllo privato · {html.escape(login)}</p>
 <section id="status" class="status"><span class="dot"></span><div><div id="label" class="label">Verifica in corso</div><div id="detail" class="detail"></div></div></section>
-<div class="actions"><button id="wake">Accendi</button><button id="shutdown" class="danger">Spegni</button><button id="postpone" class="secondary">Rimanda di 30 minuti</button></div>
+<div class="actions"><button id="wake">Accendi</button><button id="shutdown" class="danger">Spegni il server</button><button id="postpone" class="secondary">Rimanda di 30 minuti</button></div>
 <p id="error" class="error-text" role="alert"></p></main><script src="/app.js" defer></script></body></html>""".encode("utf-8")
 
 
@@ -601,9 +600,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/wake":
                 self.controller.wake(login)
             elif path == "/api/shutdown":
-                threading.Thread(
-                    target=self._shutdown_background, args=(login,), daemon=True
-                ).start()
+                # Wait for SSH to accept the forced command so the browser gets
+                # a real success or error instead of an optimistic response.
+                self.controller.shutdown(login)
             elif path == "/api/postpone":
                 self.controller.postpone()
             else:
@@ -613,12 +612,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json(502, {"error": str(exc)})
             return
         self._json(202, {"status": "accepted"})
-
-    def _shutdown_background(self, login: str) -> None:
-        try:
-            self.controller.shutdown(login)
-        except RuntimeError:
-            pass
 
     def log_message(self, format: str, *args: object) -> None:
         return

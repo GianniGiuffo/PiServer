@@ -7,5 +7,5 @@ if ($env:SSH_ORIGINAL_COMMAND -cne "shutdown") {
     exit 126
 }
 
-& "$env:SystemRoot\System32\shutdown.exe" /s /t 60 /d p:0:0 /c "PiServer gaming controller"
+& "$env:SystemRoot\System32\shutdown.exe" /s /f /t 60 /d p:0:0 /c "PiServer gaming controller"
 exit $LASTEXITCODE

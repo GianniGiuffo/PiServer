@@ -103,6 +103,13 @@ class GamingControllerTests(unittest.TestCase):
         self.assertIn(f"UserKnownHostsFile={config.known_hosts}", command)
         self.assertNotIn("shell", " ".join(command).lower())
 
+    def test_ready_status_does_not_hide_a_shutdown_error(self) -> None:
+        controller = self.module.Controller(self.config())
+        controller.state.data["last_error"] = "Comando di spegnimento rifiutato"
+        with patch.object(self.module, "_tcp_reachable", return_value=True):
+            status = controller.observe()
+        self.assertEqual(status["last_error"], "Comando di spegnimento rifiutato")
+
     def test_session_timer_only_arms_for_managed_power(self) -> None:
         controller = self.module.Controller(self.config())
         controller.session(False)
@@ -144,6 +151,15 @@ class GamingControllerTests(unittest.TestCase):
             self.assertEqual(response.status, 202)
             response.read()
 
+            with patch.object(
+                controller, "shutdown", side_effect=RuntimeError("rejected")
+            ) as shutdown:
+                connection.request("POST", "/api/shutdown", headers=headers)
+                response = connection.getresponse()
+                self.assertEqual(response.status, 502)
+                response.read()
+                shutdown.assert_called_once_with("owner@example.com")
+
             connection.request(
                 "POST",
                 "/api/session/start",
@@ -180,6 +196,9 @@ class GamingArchitectureTests(unittest.TestCase):
         power = self.read("windows/gaming/gaming-power.ps1")
         installer = self.read("windows/gaming/install-gaming-host.ps1")
         self.assertIn('SSH_ORIGINAL_COMMAND -cne "shutdown"', power)
+        self.assertIn('shutdown.exe" /s /f /t 60', power)
+        self.assertIn("SeShutdownPrivilege", installer)
+        self.assertIn("LsaAddAccountRights", installer)
         self.assertIn("ForceCommand powershell.exe", installer)
         self.assertIn("PasswordAuthentication no", installer)
         self.assertIn("-RemoteAddress $MiniPcTailscaleIp.IPAddressToString", installer)

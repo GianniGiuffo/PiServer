@@ -387,6 +387,8 @@ anche la cartella `logs`, che alcune versioni di OpenSSH verificano all'avvio.
 Lo script:
 
 - verifica che `gaming` non sia amministratore;
+- assegna al solo account `gaming` il diritto locale `SeShutdownPrivilege`,
+  necessario a `shutdown.exe` anche nelle sessioni OpenSSH;
 - installa e avvia OpenSSH Server;
 - rende OpenSSH esclusivo all'account `gaming` e al forced command;
 - disabilita password, terminale, forwarding e SFTP effettivo;
