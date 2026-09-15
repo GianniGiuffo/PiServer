@@ -28,6 +28,7 @@ MEDIA_STATUS_FILE = Path(os.getenv("MEDIA_STATUS_FILE", "/status/media.json"))
 BACKUP_STATUS_FILE = Path(
     os.getenv("BACKUP_STATUS_FILE", "/status/backup.json")
 )
+UPS_STATUS_FILE = Path(os.getenv("UPS_STATUS_FILE", "/status/ups.json"))
 NETWORK_INTERFACE = os.getenv("NETWORK_INTERFACE", "auto").strip()
 RACK_PI_STATUS_URL = os.getenv("RACK_PI_STATUS_URL", "").strip().rstrip("/")
 DOCKER_API_URL = os.getenv("DOCKER_API_URL", "").strip().rstrip("/")
@@ -338,6 +339,23 @@ class Metrics:
         }
 
     @staticmethod
+    def ups() -> dict[str, object]:
+        try:
+            payload = json.loads(_read_text(UPS_STATUS_FILE))
+            if isinstance(payload, dict):
+                return payload
+        except (OSError, json.JSONDecodeError):
+            pass
+        return {
+            "charge_percent": None,
+            "power": "Non disponibile",
+            "state": "Non disponibile",
+            "runtime_seconds": None,
+            "load_percent": None,
+            "updated_at": None,
+        }
+
+    @staticmethod
     def _local_raspberry() -> dict[str, object]:
         backup = Metrics.backup()
         services_ok = False
@@ -406,6 +424,7 @@ class Handler(BaseHTTPRequestHandler):
             "/nas": METRICS.nas,
             "/network": METRICS.network,
             "/backup": METRICS.backup,
+            "/ups": METRICS.ups,
             "/raspberry": METRICS.raspberry,
             "/health": lambda: {"status": "ok"},
         }

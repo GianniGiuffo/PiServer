@@ -2,8 +2,10 @@
 
 Questa procedura aggiunge un Raspberry Pi 4 da 4 GB con Raspberry Pi OS Lite
 64 bit. Il Raspberry offre il DNS secondario e la diagnostica del rack e
-coordina i backup del mini PC. NUT, sensori e ventole non fanno parte di questa
-fase: non vengono installati servizi placeholder né accessi GPIO non verificati.
+coordina i backup del mini PC. Network UPS Tools (NUT) controlla l'UPS Eaton e
+arresta ordinatamente i sistemi durante un blackout. Sensori e ventole non
+fanno parte di questa fase: non vengono installati servizi placeholder né
+accessi GPIO non verificati.
 
 ## Ruoli e confini
 
@@ -90,6 +92,69 @@ domain list, client e record/configurazioni DNS, ma non DHCP, upstream o
 listening mode. Il mini PC resta la sorgente di verità per Pi-hole.
 Sul Raspberry lo storico query Pi-hole è limitato a 30 giorni, i log Docker
 ruotano e journald è limitato a 200 MB per contenere le scritture sulla microSD.
+
+### Protezione UPS Eaton
+
+Collegare il cavo USB dati dell'UPS Eaton al Raspberry. Il driver NUT
+`usbhid-ups` supporta i modelli Eaton USB recenti e la configurazione limita la
+ricerca al vendor USB Eaton `0463`. Verificare prima che il dispositivo sia
+visibile:
+
+```bash
+lsusb | grep -i '0463\|eaton\|mge'
+```
+
+Il mini PC usa una chiave e un account distinti dai backup. Copiare in modo
+controllato `/etc/rack-pi/ssh/minipc-power.pub` dal Raspberry al mini PC, poi
+eseguire sul mini PC dalla repository. Se l'installazione è precedente a questa
+funzione, installare prima `ethtool` con `sudo apt install ethtool`:
+
+```bash
+sudo bash scripts/install-ups-power-client.sh \
+  /percorso/minipc-power.pub IP_TAILSCALE_RACK_PI INTERFACCIA_LAN
+```
+
+L'installer apre OpenSSH sulla sola porta `2223` per l'utente `pipower`, limita
+la chiave all'IP Tailscale del Raspberry e al solo comando di spegnimento, e
+mantiene Wake-on-LAN attivo sulla scheda indicata. Verificare nel BIOS anche il
+Wake-on-LAN da S5. Annotare MAC Ethernet e broadcast LAN con `ip link` e
+`ip -4 route`; non usare il MAC Tailscale.
+
+Sul mini PC leggere la fingerprint Ed25519 già usata per il backup. Sul
+Raspberry fissarla in un file `known_hosts` separato per la porta di controllo:
+
+```bash
+sudo bash rack-pi/scripts/pin-minipc-host-key.sh \
+  IP_TAILSCALE_MINIPC SHA256:FINGERPRINT_VERIFICATA 2223 \
+  /etc/rack-pi/ssh/known_hosts-power
+sudo nano /etc/rack-pi/ups.env
+sudo bash rack-pi/scripts/setup-ups.sh
+```
+
+In `/etc/rack-pi/ups.env` inserire l'IP Tailscale del mini PC, il suo MAC
+Ethernet e il broadcast LAN. Le soglie predefinite sono:
+
+- a batteria, al `40%`, richiesta di arresto ordinato del mini PC;
+- al ritorno della rete prima del 15%, Wake-on-LAN del mini PC, perché le prese
+  UPS non hanno subito un ciclo e l'opzione BIOS per il ritorno AC non basta;
+- al `15%`, nuova richiesta prudenziale al mini PC, attesa di 90 secondi,
+  arresto del Raspberry e comando NUT di spegnimento alle prese;
+- al ritorno della rete dopo lo spegnimento totale, l'UPS rialimenta le prese e
+  i due computer ripartono grazie alle rispettive impostazioni di accensione.
+
+Controllare il servizio e i dati esposti a Homepage:
+
+```bash
+systemctl status nut-server nut-monitor rack-ups-orchestrator
+upsc eaton@localhost
+curl -fsS http://127.0.0.1:8082/ups | jq
+journalctl -u rack-ups-orchestrator -n 100 --no-pager
+```
+
+Prima di affidarsi all'automazione, salvare il lavoro e collaudare una volta il
+ciclo reale sotto supervisione. Prima verificare senza togliere alimentazione
+con `sudo upsdrvctl -t shutdown`; infine usare `sudo upsmon -c fsd`, sapendo che
+quest'ultimo comando spegne davvero entrambi i computer e cicla le prese UPS.
 
 ## 3. DNS con FRITZ!Box 7530 AX
 
@@ -346,8 +411,9 @@ ostili: stato/rack 14 giorni, 2 mesi settimanali e 1 anno mensile; foto 7 giorni
 ## 9. Homepage e Uptime Kuma
 
 Aprire `https://RACK_PI_FQDN/` e configurare Uptime Kuma su `:8448`. La riga
-superiore di Homepage replica il layout del mini PC: quattro card orizzontali
-**Server**, **NAS**, **Rete** e **Backup**, con le etichette sopra ai valori.
+superiore di Homepage replica il layout del mini PC: cinque card orizzontali
+**Server**, **NAS**, **Rete**, **Backup** e **UPS Eaton**, con le etichette sopra
+ai valori. La card UPS mostra batteria, alimentazione, autonomia e carico.
 
 In Uptime Kuma riutilizzare il token e il chat ID del bot Telegram `StatusBot`.
 Salvare la notifica con nome `StatusBot · rack-pi`, abilitare il template
@@ -415,3 +481,5 @@ per limitare le scritture sulla microSD.
 - [Rest Server: append-only, autenticazione e private repositories](https://github.com/restic/rest-server)
 - [Restic: sicurezza della retention con repository append-only](https://github.com/restic/restic/blob/master/doc/060_forget.rst#security-considerations-in-append-only-mode)
 - [Nebula Sync: replica selettiva per Pi-hole v6](https://github.com/lovelaze/nebula-sync)
+- [NUT: driver USB HID per gli UPS Eaton](https://networkupstools.org/docs/man/usbhid-ups.html)
+- [NUT: sequenza di spegnimento e ritorno alimentazione](https://networkupstools.org/docs/user-manual.chunked/ar01s06.html)

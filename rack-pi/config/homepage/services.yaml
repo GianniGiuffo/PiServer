@@ -76,6 +76,24 @@
             - field: duration_seconds
               label: Durata
               format: duration
+    - UPS Eaton:
+        id: rack-system-ups
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/ups
+          refreshInterval: 5000
+          mappings:
+            - field: charge_percent
+              label: Batteria
+              format: percent
+            - field: power
+              label: Alimentazione
+            - field: runtime_seconds
+              label: Autonomia
+              format: duration
+            - field: load_percent
+              label: Carico
+              format: percent
 
 - Servizi rack:
     - Pi-hole secondario:

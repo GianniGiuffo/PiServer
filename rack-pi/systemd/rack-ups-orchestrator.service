@@ -1,0 +1,20 @@
+[Unit]
+Description=Protect rack systems using the Eaton UPS
+Wants=network-online.target nut-server.service nut-monitor.service
+After=network-online.target nut-server.service nut-monitor.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash __RACK_DIR__/scripts/ups-orchestrator.sh
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=15s
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/rack-pi/data/monitoring /var/lib/rack-pi-ups
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

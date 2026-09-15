@@ -8,6 +8,7 @@ fi
 HOST=${1:?Usage: pin-minipc-host-key.sh <mini-pc-tailscale-ip> <SHA256:fingerprint> [port]}
 EXPECTED=${2:?Usage: pin-minipc-host-key.sh <mini-pc-tailscale-ip> <SHA256:fingerprint> [port]}
 PORT=${3:-2222}
+DESTINATION=${4:-/etc/rack-pi/ssh/known_hosts}
 [[ ${HOST} =~ ^100\.([0-9]{1,3}\.){2}[0-9]{1,3}$ ]] || {
   echo "Expected a Tailscale IPv4 address." >&2
   exit 1
@@ -15,6 +16,10 @@ PORT=${3:-2222}
 [[ ${EXPECTED} == SHA256:* ]] || { echo "Expected SHA256 fingerprint." >&2; exit 1; }
 [[ ${PORT} =~ ^[0-9]+$ ]] && (( PORT >= 1 && PORT <= 65535 )) || {
   echo "Invalid SSH port." >&2
+  exit 1
+}
+[[ ${DESTINATION} =~ ^/etc/rack-pi/ssh/known_hosts(-[A-Za-z0-9_-]+)?$ ]] || {
+  echo "Host-key destination must stay under /etc/rack-pi/ssh." >&2
   exit 1
 }
 
@@ -28,5 +33,5 @@ if [[ ${actual} != "${EXPECTED}" ]]; then
   exit 1
 fi
 install -d -m 0700 -o root -g root /etc/rack-pi/ssh
-install -m 0600 -o root -g root "${temporary}" /etc/rack-pi/ssh/known_hosts
+install -m 0600 -o root -g root "${temporary}" "${DESTINATION}"
 echo "Pinned mini-PC host key ${actual}."

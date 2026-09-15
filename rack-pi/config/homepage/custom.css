@@ -5,12 +5,13 @@
 
 /*
  * Custom API blocks render value before label by default. Reverse only the
- * four rack diagnostic cards so labels sit above their values, matching the
+ * five rack diagnostic cards so labels sit above their values, matching the
  * mini-PC dashboard while leaving service cards untouched.
  */
 #rack-system-server .service-block,
 #rack-system-nas .service-block,
 #rack-system-network .service-block,
-#rack-system-backup .service-block {
+#rack-system-backup .service-block,
+#rack-system-ups .service-block {
   flex-direction: column-reverse;
 }

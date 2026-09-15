@@ -30,7 +30,8 @@ esac
 apt-get update
 apt-get install -y --no-install-recommends \
   apache2-utils ca-certificates curl dnsutils e2fsprogs git gnupg jq \
-  openssh-client parted python3 restic rsync smartmontools
+  iputils-ping nut nut-client nut-server openssh-client parted python3 restic \
+  rsync smartmontools usbutils wakeonlan
 
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg \
@@ -54,6 +55,7 @@ install -d -m 0755 -o root -g root /srv/rack-pi/data/monitoring
 install -d -m 0750 -o root -g root /srv/rack-pi/data/pihole
 install -d -m 0750 -o 1000 -g 1000 /srv/rack-pi/data/uptime-kuma
 install -d -m 0700 -o root -g root /etc/rack-pi /etc/rack-pi/ssh
+install -d -m 0700 -o root -g root /var/lib/rack-pi-ups
 install -d -m 0755 /mnt/rack-backup
 install -d -m 0755 /etc/systemd/journald.conf.d
 install -m 0644 "${RACK_DIR}/config/journald/10-rack-pi.conf" \
@@ -68,6 +70,10 @@ if [[ ! -e /etc/rack-pi/orchestrator.env ]]; then
   install -m 0600 -o root -g root "${RACK_DIR}/config/orchestrator.env.example" \
     /etc/rack-pi/orchestrator.env
 fi
+if [[ ! -e /etc/rack-pi/ups.env ]]; then
+  install -m 0600 -o root -g root "${RACK_DIR}/config/ups.env.example" \
+    /etc/rack-pi/ups.env
+fi
 
 if [[ ! -s /etc/rack-pi/ssh/minipc-backup ]]; then
   ssh-keygen -q -t ed25519 -N '' -C rack-pi-backup \
@@ -75,6 +81,12 @@ if [[ ! -s /etc/rack-pi/ssh/minipc-backup ]]; then
 fi
 chmod 0600 /etc/rack-pi/ssh/minipc-backup
 chmod 0644 /etc/rack-pi/ssh/minipc-backup.pub
+if [[ ! -s /etc/rack-pi/ssh/minipc-power ]]; then
+  ssh-keygen -q -t ed25519 -N '' -C rack-pi-ups-power \
+    -f /etc/rack-pi/ssh/minipc-power
+fi
+chmod 0600 /etc/rack-pi/ssh/minipc-power
+chmod 0644 /etc/rack-pi/ssh/minipc-power.pub
 
 bash "${SCRIPT_DIR}/install-systemd.sh"
 cat <<EOF
@@ -84,4 +96,6 @@ rack-pi base installation completed.
 2. Authenticate: sudo tailscale up --ssh --hostname=rack-pi
 3. Run rack-pi/scripts/preflight.sh and follow docs/rack-pi.md.
 4. The public backup key is /etc/rack-pi/ssh/minipc-backup.pub.
+5. Configure UPS protection using docs/rack-pi.md; its separate public key is
+   /etc/rack-pi/ssh/minipc-power.pub.
 EOF

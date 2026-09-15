@@ -19,7 +19,7 @@ Il Raspberry è un secondo host indipendente: offre Pi-hole secondario,
 Homepage e Uptime Kuma, coordina via SSH ristretto i backup del mini PC e serve
 i repository Restic in modalità append-only sulla Tailnet. La configurazione è
 in [`rack-pi`](rack-pi) e la procedura completa è in
-[`docs/rack-pi.md`](docs/rack-pi.md). NUT e controllo ventole saranno aggiunti
+[`docs/rack-pi.md`](docs/rack-pi.md). NUT protegge ora il rack; il controllo ventole sarà aggiunto
 soltanto dopo la scelta dell'hardware.
 
 ## Servizi

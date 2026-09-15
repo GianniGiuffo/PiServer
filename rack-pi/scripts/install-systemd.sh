@@ -22,7 +22,8 @@ backup_mount_unit=$(systemd-escape --path --suffix=mount "${BACKUP_MOUNTPOINT}")
 # when substituting the unit name through sed's replacement syntax.
 escaped_mount_unit=${backup_mount_unit//\\/\\\\}
 units=(
-  rack-core-stack.service rack-rest-server.service rack-backup.service rack-backup.timer
+  rack-core-stack.service rack-ups-orchestrator.service
+  rack-rest-server.service rack-backup.service rack-backup.timer
   rack-rest-server-recovery.service rack-rest-server-recovery.timer
   rack-backup-recovery.service rack-backup-recovery.timer
   rack-backup-status.service rack-backup-status.timer

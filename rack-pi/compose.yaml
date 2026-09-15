@@ -94,6 +94,7 @@ services:
       MEDIA_MOUNTPOINT: ${BACKUP_MOUNTPOINT:?Set BACKUP_MOUNTPOINT}
       MEDIA_STATUS_FILE: /status/storage.json
       BACKUP_STATUS_FILE: /status/backup.json
+      UPS_STATUS_FILE: /status/ups.json
       DOCKER_API_URL: http://docker-socket-proxy:2375
       EXPECTED_COMPOSE_PROJECT: rack-pi
       EXPECTED_SERVICES: pihole,nebula-sync,docker-socket-proxy,monitoring-api,homepage,uptime-kuma

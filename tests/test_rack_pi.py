@@ -44,13 +44,14 @@ class RackPiArchitectureTests(unittest.TestCase):
             "  Servizi rack:", 1
         )[0]
         self.assertIn("style: row", rack_layout)
-        self.assertIn("columns: 4", rack_layout)
+        self.assertIn("columns: 5", rack_layout)
         self.assertIn("header: false", rack_layout)
         for card_id in (
             "rack-system-server",
             "rack-system-nas",
             "rack-system-network",
             "rack-system-backup",
+            "rack-system-ups",
         ):
             self.assertIn(f"id: {card_id}", services)
             self.assertIn(f"#{card_id} .service-block", css)
@@ -111,15 +112,32 @@ class RackPiArchitectureTests(unittest.TestCase):
         self.assertNotIn('timeout 30s mount "${BACKUP_MOUNTPOINT}"', disk_check)
         self.assertIn("systemd-escape --path --suffix=mount", disk_check)
 
-    def test_rack_phase_contains_no_nut_or_fan_runtime(self) -> None:
-        runtime_files = [
-            RACK / "compose.yaml",
-            *sorted((RACK / "scripts").glob("*.sh")),
-            *sorted((RACK / "systemd").glob("*")),
-        ]
-        runtime = "\n".join(path.read_text(encoding="utf-8") for path in runtime_files)
-        self.assertIsNone(re.search(r"\bnut-(server|client|driver)\b", runtime, re.I))
-        self.assertIsNone(re.search(r"\b(gpio|pwm|fancontrol)\b", runtime, re.I))
+    def test_eaton_ups_has_ordered_thresholds_and_recovery(self) -> None:
+        ups_env = self.read("rack-pi/config/ups.env.example")
+        orchestrator = self.read("rack-pi/scripts/ups-orchestrator.sh")
+        setup = self.read("rack-pi/scripts/setup-ups.sh")
+        power_client = self.read("scripts/install-ups-power-client.sh")
+        self.assertIn("UPS_MINIPC_SHUTDOWN_PERCENT=40", ups_env)
+        self.assertIn("UPS_RACK_SHUTDOWN_PERCENT=15", ups_env)
+        self.assertIn('driver = usbhid-ups', setup)
+        self.assertIn('vendorid = 0463', setup)
+        self.assertIn('upsmon -c fsd', orchestrator)
+        self.assertIn('wakeonlan -i', orchestrator)
+        self.assertIn('from="%s",restrict,command=', power_client)
+        self.assertIn("Match LocalPort 2223", power_client)
+        self.assertIn("AllowUsers pipower", power_client)
+
+    def test_homepage_exposes_ups_status_without_usb_access(self) -> None:
+        compose = self.read("rack-pi/compose.yaml")
+        homepage = self.read("rack-pi/config/homepage/services.yaml")
+        monitoring = self.read("scripts/monitoring-api.py")
+        homepage_service = compose.split("  homepage:", 1)[1].split(
+            "  uptime-kuma:", 1
+        )[0]
+        self.assertIn("UPS_STATUS_FILE: /status/ups.json", compose)
+        self.assertIn("url: http://monitoring-api:8080/ups", homepage)
+        self.assertIn('"/ups": METRICS.ups', monitoring)
+        self.assertNotIn("/dev/bus/usb", homepage_service)
 
     def test_systemd_installer_references_existing_units(self) -> None:
         installer = self.read("rack-pi/scripts/install-systemd.sh")
