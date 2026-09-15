@@ -66,6 +66,9 @@
               label: Servizi
             - field: last_backup_age
               label: Ultimo backup
+            - field: ups_charge_percent
+              label: UPS
+              format: percent
 
 - Servizi principali:
     - Sito:

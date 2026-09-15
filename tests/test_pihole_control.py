@@ -135,6 +135,7 @@ class HomepageArchitectureTests(unittest.TestCase):
         self.assertIn("url: http://monitoring-api:8080/raspberry", homepage)
         self.assertIn("field: services", homepage)
         self.assertIn("field: last_backup", homepage)
+        self.assertIn("field: ups_charge_percent", homepage)
         self.assertIn("target: _blank", settings)
 
     def test_pihole_control_is_tailnet_only_and_in_network_card(self) -> None:
@@ -167,8 +168,22 @@ class RaspberryStatusTests(unittest.TestCase):
                     "services": "Offline",
                     "last_backup": None,
                     "last_backup_age": "Non disponibile",
+                    "ups_charge_percent": None,
                 },
             )
+
+    def test_remote_raspberry_includes_ups_charge(self) -> None:
+        payload = {
+            "services": "Online",
+            "last_backup": "2026-09-15T04:15:00+02:00",
+            "ups_charge_percent": 90,
+        }
+        with patch.object(
+            self.module, "RACK_PI_STATUS_URL", "https://rack:8456"
+        ), patch.object(self.module, "_get_json", return_value=payload):
+            result = self.module.Metrics.raspberry()
+        self.assertEqual(result["ups_charge_percent"], 90)
+        self.assertEqual(result["status"], "Online")
 
     def test_all_expected_running_services_are_online(self) -> None:
         expected = ("pihole", "homepage")
@@ -188,6 +203,10 @@ class RaspberryStatusTests(unittest.TestCase):
             self.module.Metrics,
             "backup",
             return_value={"last_success": "2026-09-14T04:15:00+02:00"},
+        ), patch.object(
+            self.module.Metrics,
+            "ups",
+            return_value={"charge_percent": 90},
         ):
             self.assertEqual(
                 self.module.Metrics.raspberry(),
@@ -198,6 +217,7 @@ class RaspberryStatusTests(unittest.TestCase):
                     "last_backup_age": self.module._relative_age(
                         "2026-09-14T04:15:00+02:00"
                     ),
+                    "ups_charge_percent": 90,
                 },
             )
 

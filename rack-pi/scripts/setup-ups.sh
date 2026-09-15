@@ -80,6 +80,12 @@ chown root:nut /etc/nut/nut.conf /etc/nut/ups.conf /etc/nut/upsd.conf \
 chmod 0640 /etc/nut/nut.conf /etc/nut/ups.conf /etc/nut/upsd.conf \
   /etc/nut/upsd.users /etc/nut/upsmon.conf
 
+# The UPS is normally already plugged in while NUT is installed. Re-apply the
+# package's USB permissions now so the first driver start does not require a
+# physical unplug/replug cycle.
+udevadm control --reload-rules
+udevadm trigger --subsystem-match=usb --attr-match=idVendor=0463 --action=change
+udevadm settle
 systemctl restart nut-driver@"${UPS_NAME}".service 2>/dev/null || true
 systemctl restart nut-server.service nut-monitor.service
 sleep 3

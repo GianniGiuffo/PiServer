@@ -358,6 +358,7 @@ class Metrics:
     @staticmethod
     def _local_raspberry() -> dict[str, object]:
         backup = Metrics.backup()
+        ups = Metrics.ups()
         services_ok = False
         if DOCKER_API_URL and EXPECTED_COMPOSE_PROJECT and EXPECTED_SERVICES:
             filters = json.dumps(
@@ -385,6 +386,7 @@ class Metrics:
             "services": "Online" if services_ok else "Offline",
             "last_backup": backup.get("last_success"),
             "last_backup_age": _relative_age(backup.get("last_success")),
+            "ups_charge_percent": ups.get("charge_percent"),
         }
 
     @staticmethod
@@ -402,6 +404,7 @@ class Metrics:
                     ),
                     "last_backup": payload.get("last_backup"),
                     "last_backup_age": _relative_age(payload.get("last_backup")),
+                    "ups_charge_percent": payload.get("ups_charge_percent"),
                 }
         except (HTTPError, URLError, TimeoutError, OSError, ValueError):
             pass
@@ -410,6 +413,7 @@ class Metrics:
             "services": "Offline",
             "last_backup": Metrics._last_raspberry_backup,
             "last_backup_age": _relative_age(Metrics._last_raspberry_backup),
+            "ups_charge_percent": None,
         }
 
 
