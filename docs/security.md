@@ -12,6 +12,7 @@
 | Pi-hole dashboard | Tailscale Serve `8444` | no |
 | Nextcloud | Tailscale Serve `8445`; dominio pubblico filtrato dal tunnel | solo link pubblici e relativi asset |
 | Jellyfin | Tailscale Serve `8446` | no |
+| Seerr | Tailscale Serve `8457`, backend solo loopback | no |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
@@ -34,7 +35,7 @@
 | proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
-4533, 5030, 5031, 50300, 5678, 6379, 8000, 8084, 8096, 8455, 8686,
+4533, 5030, 5031, 50300, 5055, 5678, 6379, 8000, 8084, 8096, 8455, 8686,
 11434, 2222 o per le porte Sunshine 47984-48010.
 
 ## Vaultwarden
@@ -108,6 +109,19 @@ contiene sessioni e una API key Jellyfin: resta sull'SSD con permessi
 root-only ed entra esclusivamente nel backup Restic cifrato. Il container può
 scrivere soltanto nella directory media `downloads`, non nelle altre librerie
 Jellyfin.
+
+## Seerr e Jellyfin Helper
+
+Seerr pubblica la porta applicativa `5055` soltanto sul loopback host; la UI è
+raggiungibile esclusivamente dalla Tailnet tramite Tailscale Serve `8457`.
+Jellyfin Helper usa `http://seerr:5055` sulla rete Docker `web`, quindi l'API
+key non attraversa la LAN né Internet. La directory di configurazione Seerr,
+che contiene account, sessioni e API key, entra nel backup Restic cifrato.
+
+Senza Radarr o Sonarr Seerr viene usato soltanto per discovery, sincronizzazione
+della libreria e gestione manuale delle richieste. Non aggiungere downloader o
+mount media al container Seerr. Le attività di pulizia di Jellyfin Helper
+restano in `Dry Run` finché i risultati non sono stati controllati.
 
 ## Stack musicale
 
@@ -197,13 +211,15 @@ Il magic packet contiene soltanto il MAC fisso configurato e viene inviato al
 broadcast LAN fisso. Lo spegnimento usa una chiave Ed25519 dedicata, host key
 verificata fuori banda, IP Tailscale del mini PC come unica sorgente e un
 forced command Windows che rifiuta shell, SFTP e comandi diversi da
-`shutdown`. L'account `gaming` resta non amministratore.
+`shutdown`. Il forced command può soltanto avviare un'attività Task Scheduler
+predefinita, eseguita come `SYSTEM`; non può cambiarne programma o argomenti.
+L'account `gaming` resta non amministratore.
 
 Sunshine e OpenSSH sul PC Windows accettano soltanto sorgenti Tailnet tramite
 Windows Firewall; UPnP resta disabilitato. Il token condiviso con i callback
 Sunshine può soltanto marcare inizio/fine sessione e non accende né spegne il
-PC. L'auto-spegnimento si arma esclusivamente quando il controller ha inviato
-il Wake-on-LAN e fallisce in modo conservativo lasciando il PC acceso.
+PC. Non esiste alcuno spegnimento automatico per inattività: l'arresto richiede
+sempre una richiesta manuale autenticata dalla pagina del controller.
 
 Windows 10 Home 22H2 non riceve gli aggiornamenti di sicurezza ordinari dopo
 il 14 ottobre 2025. Per questa macchina è accettato temporaneamente il rischio

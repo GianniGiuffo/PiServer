@@ -115,6 +115,13 @@
         description: Film, serie e musica
         server: local
         container: raspberry-server-jellyfin-1
+    - Seerr:
+        icon: seerr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8457/
+        siteMonitor: http://seerr:5055/api/v1/settings/public
+        description: Scoperta e richieste media
+        server: local
+        container: raspberry-server-seerr-1
     - Immich:
         icon: immich.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/

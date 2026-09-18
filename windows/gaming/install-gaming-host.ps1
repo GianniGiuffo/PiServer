@@ -58,99 +58,6 @@ if ($isAdministrator) {
     throw "L'account '$GamingUser' deve rimanere un utente standard."
 }
 
-# OpenSSH starts the forced command in the standard user's security context.
-# Grant only the local shutdown right required by shutdown.exe; do not add the
-# account to Administrators and do not grant remote-administration privileges.
-if (-not ("PiServerUserRights" -as [type])) {
-    Add-Type -TypeDefinition @'
-using System;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Security.Principal;
-
-public static class PiServerUserRights
-{
-    [StructLayout(LayoutKind.Sequential)]
-    private struct LSA_OBJECT_ATTRIBUTES
-    {
-        public uint Length;
-        public IntPtr RootDirectory;
-        public IntPtr ObjectName;
-        public uint Attributes;
-        public IntPtr SecurityDescriptor;
-        public IntPtr SecurityQualityOfService;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct LSA_UNICODE_STRING
-    {
-        public ushort Length;
-        public ushort MaximumLength;
-        public IntPtr Buffer;
-    }
-
-    [DllImport("advapi32.dll")]
-    private static extern uint LsaOpenPolicy(
-        IntPtr systemName,
-        ref LSA_OBJECT_ATTRIBUTES objectAttributes,
-        uint desiredAccess,
-        out IntPtr policyHandle);
-
-    [DllImport("advapi32.dll")]
-    private static extern uint LsaAddAccountRights(
-        IntPtr policyHandle,
-        byte[] accountSid,
-        LSA_UNICODE_STRING[] userRights,
-        uint countOfRights);
-
-    [DllImport("advapi32.dll")]
-    private static extern uint LsaClose(IntPtr policyHandle);
-
-    [DllImport("advapi32.dll")]
-    private static extern uint LsaNtStatusToWinError(uint status);
-
-    public static void Add(SecurityIdentifier sid, string right)
-    {
-        const uint POLICY_CREATE_ACCOUNT = 0x00000010;
-        const uint POLICY_LOOKUP_NAMES = 0x00000800;
-        var attributes = new LSA_OBJECT_ATTRIBUTES();
-        attributes.Length = (uint)Marshal.SizeOf(typeof(LSA_OBJECT_ATTRIBUTES));
-        IntPtr policy;
-        uint status = LsaOpenPolicy(
-            IntPtr.Zero,
-            ref attributes,
-            POLICY_CREATE_ACCOUNT | POLICY_LOOKUP_NAMES,
-            out policy);
-        if (status != 0)
-            throw new Win32Exception((int)LsaNtStatusToWinError(status));
-
-        IntPtr buffer = Marshal.StringToHGlobalUni(right);
-        try
-        {
-            byte[] binarySid = new byte[sid.BinaryLength];
-            sid.GetBinaryForm(binarySid, 0);
-            var rights = new[] {
-                new LSA_UNICODE_STRING {
-                    Length = (ushort)(right.Length * 2),
-                    MaximumLength = (ushort)((right.Length + 1) * 2),
-                    Buffer = buffer
-                }
-            };
-            status = LsaAddAccountRights(policy, binarySid, rights, 1);
-            if (status != 0)
-                throw new Win32Exception((int)LsaNtStatusToWinError(status));
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(buffer);
-            LsaClose(policy);
-        }
-    }
-}
-'@
-}
-[PiServerUserRights]::Add($localUser.SID, "SeShutdownPrivilege")
-
 $profile = Get-CimInstance Win32_UserProfile |
     Where-Object { $_.SID -eq $localUser.SID.Value } |
     Select-Object -First 1
@@ -281,6 +188,43 @@ Set-Content -LiteralPath $installedToken -Value $sessionToken -Encoding ascii -N
     controllerUrl = $ControllerUrl.AbsoluteUri.TrimEnd("/")
     tokenFile = $installedToken
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $programDir "gaming-session.json") -Encoding utf8
+
+# Run the fixed shutdown command as LocalSystem. The SSH account receives only
+# read/execute access to this one task, so it does not depend on interactive
+# logon rights and cannot substitute another command or argument.
+$shutdownTaskName = "PiServer-Gaming-Shutdown"
+$shutdownExe = Join-Path $env:SystemRoot "System32\shutdown.exe"
+$shutdownAction = New-ScheduledTaskAction -Execute $shutdownExe `
+    -Argument '/s /f /t 60 /d p:0:0 /c "PiServer gaming controller"'
+$shutdownPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" `
+    -LogonType ServiceAccount -RunLevel Highest
+$shutdownSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+Register-ScheduledTask -TaskName $shutdownTaskName -Action $shutdownAction `
+    -Principal $shutdownPrincipal -Settings $shutdownSettings -Force | Out-Null
+$installedShutdownTask = Get-ScheduledTask -TaskName $shutdownTaskName -ErrorAction Stop
+if (@($installedShutdownTask.Triggers | Where-Object { $_ }).Count -ne 0) {
+    throw "L'attività di spegnimento protetta non deve avere trigger automatici."
+}
+
+$scheduleService = New-Object -ComObject "Schedule.Service"
+$scheduleService.Connect()
+$registeredShutdownTask = $scheduleService.GetFolder("\").GetTask($shutdownTaskName)
+$taskSddl = $registeredShutdownTask.GetSecurityDescriptor(0x7)
+$taskAce = "(A;;GRGX;;;$($localUser.SID.Value))"
+if ($taskSddl -notmatch [regex]::Escape($localUser.SID.Value)) {
+    $saclIndex = $taskSddl.IndexOf("S:", [StringComparison]::Ordinal)
+    if ($saclIndex -ge 0) {
+        $taskSddl = $taskSddl.Insert($saclIndex, $taskAce)
+    } else {
+        $taskSddl += $taskAce
+    }
+    $registeredShutdownTask.SetSecurityDescriptor($taskSddl, 0)
+}
+$verifiedTaskSddl = $registeredShutdownTask.GetSecurityDescriptor(0x4)
+if ($verifiedTaskSddl -notmatch [regex]::Escape($localUser.SID.Value)) {
+    throw "Impossibile autorizzare '$GamingUser' ad avviare l'attività di spegnimento protetta."
+}
 
 & icacls.exe $programDir /inheritance:r /grant:r `
     "${systemSid}:(OI)(CI)F" "${adminsSid}:(OI)(CI)F" "${gamingSid}:(OI)(CI)RX" /T | Out-Null
@@ -426,7 +370,7 @@ if ($sshdService.Status -ne "Running" -or $sshdService.StartType -ne "Automatic"
 }
 
 Write-Host "Configurazione host gaming completata."
-Write-Host "Diritto SeShutdownPrivilege assegnato all'account '$GamingUser'."
+Write-Host "Attività di spegnimento protetta installata come SYSTEM per '$GamingUser'."
 Write-Host "Fingerprint da verificare sul mini PC:"
 & ssh-keygen.exe -lf $ed25519HostKey -E sha256
 Write-Host "`nAggiungere ora i callback globali di Sunshine descritti in docs/cloud-gaming.md."

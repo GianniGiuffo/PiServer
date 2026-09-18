@@ -115,6 +115,7 @@ almeno questi monitor HTTP:
 | Pi-hole | `http://pihole/admin/` |
 | Nextcloud | `http://nextcloud/status.php` |
 | Jellyfin | `http://jellyfin:8096/health` |
+| Seerr | `http://seerr:5055/api/v1/settings/public` |
 | Immich | `http://immich-server:2283/api/server/ping` |
 | StreamingCommunity | `http://streamingcommunity:8000/login` |
 | Aurral | `http://aurral:3001/api/health/live` |
@@ -200,6 +201,65 @@ La directory `/media` è montata in sola lettura: Jellyfin non può cancellare i
 file originali. Aggiungere inoltre una libreria dedicata con percorso
 `/app/videos`: è la directory dei file creati dal downloader, montata in sola
 lettura anche dentro Jellyfin.
+
+### Upgrade a Jellyfin 12 e Jellyfin Helper
+
+Jellyfin 12 converte il database al primo avvio e non consente un downgrade
+senza ripristino. Prima dell'upgrade verificare di essere almeno su `10.10.7`,
+controllare che non esistano utenti i cui nomi differiscono soltanto per
+maiuscole/minuscole e rimuovere i plugin di terze parti non compatibili.
+
+Creare e verificare uno snapshot completo, quindi aggiornare la variabile
+`JELLYFIN_IMAGE` della `.env` alla versione revisionata in `.env.example`:
+
+```bash
+sudo JELLYFIN_FULL_BACKUP=true bash scripts/backup.sh
+docker compose -f compose.yaml -f compose.media.yaml pull jellyfin
+docker compose -f compose.yaml -f compose.media.yaml up -d jellyfin
+docker compose -f compose.yaml -f compose.media.yaml logs -f jellyfin
+```
+
+Non interrompere le migrazioni. Quando `/System/Info/Public` riporta la nuova
+versione e `/health` risponde, eseguire una scansione completa di tutte le
+librerie. Il primo passaggio può durare sensibilmente più del normale.
+
+Installare poi la release verificata di Jellyfin Helper. Lo script installa
+anche la versione Jellyfin 12.1 di File Transformation e la sua dipendenza
+Newtonsoft.Json 13.0.1, assente dall'archivio upstream. Helper viene compilato
+dal tag 3.0.0.2 con tre compatibility file revisionati in
+`patches/jellyfin-helper`: alias dei generi italiani per TMDb e una scheda
+**Discovery** compatibile con la navigazione React di Jellyfin 12. Lo script
+controlla versione Jellyfin e SHA-256 di tutti gli artefatti, conserva eventuali
+versioni precedenti e ripristina i plugin se Jellyfin non torna sano:
+
+```bash
+bash scripts/install-jellyfin-helper.sh
+```
+
+La sola attività Recommendations può essere portata su `Activate` dopo aver
+revisionato i risultati: è quella che alimenta Discovery. Lasciare in `Dry Run`
+le attività di pulizia o cancellazione finché i relativi log non sono stati
+revisionati. Discovery è una scheda del client web, non una libreria Jellyfin;
+compare nella barra superiore e nel menu laterale quando esistono suggerimenti
+per l'utente corrente.
+
+## Seerr
+
+Aprire `https://TAILSCALE_FQDN:8457/` e completare il wizard usando Jellyfin:
+
+1. impostare `http://jellyfin:8096` come URL interno del server;
+2. autenticarsi con l'amministratore solo per il setup iniziale;
+3. sincronizzare tutte le librerie Jellyfin interessate;
+4. lasciare Radarr e Sonarr non configurati: questa installazione è
+   intenzionalmente discovery-only;
+5. copiare l'API key Seerr nelle impostazioni di Jellyfin Helper e usare
+   `http://seerr:5055` come URL interno;
+6. lasciare le richieste in approvazione manuale e verificare che i titoli già
+   presenti in Jellyfin non vengano proposti dalla discovery.
+
+La configurazione risiede in `/srv/raspberry-server/data/seerr` ed entra nel
+backup Restic. La card corrispondente è nella sezione **Media e file** di
+Homepage.
 
 ## StreamingCommunity downloader
 

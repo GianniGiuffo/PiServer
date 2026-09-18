@@ -15,8 +15,7 @@ try {
         -Headers $headers -TimeoutSec 10 | Out-Null
 } catch {
     # A controller outage must never prevent Sunshine from starting a stream.
-    # Safe failure means automatic shutdown stays disabled or delayed; manual
-    # shutdown remains available from the control page.
+    # Session reporting is informational; shutdown remains a manual action.
     Write-Warning "PiServer session notification failed: $($_.Exception.Message)"
 }
 

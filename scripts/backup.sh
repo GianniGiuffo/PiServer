@@ -50,8 +50,13 @@ umask 077
 RESTIC_OPERATION_TIMEOUT=${RESTIC_OPERATION_TIMEOUT:-2h}
 RESTIC_BACKUP_TAG=${RESTIC_BACKUP_TAG:-pi-server}
 RESTIC_SKIP_RETENTION=${RESTIC_SKIP_RETENTION:-false}
+JELLYFIN_FULL_BACKUP=${JELLYFIN_FULL_BACKUP:-false}
 if [[ ${RESTIC_SKIP_RETENTION} != true && ${RESTIC_SKIP_RETENTION} != false ]]; then
   echo "RESTIC_SKIP_RETENTION must be true or false." >&2
+  exit 1
+fi
+if [[ ${JELLYFIN_FULL_BACKUP} != true && ${JELLYFIN_FULL_BACKUP} != false ]]; then
+  echo "JELLYFIN_FULL_BACKUP must be true or false." >&2
   exit 1
 fi
 
@@ -98,6 +103,7 @@ NEXTCLOUD_MAINTENANCE=false
 N8N_STOPPED=false
 IMMICH_STOPPED=false
 JELLYFIN_STOPPED=false
+SEERR_STOPPED=false
 STREAMINGCOMMUNITY_STOPPED=false
 AURRAL_STOPPED=false
 NAVIDROME_STOPPED=false
@@ -114,6 +120,7 @@ cleanup() {
   if [[ ${NEXTCLOUD_MAINTENANCE} == true ||
         ${IMMICH_STOPPED} == true ||
         ${JELLYFIN_STOPPED} == true ||
+        ${SEERR_STOPPED} == true ||
         ${STREAMINGCOMMUNITY_STOPPED} == true ||
         ${AURRAL_STOPPED} == true ||
         ${NAVIDROME_STOPPED} == true ||
@@ -135,6 +142,9 @@ cleanup() {
   fi
   if [[ ${JELLYFIN_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start jellyfin || true
+  fi
+  if [[ ${SEERR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start seerr || true
   fi
   if [[ ${STREAMINGCOMMUNITY_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start streamingcommunity || true
@@ -238,6 +248,10 @@ if is_running MEDIA streamingcommunity; then
   "${MEDIA[@]}" stop streamingcommunity
   STREAMINGCOMMUNITY_STOPPED=true
 fi
+if is_running MEDIA seerr; then
+  "${MEDIA[@]}" stop seerr
+  SEERR_STOPPED=true
+fi
 if is_running MEDIA jellyfin; then
   "${MEDIA[@]}" stop jellyfin
   JELLYFIN_STOPPED=true
@@ -283,6 +297,9 @@ fi
 if [[ -e ${DATA_DIR}/streamingcommunity ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/streamingcommunity")
 fi
+if [[ -e ${DATA_DIR}/seerr ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/seerr")
+fi
 for music_state_path in \
   "${DATA_DIR}/aurral" \
   "${DATA_DIR}/lidarr" \
@@ -293,7 +310,6 @@ done
 
 RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/jellyfin/config/log"
-  --exclude "${DATA_DIR}/jellyfin/config/metadata"
   --exclude "${DATA_DIR}/jellyfin/config/transcodes"
   --exclude "${DATA_DIR}/aurral/cache"
   --exclude "${DATA_DIR}/aurral/image-cache"
@@ -302,6 +318,9 @@ RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/lidarr/MediaCover"
   --exclude "${DATA_DIR}/slskd/logs"
 )
+if [[ ${JELLYFIN_FULL_BACKUP} == false ]]; then
+  RESTIC_EXCLUDES+=(--exclude "${DATA_DIR}/jellyfin/config/metadata")
+fi
 
 if [[ -n ${RESTIC_MOUNTPOINT:-} ]]; then
   # This repository is on a disk attached only to this host. Clear locks left

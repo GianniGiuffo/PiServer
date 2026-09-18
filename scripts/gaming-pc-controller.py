@@ -4,7 +4,8 @@
 The HTTP listener is deliberately restricted to loopback. Tailscale Serve is
 the only supported frontend and supplies the authenticated user identity used
 for human actions. A separate random bearer token is used only by Sunshine's
-start/stop callbacks on the gaming PC.
+start/stop callbacks on the gaming PC. Power-off is always an explicit action:
+this controller never shuts the PC down because of inactivity.
 """
 
 from __future__ import annotations
@@ -62,7 +63,6 @@ class Config:
     known_hosts: Path
     allowed_logins: frozenset[str]
     session_token: str
-    idle_timeout: int
     wake_timeout: int
     poll_interval: int
     state_file: Path
@@ -157,9 +157,6 @@ class Config:
             known_hosts=known_hosts,
             allowed_logins=allowed_logins,
             session_token=session_token,
-            idle_timeout=_positive_int(
-                "GAMING_IDLE_TIMEOUT_SECONDS", 1800, 300, 86400
-            ),
             wake_timeout=_positive_int(
                 "GAMING_WAKE_TIMEOUT_SECONDS", 180, 30, 900
             ),
@@ -179,10 +176,8 @@ class Config:
 
 class State:
     DEFAULT = {
-        "managed_power": False,
         "ready_seen": False,
         "session_active": False,
-        "idle_since": None,
         "operation": None,
         "operation_started": None,
         "last_error": None,
@@ -239,15 +234,7 @@ class Controller:
     def _monitor_loop(self) -> None:
         while not self._stop.wait(self.config.poll_interval):
             try:
-                snapshot = self.observe()
-                if (
-                    snapshot["managed_power"]
-                    and snapshot["ready"]
-                    and not snapshot["session_active"]
-                    and snapshot["idle_remaining_seconds"] == 0
-                    and snapshot["operation"] is None
-                ):
-                    self.shutdown("idle-timeout")
+                self.observe()
             except Exception as exc:  # pragma: no cover - service safety net
                 self._record_error(f"monitor error: {type(exc).__name__}")
 
@@ -273,12 +260,9 @@ class Controller:
                 if operation == "waking":
                     data["operation"] = None
                     data["operation_started"] = None
-                if data["managed_power"] and not data["session_active"]:
-                    data["idle_since"] = data["idle_since"] or now
             elif operation == "waking" and now - operation_started >= self.config.wake_timeout:
                 data["operation"] = None
                 data["operation_started"] = None
-                data["managed_power"] = False
                 data["last_error"] = "Timeout: Sunshine non è diventato disponibile."
 
             if (
@@ -295,24 +279,12 @@ class Controller:
                 # a shutdown (requested here or performed locally).
                 data.update(
                     {
-                        "managed_power": False,
                         "ready_seen": False,
                         "session_active": False,
-                        "idle_since": None,
                         "operation": None,
                         "operation_started": None,
                     }
                 )
-
-            idle_remaining: int | None = None
-            if (
-                data["managed_power"]
-                and ready
-                and not data["session_active"]
-                and data["idle_since"] is not None
-            ):
-                elapsed = max(0, now - int(data["idle_since"]))
-                idle_remaining = max(0, self.config.idle_timeout - elapsed)
 
             operation = data["operation"]
             if operation == "waking":
@@ -338,10 +310,7 @@ class Controller:
                 "label": label,
                 "online": online,
                 "ready": ready,
-                "managed_power": bool(data["managed_power"]),
                 "session_active": bool(data["session_active"]),
-                "idle_remaining_seconds": idle_remaining,
-                "idle_timeout_seconds": self.config.idle_timeout,
                 "operation": operation,
                 "last_error": data["last_error"],
                 "last_wake": data["last_wake"],
@@ -358,10 +327,8 @@ class Controller:
                 return
             self.state.data.update(
                 {
-                    "managed_power": True,
                     "ready_seen": False,
                     "session_active": False,
-                    "idle_since": None,
                     "operation": "waking",
                     "operation_started": now,
                     "last_error": None,
@@ -387,10 +354,8 @@ class Controller:
             with self.state.lock:
                 self.state.data.update(
                     {
-                        "managed_power": False,
                         "ready_seen": False,
                         "session_active": False,
-                        "idle_since": None,
                         "operation": None,
                         "operation_started": None,
                     }
@@ -455,20 +420,10 @@ class Controller:
         print(f"shutdown requested by {actor}", flush=True)
 
     def session(self, active: bool) -> None:
-        now = int(time.time())
         with self.state.lock:
             self.state.data["session_active"] = active
-            self.state.data["idle_since"] = None if active else (
-                now if self.state.data["managed_power"] else None
-            )
             self.state.save()
         print(f"Sunshine session {'started' if active else 'stopped'}", flush=True)
-
-    def postpone(self) -> None:
-        with self.state.lock:
-            if self.state.data["managed_power"] and not self.state.data["session_active"]:
-                self.state.data["idle_since"] = int(time.time())
-                self.state.save()
 
 
 STYLE = b"""
@@ -482,9 +437,9 @@ h1{margin:0 0 6px;font-size:1.6rem}.muted{color:#94a3b8;margin:0 0 24px}
 .label{font-weight:700}.detail{font-size:.9rem;color:#94a3b8;margin-top:4px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 button{border:0;border-radius:12px;padding:14px;font-weight:700;cursor:pointer;background:#2563eb;color:white}
-button.danger{background:#b91c1c}button.secondary{grid-column:1/-1;background:#334155}
+button.danger{background:#b91c1c}
 button:disabled{opacity:.38;cursor:not-allowed}.error-text{color:#fca5a5;min-height:1.4em;margin:16px 0 0}
-@media(max-width:480px){main{padding:20px}.actions{grid-template-columns:1fr}button.secondary{grid-column:auto}}
+@media(max-width:480px){main{padding:20px}.actions{grid-template-columns:1fr}}
 """
 
 
@@ -496,18 +451,15 @@ const detail=document.getElementById('detail');
 const errorText=document.getElementById('error');
 const wake=document.getElementById('wake');
 const shutdown=document.getElementById('shutdown');
-const postpone=document.getElementById('postpone');
-function duration(value){if(value===null)return '';const m=Math.ceil(value/60);return `Spegnimento automatico tra ${m} min`;}
 async function refresh(){
   try{const response=await fetch('/api/status',{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);
     const data=await response.json();statusBox.className=`status ${data.last_error?'error':data.power}`;
-    label.textContent=data.label;detail.textContent=data.session_active?'Sessione Moonlight attiva':duration(data.idle_remaining_seconds)||(data.managed_power?'Acceso dal controller':'Avvio non gestito dal controller');
-    errorText.textContent=data.last_error||'';wake.disabled=data.online||data.operation!==null;shutdown.disabled=!data.online||data.operation!==null;postpone.disabled=data.idle_remaining_seconds===null||data.operation!==null;
-  }catch(error){statusBox.className='status error';label.textContent='Controller non raggiungibile';detail.textContent='';errorText.textContent=error.message;wake.disabled=shutdown.disabled=postpone.disabled=true;}}
+    label.textContent=data.label;detail.textContent=data.session_active?'Sessione Moonlight attiva':'Spegnimento solo manuale';
+    errorText.textContent=data.last_error||'';wake.disabled=data.online||data.operation!==null;shutdown.disabled=!data.online||data.operation!==null;
+  }catch(error){statusBox.className='status error';label.textContent='Controller non raggiungibile';detail.textContent='';errorText.textContent=error.message;wake.disabled=shutdown.disabled=true;}}
 async function action(path){const response=await fetch(path,{method:'POST',headers:{'X-CSRF-Token':csrf}});if(!response.ok){const data=await response.json().catch(()=>({error:`HTTP ${response.status}`}));throw new Error(data.error||`HTTP ${response.status}`);}await refresh();}
 wake.addEventListener('click',()=>action('/api/wake').catch(e=>errorText.textContent=e.message));
 shutdown.addEventListener('click',()=>{if(confirm('Spegnere il PC gaming? Windows conceder\u00e0 60 secondi per annullare localmente.'))action('/api/shutdown').catch(e=>errorText.textContent=e.message);});
-postpone.addEventListener('click',()=>action('/api/postpone').catch(e=>errorText.textContent=e.message));
 refresh();setInterval(refresh,3000);
 """.encode("ascii")
 
@@ -518,7 +470,7 @@ def _page(csrf_token: str, login: str) -> bytes:
 <meta name="csrf-token" content="{html.escape(csrf_token, quote=True)}"><title>Gaming PC</title><link rel="stylesheet" href="/style.css"></head>
 <body><main><h1>Gaming PC</h1><p class="muted">Controllo privato · {html.escape(login)}</p>
 <section id="status" class="status"><span class="dot"></span><div><div id="label" class="label">Verifica in corso</div><div id="detail" class="detail"></div></div></section>
-<div class="actions"><button id="wake">Accendi</button><button id="shutdown" class="danger">Spegni il server</button><button id="postpone" class="secondary">Rimanda di 30 minuti</button></div>
+<div class="actions"><button id="wake">Accendi</button><button id="shutdown" class="danger">Spegni il PC</button></div>
 <p id="error" class="error-text" role="alert"></p></main><script src="/app.js" defer></script></body></html>""".encode("utf-8")
 
 
@@ -603,8 +555,6 @@ class Handler(BaseHTTPRequestHandler):
                 # Wait for SSH to accept the forced command so the browser gets
                 # a real success or error instead of an optimistic response.
                 self.controller.shutdown(login)
-            elif path == "/api/postpone":
-                self.controller.postpone()
             else:
                 self._json(404, {"error": "not found"})
                 return

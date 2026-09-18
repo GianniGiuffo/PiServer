@@ -22,6 +22,7 @@ source "${ENV_FILE}"
 : "${MINIPC_POWER_KNOWN_HOSTS:?Set MINIPC_POWER_KNOWN_HOSTS}"
 : "${MINIPC_LAN_MAC:?Set MINIPC_LAN_MAC}"
 : "${MINIPC_LAN_BROADCAST:?Set MINIPC_LAN_BROADCAST}"
+UPS_CRITICAL_CONFIRM_SECONDS=${UPS_CRITICAL_CONFIRM_SECONDS:-30}
 [[ ${UPS_NAME} =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid UPS_NAME." >&2; exit 1; }
 [[ ${UPS_RACK_SHUTDOWN_PERCENT} =~ ^[0-9]+$ ]] &&
   (( UPS_RACK_SHUTDOWN_PERCENT >= 5 && UPS_RACK_SHUTDOWN_PERCENT <= 50 )) || {
@@ -54,7 +55,9 @@ cat > /etc/nut/ups.conf <<EOF
     port = auto
     vendorid = 0463
     desc = "Eaton UPS del rack"
-    lowbatt = ${UPS_RACK_SHUTDOWN_PERCENT}
+    ignorelb
+    override.battery.charge.low = ${UPS_RACK_SHUTDOWN_PERCENT}
+    override.battery.runtime.low = -1
     offdelay = 30
     ondelay = 60
 EOF
@@ -88,9 +91,20 @@ udevadm trigger --subsystem-match=usb --attr-match=idVendor=0463 --action=change
 udevadm settle
 systemctl restart nut-driver@"${UPS_NAME}".service 2>/dev/null || true
 systemctl restart nut-server.service nut-monitor.service
-sleep 3
-upsc "${UPS_NAME}@localhost" battery.charge >/dev/null
-systemctl enable --now rack-ups-orchestrator.service
+ups_ready=false
+for _attempt in {1..15}; do
+  if upsc "${UPS_NAME}@localhost" battery.charge >/dev/null 2>&1; then
+    ups_ready=true
+    break
+  fi
+  sleep 2
+done
+[[ ${ups_ready} == true ]] || {
+  echo "NUT did not reconnect to ${UPS_NAME} within 30 seconds." >&2
+  exit 1
+}
+systemctl enable rack-ups-orchestrator.service
+systemctl restart rack-ups-orchestrator.service
 
 echo "Eaton UPS monitoring enabled. Current values:"
 upsc "${UPS_NAME}@localhost" | grep -E '^(battery\.charge|battery\.runtime|ups\.load|ups\.status):' || true

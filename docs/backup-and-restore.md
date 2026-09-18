@@ -18,6 +18,7 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - database e impostazioni Uptime Kuma;
 - database/configurazione Jellyfin, esclusi log, cache, metadata generati e
   transcodifiche;
+- database e configurazione Seerr;
 - configurazione, utenti, sessioni e richieste del downloader;
 - database e configurazioni di Aurral, Lidarr, slskd e Navidrome;
 - configurazione Nextcloud e dump PostgreSQL;
@@ -25,11 +26,21 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - configurazione e dump PostgreSQL n8n, inclusa la tabella
   `ai_chat_memory` con la cronologia delle chat;
 
-Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, il downloader e i quattro servizi
+Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, Seerr, il downloader e i quattro servizi
 musicali vengono fermati brevemente per rendere coerenti i rispettivi database.
 Nextcloud entra in maintenance mode. n8n e Immich vengono fermati mentre viene
 creato il loro dump PostgreSQL. Immich riparte subito dopo il dump; gli altri
 servizi fermati ripartono nella fase finale del backup, anche in caso di errore.
+
+Prima di un upgrade major di Jellyfin usare un backup completo che includa
+anche i metadata ricostruibili ma necessari per un rollback identico:
+
+```bash
+sudo JELLYFIN_FULL_BACKUP=true bash scripts/backup.sh
+```
+
+`JELLYFIN_FULL_BACKUP=true` rimuove soltanto l'esclusione dei metadata per
+quella esecuzione; log e transcodifiche temporanee restano esclusi.
 
 Prima di fermare qualsiasi servizio viene verificata la leggibilità effettiva
 del repository con `restic cat config`, senza cache né lock e con timeout di

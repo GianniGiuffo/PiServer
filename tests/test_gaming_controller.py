@@ -52,7 +52,6 @@ class GamingControllerTests(unittest.TestCase):
             "GAMING_SESSION_TOKEN_FILE": str(root / "session-token"),
             "GAMING_CONTROLLER_STATE_FILE": str(root / "state.json"),
             "GAMING_CONTROLLER_BIND": "127.0.0.1",
-            "GAMING_IDLE_TIMEOUT_SECONDS": "1800",
         }
 
     def tearDown(self) -> None:
@@ -110,15 +109,13 @@ class GamingControllerTests(unittest.TestCase):
             status = controller.observe()
         self.assertEqual(status["last_error"], "Comando di spegnimento rifiutato")
 
-    def test_session_timer_only_arms_for_managed_power(self) -> None:
+    def test_session_status_never_arms_automatic_shutdown(self) -> None:
         controller = self.module.Controller(self.config())
         controller.session(False)
-        self.assertIsNone(controller.state.data["idle_since"])
-        controller.state.data["managed_power"] = True
-        controller.session(False)
-        self.assertIsInstance(controller.state.data["idle_since"], int)
         controller.session(True)
-        self.assertIsNone(controller.state.data["idle_since"])
+        self.assertTrue(controller.state.data["session_active"])
+        self.assertNotIn("idle_since", controller.state.data)
+        self.assertNotIn("managed_power", controller.state.data)
 
     def test_http_actions_require_tailscale_identity_and_csrf(self) -> None:
         controller = self.module.Controller(self.config())
@@ -140,7 +137,7 @@ class GamingControllerTests(unittest.TestCase):
             self.assertEqual(page.status, 200)
             self.assertIn(controller.csrf_token.encode(), page.read())
 
-            connection.request("POST", "/api/postpone", headers=headers)
+            connection.request("POST", "/api/shutdown", headers=headers)
             response = connection.getresponse()
             self.assertEqual(response.status, 403)
             response.read()
@@ -148,7 +145,7 @@ class GamingControllerTests(unittest.TestCase):
             headers["X-CSRF-Token"] = controller.csrf_token
             connection.request("POST", "/api/postpone", headers=headers)
             response = connection.getresponse()
-            self.assertEqual(response.status, 202)
+            self.assertEqual(response.status, 404)
             response.read()
 
             with patch.object(
@@ -196,9 +193,12 @@ class GamingArchitectureTests(unittest.TestCase):
         power = self.read("windows/gaming/gaming-power.ps1")
         installer = self.read("windows/gaming/install-gaming-host.ps1")
         self.assertIn('SSH_ORIGINAL_COMMAND -cne "shutdown"', power)
-        self.assertIn('shutdown.exe" /s /f /t 60', power)
-        self.assertIn("SeShutdownPrivilege", installer)
-        self.assertIn("LsaAddAccountRights", installer)
+        self.assertIn('schtasks.exe" /Run /TN $taskName', power)
+        self.assertIn('New-ScheduledTaskAction -Execute $shutdownExe', installer)
+        self.assertIn('New-ScheduledTaskPrincipal -UserId "SYSTEM"', installer)
+        self.assertIn("SetSecurityDescriptor($taskSddl, 0)", installer)
+        self.assertNotIn("New-ScheduledTaskTrigger", installer)
+        self.assertIn("non deve avere trigger automatici", installer)
         self.assertIn("ForceCommand powershell.exe", installer)
         self.assertIn("PasswordAuthentication no", installer)
         self.assertIn("-RemoteAddress $MiniPcTailscaleIp.IPAddressToString", installer)
@@ -211,6 +211,14 @@ class GamingArchitectureTests(unittest.TestCase):
         self.assertIn("$acl.RemoveAccessRuleSpecific($rule)", installer)
         self.assertIn("Set-RestrictedOpenSshTree -Directory $sshProgramData", installer)
         self.assertIn('$sshdService.Status -ne "Running"', installer)
+
+    def test_automatic_shutdown_is_absent(self) -> None:
+        controller = self.read("scripts/gaming-pc-controller.py")
+        example = self.read("config/gaming/gaming.env.example")
+        self.assertNotIn("GAMING_IDLE_TIMEOUT_SECONDS", controller)
+        self.assertNotIn("GAMING_IDLE_TIMEOUT_SECONDS", example)
+        self.assertNotIn("/api/postpone", controller)
+        self.assertNotIn('shutdown("idle-timeout")', controller)
 
     def test_windows_installer_repairs_acl_before_overwriting_managed_files(self) -> None:
         installer = self.read("windows/gaming/install-gaming-host.ps1")

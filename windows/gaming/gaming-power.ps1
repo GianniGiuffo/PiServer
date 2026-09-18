@@ -7,5 +7,11 @@ if ($env:SSH_ORIGINAL_COMMAND -cne "shutdown") {
     exit 126
 }
 
-& "$env:SystemRoot\System32\shutdown.exe" /s /f /t 60 /d p:0:0 /c "PiServer gaming controller"
-exit $LASTEXITCODE
+$taskName = "\PiServer-Gaming-Shutdown"
+& "$env:SystemRoot\System32\schtasks.exe" /Run /TN $taskName | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Unable to start the protected shutdown task. Re-run install-gaming-host.ps1 as administrator."
+    exit $LASTEXITCODE
+}
+
+exit 0

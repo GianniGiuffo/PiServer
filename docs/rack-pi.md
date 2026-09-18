@@ -142,6 +142,13 @@ Ethernet e il broadcast LAN. Le soglie predefinite sono:
 - al ritorno della rete dopo lo spegnimento totale, l'UPS rialimenta le prese e
   i due computer ripartono grazie alle rispettive impostazioni di accensione.
 
+Il driver usa `ignorelb`: gli eventuali segnali hardware `LB` prematuri non
+avviano lo spegnimento. La condizione critica deriva esclusivamente dalla
+percentuale configurata e deve restare valida per 30 secondi consecutivi.
+L'autonomia stimata non può dichiarare la batteria critica, perché a carichi
+molto bassi può essere imprecisa. Ogni cambio `OL`, `OB` o `LB` e ogni variazione
+di carica durante un blackout viene salvata nel journal persistente.
+
 Controllare il servizio e i dati esposti a Homepage:
 
 ```bash

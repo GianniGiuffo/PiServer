@@ -19,9 +19,10 @@ source "${ENV_FILE}"
 : "${MINIPC_LAN_MAC:?Set MINIPC_LAN_MAC}"
 : "${MINIPC_LAN_BROADCAST:?Set MINIPC_LAN_BROADCAST}"
 UPS_POLL_SECONDS=${UPS_POLL_SECONDS:-10}
+UPS_CRITICAL_CONFIRM_SECONDS=${UPS_CRITICAL_CONFIRM_SECONDS:-30}
 UPS_MINIPC_GRACE_SECONDS=${UPS_MINIPC_GRACE_SECONDS:-90}
 
-for value in UPS_MINIPC_SHUTDOWN_PERCENT UPS_RACK_SHUTDOWN_PERCENT UPS_POLL_SECONDS UPS_MINIPC_GRACE_SECONDS MINIPC_POWER_SSH_PORT; do
+for value in UPS_MINIPC_SHUTDOWN_PERCENT UPS_RACK_SHUTDOWN_PERCENT UPS_POLL_SECONDS UPS_CRITICAL_CONFIRM_SECONDS UPS_MINIPC_GRACE_SECONDS MINIPC_POWER_SSH_PORT; do
   [[ ${!value} =~ ^[0-9]+$ ]] || { echo "${value} must be numeric." >&2; exit 1; }
 done
 [[ ${UPS_NAME} =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid UPS_NAME." >&2; exit 1; }
@@ -42,7 +43,8 @@ done
   echo "UPS SSH files must stay under /etc/rack-pi/ssh." >&2; exit 1;
 }
 (( UPS_MINIPC_SHUTDOWN_PERCENT <= 100 && UPS_RACK_SHUTDOWN_PERCENT >= 5 &&
-   UPS_POLL_SECONDS >= 5 && UPS_MINIPC_GRACE_SECONDS >= 30 &&
+   UPS_POLL_SECONDS >= 5 && UPS_CRITICAL_CONFIRM_SECONDS >= 20 &&
+   UPS_MINIPC_GRACE_SECONDS >= 30 &&
    MINIPC_POWER_SSH_PORT >= 1 && MINIPC_POWER_SSH_PORT <= 65535 )) || {
   echo "UPS thresholds, timing or SSH port are outside safe limits." >&2; exit 1;
 }
@@ -133,6 +135,10 @@ if [[ ${1:-} == --final-shutdown ]]; then
 fi
 
 wake_counter=0
+critical_since=0
+fsd_requested=0
+last_ups_status=
+last_logged_charge=
 while true; do
   if snapshot=$(upsc "${UPS_NAME}@localhost" 2>/dev/null); then
     charge=$(awk -F': ' '$1 == "battery.charge" {print int($2); exit}' <<<"${snapshot}")
@@ -148,14 +154,36 @@ while true; do
       write_unavailable_status
     fi
 
+    if [[ ${ups_status} != "${last_ups_status}" ]]; then
+      logger -t rack-ups "UPS status changed: status=${ups_status:-unknown} charge=${charge:-unknown}% runtime=${runtime:-unknown}s load=${load:-unknown}%."
+      last_ups_status=${ups_status}
+    fi
+    if [[ " ${ups_status} " == *" OB "* && ${charge:-} != "${last_logged_charge}" ]]; then
+      logger -t rack-ups "UPS on battery: charge=${charge:-unknown}% runtime=${runtime:-unknown}s load=${load:-unknown}%."
+      last_logged_charge=${charge:-unknown}
+    fi
+
     if [[ " ${ups_status} " == *" OB "* && -n ${charge} ]] &&
        (( charge <= UPS_MINIPC_SHUTDOWN_PERCENT )); then
       shutdown_minipc || true
     fi
     if [[ " ${ups_status} " == *" OB "* && -n ${charge} ]] &&
        (( charge <= UPS_RACK_SHUTDOWN_PERCENT )); then
-      logger -t rack-ups "UPS at ${charge}%; requesting NUT forced shutdown."
-      upsmon -c fsd
+      current_time=$(date +%s)
+      if (( critical_since == 0 )); then
+        critical_since=${current_time}
+        logger -t rack-ups "UPS critical candidate: charge=${charge}%; waiting ${UPS_CRITICAL_CONFIRM_SECONDS}s for confirmation."
+      elif (( current_time - critical_since >= UPS_CRITICAL_CONFIRM_SECONDS && fsd_requested == 0 )); then
+        logger -t rack-ups "UPS remained at or below ${UPS_RACK_SHUTDOWN_PERCENT}% for ${UPS_CRITICAL_CONFIRM_SECONDS}s; requesting NUT forced shutdown."
+        fsd_requested=1
+        upsmon -c fsd
+      fi
+    else
+      if (( critical_since != 0 && fsd_requested == 0 )); then
+        logger -t rack-ups "UPS critical candidate cleared before confirmation: status=${ups_status:-unknown} charge=${charge:-unknown}%."
+      fi
+      critical_since=0
+      fsd_requested=0
     fi
     if [[ " ${ups_status} " == *" OL "* && -e ${shutdown_marker} ]]; then
       if (( wake_counter % 6 == 0 )); then wake_minipc || true; fi

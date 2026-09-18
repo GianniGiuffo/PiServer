@@ -33,6 +33,7 @@ soltanto dopo la scelta dell'hardware.
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
 | Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
+| Seerr | Tailnet, porta 8457 | config su SSD, discovery collegata a Jellyfin |
 | Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
 | StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
 | Aurral | Tailnet, porta 8451 | config su SSD, musica su `/srv/media/music` |

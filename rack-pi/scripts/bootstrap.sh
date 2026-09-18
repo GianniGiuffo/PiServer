@@ -58,8 +58,10 @@ install -d -m 0700 -o root -g root /etc/rack-pi /etc/rack-pi/ssh
 install -d -m 0700 -o root -g root /var/lib/rack-pi-ups
 install -d -m 0755 /mnt/rack-backup
 install -d -m 0755 /etc/systemd/journald.conf.d
-install -m 0644 "${RACK_DIR}/config/journald/10-rack-pi.conf" \
-  /etc/systemd/journald.conf.d/10-rack-pi.conf
+install -d -m 2755 -o root -g systemd-journal /var/log/journal
+rm -f /etc/systemd/journald.conf.d/10-rack-pi.conf
+install -m 0644 "${RACK_DIR}/config/journald/90-rack-pi.conf" \
+  /etc/systemd/journald.conf.d/90-rack-pi.conf
 systemctl restart systemd-journald
 
 if [[ ! -e /etc/rack-pi/backup.env ]]; then

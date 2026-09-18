@@ -14,7 +14,7 @@ Configurazione di riferimento:
 - MSI H370 Gaming Pro Carbon e PC collegato via Ethernet;
 - monitor HDMI preferito per la cattura, con secondo monitor DisplayPort;
 - Wake-on-LAN inviato dal mini PC;
-- spegnimento manuale o dopo 30 minuti senza stream;
+- spegnimento esclusivamente manuale dalla pagina di controllo;
 - controller su `https://TAILSCALE_FQDN:8455/`.
 
 Windows 10 Home è mantenuto temporaneamente senza ESU per decisione del
@@ -22,7 +22,7 @@ proprietario. Il sistema funziona, ma rimane il rischio documentato in
 [security.md](security.md): Tailscale limita l'accesso in ingresso e non
 sostituisce gli aggiornamenti di sicurezza del sistema operativo.
 
-## 1. Funzionamento e proprietà del timer
+## 1. Funzionamento
 
 Il controller conserva soltanto stato operativo e non password Windows.
 
@@ -33,15 +33,15 @@ Il controller conserva soltanto stato operativo e non password Windows.
    Sunshine partono come servizi.
 5. Il controller mostra **Pronto per Moonlight** quando la porta Sunshine
    risponde.
-6. Una global prep command di Sunshine notifica l'inizio dello stream e mette
-   in pausa il timer; l'undo command lo riavvia quando lo stream termina.
-7. Dopo 30 minuti senza stream il mini PC invia via SSH il solo verbo
-   `shutdown`. Un forced command sul PC rifiuta qualunque altra operazione.
+6. Una global prep command di Sunshine notifica al controller l'inizio e la
+   fine dello stream, esclusivamente per mostrare lo stato nella pagina.
+7. Lo spegnimento avviene soltanto quando l'utente preme **Spegni**. Il mini PC
+   invia via SSH il solo verbo `shutdown`; un forced command sul PC rifiuta
+   qualunque altra operazione e avvia un'attività protetta eseguita come
+   `SYSTEM`.
 
-Il timer si arma esclusivamente quando il Wake-on-LAN è partito dal
-controller. Se il PC viene acceso dal pulsante fisico, il mini PC non lo spegne
-automaticamente. Una notifica Sunshine fallita lascia il PC acceso: è un
-fallimento conservativo contro gli spegnimenti accidentali.
+Non esistono timer o spegnimenti automatici legati all'inattività o alla fine
+di uno stream.
 
 ## 2. Raccogliere i valori
 
@@ -104,7 +104,6 @@ GAMING_PC_BROADCAST=192.168.1.255
 GAMING_PC_TAILSCALE_IP=100.x.y.z
 GAMING_PC_SSH_USER=gaming
 GAMING_ALLOWED_TAILSCALE_LOGINS=utente@example.com
-GAMING_IDLE_TIMEOUT_SECONDS=1800
 ```
 
 Non modificare il bind loopback. Lo script genera:
@@ -169,19 +168,9 @@ Autologon salva la password come segreto LSA, ma un amministratore locale può
 recuperarla. L'account deve quindi essere dedicato, standard e privo di dati
 personali.
 
-Prima di proseguire, verificare direttamente dall'account `gaming` che il
-diritto standard di arresto sia disponibile. Il primo comando programma lo
-spegnimento, il secondo lo annulla subito:
-
-```powershell
-shutdown.exe /s /t 60
-shutdown.exe /a
-```
-
-La configurazione predefinita di Windows assegna questo diritto agli utenti
-locali. Se il primo comando restituisce un errore di privilegio, fermarsi e
-correggere la policy locale: non aggiungere `gaming` agli amministratori e non
-proseguire contando sul controller, che riceverebbe lo stesso errore.
+Non è necessario assegnare a `gaming` diritti di arresto o inserirlo negli
+amministratori: l'installer crea un'attività protetta eseguita come `SYSTEM` e
+concede all'account standard soltanto il permesso di avviarla.
 
 ## 6. Installare e configurare Tailscale e Sunshine su Windows
 
@@ -387,8 +376,8 @@ anche la cartella `logs`, che alcune versioni di OpenSSH verificano all'avvio.
 Lo script:
 
 - verifica che `gaming` non sia amministratore;
-- assegna al solo account `gaming` il diritto locale `SeShutdownPrivilege`,
-  necessario a `shutdown.exe` anche nelle sessioni OpenSSH;
+- crea `PiServer-Gaming-Shutdown`, un'attività protetta eseguita come `SYSTEM`,
+  e concede a `gaming` soltanto il diritto di avviarla;
 - installa e avvia OpenSSH Server;
 - rende OpenSSH esclusivo all'account `gaming` e al forced command;
 - disabilita password, terminale, forwarding e SFTP effettivo;
@@ -421,6 +410,8 @@ attivo e che la configurazione sia valida:
 ```powershell
 Get-Service sshd
 & "$env:SystemRoot\System32\OpenSSH\sshd.exe" -t -f "$env:ProgramData\ssh\sshd_config"
+Get-ScheduledTask -TaskName "PiServer-Gaming-Shutdown" |
+  Format-List TaskName, State
 ```
 
 L'installer valida automaticamente il file e, in caso di errore, ripristina
@@ -438,7 +429,7 @@ Confrontare fisicamente la fingerprint stampata anche con:
 ssh-keygen -lf C:\ProgramData\ssh\ssh_host_ed25519_key.pub -E sha256
 ```
 
-### Collegare il timer a Sunshine
+### Mostrare lo stato della sessione Sunshine (facoltativo)
 
 Prima verificare che i file copiati dall'installer esistano:
 
@@ -752,29 +743,15 @@ Eseguire nell'ordine e correggere ogni punto prima di passare al successivo:
 6. **Monitor:** ripetere l'avvio con HDMI e DisplayPort nelle condizioni
    descritte nella sezione precedente.
 7. **Callback:** durante lo stream la pagina deve mostrare `Sessione Moonlight
-   attiva`; dopo la chiusura deve apparire il conto alla rovescia.
-8. **Riconnessione:** ricollegarsi durante i 30 minuti; il timer deve sparire.
+   attiva`; dopo la chiusura deve tornare a `Spegnimento solo manuale`.
+8. **Nessun timer:** chiudere lo stream, attendere oltre 30 minuti e verificare
+   che il PC resti acceso.
 9. **Spegnimento manuale:** premere Spegni e verificare l'arresto dopo 60
    secondi. Localmente `shutdown /a` può annullarlo durante il preavviso.
-10. **Timeout:** per un test breve impostare temporaneamente
-    `GAMING_IDLE_TIMEOUT_SECONDS=300`, riavviare il controller e poi
-    ripristinare `1800`.
-11. **Hotspot:** disattivare il Wi-Fi normale della Switch, collegarla al
+10. **Hotspot:** disattivare il Wi-Fi normale della Switch, collegarla al
     telefono, verificare che Moonlight non sia escluso dallo split tunneling,
     aggiungere manualmente l'IPv4 Tailscale del PC e ripetere accensione,
     stream e spegnimento. Non usare una subnet o la VPN del telefono.
-
-Per il test da cinque minuti sul mini PC:
-
-```bash
-sudo nano /etc/raspberry-server/gaming/gaming.env
-# impostare GAMING_IDLE_TIMEOUT_SECONDS=300
-sudo systemctl restart gaming-pc-controller.service
-```
-
-Concluso il test, rimettere `1800` nello stesso file e riavviare di nuovo il
-servizio. Il timeout parte soltanto per un'accensione richiesta dalla pagina;
-prima di provarlo spegnere il PC e riaccenderlo con **Accendi**.
 
 Controlli sul mini PC:
 
@@ -800,8 +777,7 @@ tailscale serve status
 | Tailscale Android mostra `DNS unavailable` | Verificare in **DNS > Global nameservers** che il resolver sia raggiungibile dalla Tailnet sia su UDP sia su TCP 53. Per isolare il problema usare in Moonlight l'IPv4 Tailscale del PC. Se il resolver Pi-hole pubblicato da Docker non risponde attraverso `tailscale0`, rimuoverlo dai nameserver globali e disattivare `Override DNS servers`: MagicDNS continua a risolvere i nodi Tailscale, mentre Internet usa il DNS della rete Wi-Fi o dell'hotspot. |
 | Immagine nera o monitor errato | Ripetere `dxgi-info.exe`, verificare `Output Name` e rifare il test EDID con il monitor HDMI. |
 | La pagina non mostra la sessione attiva | Eseguire manualmente `gaming-session.ps1 start`; controllare URL, token e accesso PC gaming → mini PC TCP `8455`. |
-| `Spegni` viene rifiutato | Leggere il journal del controller, verificare servizio `sshd`, host key fissata, firewall SSH e diritto di arresto dell'account `gaming`. |
-| Il timer non spegne il PC | Verificare che l'accensione sia partita dalla pagina, che lo stream sia stato chiuso e che il callback `stop` sia arrivato. |
+| `Spegni` viene rifiutato | Rieseguire `install-gaming-host.ps1` come amministratore, verificare `sshd`, la host key fissata, il firewall SSH e l'attività `PiServer-Gaming-Shutdown`. |
 
 Comandi utili sul PC Windows:
 
