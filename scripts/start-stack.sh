@@ -16,7 +16,8 @@ case "${STACK}" in
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.media.yaml")
     SERVICES=(
       nextcloud-postgres nextcloud-redis nextcloud nextcloud-readonly nextcloud-cron
-      jellyfin seerr streamingcommunity immich-postgres immich-redis immich-server
+      jellyfin qbittorrent radarr sonarr prowlarr bazarr seerr
+      streamingcommunity immich-postgres immich-redis immich-server
       lidarr slskd navidrome aurral
     )
     ;;

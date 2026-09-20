@@ -69,6 +69,11 @@ install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
   /srv/raspberry-server/data/jellyfin/config \
   /srv/raspberry-server/data/jellyfin/cache \
   /srv/raspberry-server/data/seerr \
+  /srv/raspberry-server/data/radarr \
+  /srv/raspberry-server/data/sonarr \
+  /srv/raspberry-server/data/prowlarr \
+  /srv/raspberry-server/data/qbittorrent \
+  /srv/raspberry-server/data/bazarr \
   /srv/raspberry-server/data/aurral \
   /srv/raspberry-server/data/lidarr \
   /srv/raspberry-server/data/slskd \

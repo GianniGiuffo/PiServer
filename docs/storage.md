@@ -24,10 +24,15 @@ configurazioni e database:
 │   ├── nextcloud/html
 │   ├── nextcloud/postgres
 │   ├── pihole
+│   ├── prowlarr
+│   ├── qbittorrent
+│   ├── radarr
 │   ├── searxng/cache
 │   ├── seerr
+│   ├── sonarr
 │   ├── streamingcommunity
 │   ├── slskd
+│   ├── bazarr
 │   ├── uptime-kuma
 │   └── vaultwarden
 ├── sites
@@ -39,7 +44,12 @@ Il disco da 4 TB condiviso in LAN viene montato così:
 ```text
 /srv/media
 ├── .piserver-media
-├── downloads    file creati dal downloader e indicizzati da Jellyfin
+├── downloads
+│   ├── Films       libreria film Jellyfin e root folder Radarr
+│   ├── Series      libreria serie Jellyfin e root folder Sonarr
+│   └── .arr-downloads
+│       ├── complete
+│       └── incomplete
 ├── immich       foto e video gestiti da Immich
 ├── jellyfin     film, serie e musica
 ├── music
@@ -51,6 +61,9 @@ Il disco da 4 TB condiviso in LAN viene montato così:
 
 Non usare `/srv/media` per PostgreSQL, SQLite, Redis o configurazioni. I database
 richiedono locking POSIX affidabile e bassa latenza; restano sull'SSD locale.
+qBittorrent, Radarr, Sonarr e Bazarr montano tutti `downloads` come `/data`:
+questa identità dei percorsi permette importazioni atomiche e hardlink senza
+copie aggiuntive. I download incompleti non vengono mai indicizzati da Jellyfin.
 
 ## Disco USB temporaneo
 
@@ -152,6 +165,8 @@ mount USB o remoto:
 mountpoint /srv/media
 sudo mkdir -p /srv/media/{downloads,immich,jellyfin,nextcloud}
 sudo mkdir -p \
+  /srv/media/downloads/{Films,Series} \
+  /srv/media/downloads/.arr-downloads/{complete,incomplete} \
   /srv/media/music/library \
   /srv/media/music/aurral \
   /srv/media/music/.downloads/slskd/{complete,incomplete}
@@ -163,7 +178,8 @@ Configurare i permessi necessari sul filesystem locale o sul NAS:
 - Immich deve poter scrivere in `immich`;
 - `downloads` deve essere scrivibile dal downloader e leggibile dal
   `PUID`/`PGID` usato da Jellyfin; su ext4 usare proprietario `root:PGID` e
-  mode `2770`;
+  mode `2770`. Anche `Films`, `Series` e `.arr-downloads` devono essere
+  scrivibili dal `PUID`/`PGID` condiviso da qBittorrent, Radarr e Sonarr;
 - l'UID `33` di `www-data` deve poter scrivere in `nextcloud`;
 - l'utente indicato da `PUID` deve almeno leggere `jellyfin`.
 - `music` e tutte le sottodirectory devono appartenere a `PUID:PGID`; Lidarr,

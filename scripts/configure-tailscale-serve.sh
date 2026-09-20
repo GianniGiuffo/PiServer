@@ -30,6 +30,11 @@ tailscale serve --bg --https=8454 --set-path=/ http://127.0.0.1:5030
 tailscale serve --bg --https=8455 --set-path=/ http://127.0.0.1:8084
 tailscale serve --bg --https=8456 --set-path=/ http://127.0.0.1:8085
 tailscale serve --bg --https=8457 --set-path=/ http://127.0.0.1:5055
+tailscale serve --bg --https=8458 --set-path=/ http://127.0.0.1:7878
+tailscale serve --bg --https=8459 --set-path=/ http://127.0.0.1:8989
+tailscale serve --bg --https=8460 --set-path=/ http://127.0.0.1:9696
+tailscale serve --bg --https=8461 --set-path=/ http://127.0.0.1:8086
+tailscale serve --bg --https=8462 --set-path=/ http://127.0.0.1:6767
 
 echo
 echo "Private services configured:"
@@ -49,5 +54,10 @@ echo "  8454 slskd"
 echo "  8455 Gaming PC controller"
 echo "  8456 Pi-hole control"
 echo "  8457 Seerr"
+echo "  8458 Radarr"
+echo "  8459 Sonarr"
+echo "  8460 Prowlarr"
+echo "  8461 qBittorrent"
+echo "  8462 Bazarr"
 echo
 echo "Confirm with: tailscale serve status"

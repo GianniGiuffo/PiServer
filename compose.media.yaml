@@ -190,6 +190,170 @@ services:
     cap_drop:
       - ALL
 
+  qbittorrent:
+    image: ${QBITTORRENT_IMAGE:?Set QBITTORRENT_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 1g
+    cpus: 2.0
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+      UMASK: "002"
+      WEBUI_PORT: "8080"
+      TORRENTING_PORT: "6881"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/qbittorrent:/config
+      # All Arr services use the same /data view. This permits hardlinks and
+      # atomic imports from .arr-downloads into Films and Series.
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads
+        target: /data
+        bind:
+          create_host_path: false
+    ports:
+      # Web UI only. The BitTorrent peer port is intentionally not published:
+      # outbound peer connections work without opening a router port.
+      - "127.0.0.1:8086:8080/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --max-time 5 http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  radarr:
+    image: ${RADARR_IMAGE:?Set RADARR_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    depends_on:
+      qbittorrent:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+      UMASK: "002"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/radarr:/config
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads
+        target: /data
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:7878:7878/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://127.0.0.1:7878/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    security_opt:
+      - no-new-privileges:true
+
+  sonarr:
+    image: ${SONARR_IMAGE:?Set SONARR_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    depends_on:
+      qbittorrent:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+      UMASK: "002"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/sonarr:/config
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads
+        target: /data
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:8989:8989/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://127.0.0.1:8989/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    security_opt:
+      - no-new-privileges:true
+
+  prowlarr:
+    image: ${PROWLARR_IMAGE:?Set PROWLARR_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 512m
+    depends_on:
+      radarr:
+        condition: service_healthy
+      sonarr:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+      UMASK: "002"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/prowlarr:/config
+    ports:
+      - "127.0.0.1:9696:9696/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://127.0.0.1:9696/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    security_opt:
+      - no-new-privileges:true
+
+  bazarr:
+    image: ${BAZARR_IMAGE:?Set BAZARR_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 768m
+    depends_on:
+      radarr:
+        condition: service_healthy
+      sonarr:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+      UMASK: "002"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/bazarr:/config
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads
+        target: /data
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:6767:6767/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --max-time 5 http://127.0.0.1:6767/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+
   streamingcommunity:
     image: ${STREAMINGCOMMUNITY_IMAGE:?Set STREAMINGCOMMUNITY_IMAGE in .env}
     restart: on-failure:5

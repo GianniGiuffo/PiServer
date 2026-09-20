@@ -34,6 +34,11 @@ soltanto dopo la scelta dell'hardware.
 | Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Seerr | Tailnet, porta 8457 | config su SSD, discovery collegata a Jellyfin |
+| Radarr | Tailnet, porta 8458 | config su SSD, film in `/srv/media/downloads/Films` |
+| Sonarr | Tailnet, porta 8459 | config su SSD, serie in `/srv/media/downloads/Series` |
+| Prowlarr | Tailnet, porta 8460 | config su SSD, indexer condivisi con Radarr/Sonarr |
+| qBittorrent | Tailnet, porta 8461 | config su SSD, transito in `/srv/media/downloads/.arr-downloads` |
+| Bazarr | Tailnet, porta 8462 | config su SSD, sottotitoli accanto ai media |
 | Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
 | StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
 | Aurral | Tailnet, porta 8451 | config su SSD, musica su `/srv/media/music` |

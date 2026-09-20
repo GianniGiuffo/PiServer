@@ -104,6 +104,11 @@ N8N_STOPPED=false
 IMMICH_STOPPED=false
 JELLYFIN_STOPPED=false
 SEERR_STOPPED=false
+RADARR_STOPPED=false
+SONARR_STOPPED=false
+PROWLARR_STOPPED=false
+QBITTORRENT_STOPPED=false
+BAZARR_STOPPED=false
 STREAMINGCOMMUNITY_STOPPED=false
 AURRAL_STOPPED=false
 NAVIDROME_STOPPED=false
@@ -121,6 +126,11 @@ cleanup() {
         ${IMMICH_STOPPED} == true ||
         ${JELLYFIN_STOPPED} == true ||
         ${SEERR_STOPPED} == true ||
+        ${RADARR_STOPPED} == true ||
+        ${SONARR_STOPPED} == true ||
+        ${PROWLARR_STOPPED} == true ||
+        ${QBITTORRENT_STOPPED} == true ||
+        ${BAZARR_STOPPED} == true ||
         ${STREAMINGCOMMUNITY_STOPPED} == true ||
         ${AURRAL_STOPPED} == true ||
         ${NAVIDROME_STOPPED} == true ||
@@ -142,6 +152,21 @@ cleanup() {
   fi
   if [[ ${JELLYFIN_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start jellyfin || true
+  fi
+  if [[ ${QBITTORRENT_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start qbittorrent || true
+  fi
+  if [[ ${RADARR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start radarr || true
+  fi
+  if [[ ${SONARR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start sonarr || true
+  fi
+  if [[ ${PROWLARR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start prowlarr || true
+  fi
+  if [[ ${BAZARR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start bazarr || true
   fi
   if [[ ${SEERR_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start seerr || true
@@ -228,6 +253,26 @@ fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
+if is_running MEDIA bazarr; then
+  "${MEDIA[@]}" stop bazarr
+  BAZARR_STOPPED=true
+fi
+if is_running MEDIA prowlarr; then
+  "${MEDIA[@]}" stop prowlarr
+  PROWLARR_STOPPED=true
+fi
+if is_running MEDIA sonarr; then
+  "${MEDIA[@]}" stop sonarr
+  SONARR_STOPPED=true
+fi
+if is_running MEDIA radarr; then
+  "${MEDIA[@]}" stop radarr
+  RADARR_STOPPED=true
+fi
+if is_running MEDIA qbittorrent; then
+  "${MEDIA[@]}" stop qbittorrent
+  QBITTORRENT_STOPPED=true
+fi
 if is_running MEDIA aurral; then
   "${MEDIA[@]}" stop aurral
   AURRAL_STOPPED=true
@@ -300,6 +345,14 @@ fi
 if [[ -e ${DATA_DIR}/seerr ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/seerr")
 fi
+for video_automation_state_path in \
+  "${DATA_DIR}/radarr" \
+  "${DATA_DIR}/sonarr" \
+  "${DATA_DIR}/prowlarr" \
+  "${DATA_DIR}/qbittorrent" \
+  "${DATA_DIR}/bazarr"; do
+  [[ -e ${video_automation_state_path} ]] && BACKUP_PATHS+=("${video_automation_state_path}")
+done
 for music_state_path in \
   "${DATA_DIR}/aurral" \
   "${DATA_DIR}/lidarr" \
@@ -317,6 +370,14 @@ RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/lidarr/logs"
   --exclude "${DATA_DIR}/lidarr/MediaCover"
   --exclude "${DATA_DIR}/slskd/logs"
+  --exclude "${DATA_DIR}/radarr/logs"
+  --exclude "${DATA_DIR}/radarr/MediaCover"
+  --exclude "${DATA_DIR}/sonarr/logs"
+  --exclude "${DATA_DIR}/sonarr/MediaCover"
+  --exclude "${DATA_DIR}/prowlarr/logs"
+  --exclude "${DATA_DIR}/qbittorrent/qBittorrent/logs"
+  --exclude "${DATA_DIR}/bazarr/cache"
+  --exclude "${DATA_DIR}/bazarr/log"
 )
 if [[ ${JELLYFIN_FULL_BACKUP} == false ]]; then
   RESTIC_EXCLUDES+=(--exclude "${DATA_DIR}/jellyfin/config/metadata")

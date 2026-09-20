@@ -13,6 +13,11 @@
 | Nextcloud | Tailscale Serve `8445`; dominio pubblico filtrato dal tunnel | solo link pubblici e relativi asset |
 | Jellyfin | Tailscale Serve `8446` | no |
 | Seerr | Tailscale Serve `8457`, backend solo loopback | no |
+| Radarr | Tailscale Serve `8458`, backend solo loopback | no |
+| Sonarr | Tailscale Serve `8459`, backend solo loopback | no |
+| Prowlarr | Tailscale Serve `8460`, backend solo loopback | no |
+| qBittorrent Web UI | Tailscale Serve `8461`, backend solo loopback | no |
+| Bazarr | Tailscale Serve `8462`, backend solo loopback | no |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
@@ -30,12 +35,14 @@
 | Controllo Pi-hole doppio | Tailscale Serve `8456`, backend solo loopback | no |
 | Sunshine sul PC gaming | IPv4 Tailscale del PC, porte GameStream | no |
 | Soulseek peer port `50300` | non pubblicata | no |
+| BitTorrent peer port `6881` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
 | SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
 | proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
-4533, 5030, 5031, 50300, 5055, 5678, 6379, 8000, 8084, 8096, 8455, 8686,
+4533, 5030, 5031, 50300, 5055, 5678, 6379, 6767, 6881, 7878, 8000, 8084,
+8086, 8096, 8455, 8686, 8989, 9696,
 11434, 2222 o per le porte Sunshine 47984-48010.
 
 ## Vaultwarden
@@ -118,10 +125,20 @@ Jellyfin Helper usa `http://seerr:5055` sulla rete Docker `web`, quindi l'API
 key non attraversa la LAN né Internet. La directory di configurazione Seerr,
 che contiene account, sessioni e API key, entra nel backup Restic cifrato.
 
-Senza Radarr o Sonarr Seerr viene usato soltanto per discovery, sincronizzazione
-della libreria e gestione manuale delle richieste. Non aggiungere downloader o
-mount media al container Seerr. Le attività di pulizia di Jellyfin Helper
+Seerr non monta i media e comunica con Radarr e Sonarr soltanto sulla rete
+Docker. Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr pubblicano i rispettivi
+backend soltanto su `127.0.0.1`; l'accesso umano passa da Tailscale Serve.
+La porta peer qBittorrent non è pubblicata e UPnP/NAT-PMP restano disabilitati:
+non sono richiesti inoltri sul router. Le attività di pulizia di Jellyfin Helper
 restano in `Dry Run` finché i risultati non sono stati controllati.
+
+Con qBittorrent 5.2 la validazione dell'header `Host` rifiuta le porte esterne
+usate da Tailscale Serve anche quando il dominio è in whitelist. Per questo la
+sola validazione `Host` interna è disabilitata; autenticazione, protezione CSRF
+e anti-clickjacking restano attive. Il backend continua ad ascoltare soltanto
+su `127.0.0.1:8086`, quindi né LAN né Internet possono raggiungerlo direttamente.
+La password casuale è conservata con mode `0600` in
+`/etc/raspberry-server/video-automation.env`, incluso nel backup cifrato.
 
 ## Stack musicale
 

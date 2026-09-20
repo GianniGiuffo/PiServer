@@ -19,6 +19,8 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - database/configurazione Jellyfin, esclusi log, cache, metadata generati e
   transcodifiche;
 - database e configurazione Seerr;
+- database e configurazioni di Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr,
+  esclusi log, cache e copertine ricostruibili;
 - configurazione, utenti, sessioni e richieste del downloader;
 - database e configurazioni di Aurral, Lidarr, slskd e Navidrome;
 - configurazione Nextcloud e dump PostgreSQL;
@@ -26,8 +28,9 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - configurazione e dump PostgreSQL n8n, inclusa la tabella
   `ai_chat_memory` con la cronologia delle chat;
 
-Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, Seerr, il downloader e i quattro servizi
-musicali vengono fermati brevemente per rendere coerenti i rispettivi database.
+Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, Seerr, Radarr, Sonarr, Prowlarr,
+qBittorrent, Bazarr, il downloader e i quattro servizi musicali vengono fermati
+brevemente per rendere coerenti i rispettivi database e file di stato.
 Nextcloud entra in maintenance mode. n8n e Immich vengono fermati mentre viene
 creato il loro dump PostgreSQL. Immich riparte subito dopo il dump; gli altri
 servizi fermati ripartono nella fase finale del backup, anche in caso di errore.
@@ -142,7 +145,7 @@ sudo bash -c '
   restic snapshots --latest 5
   restic check --read-data-subset=5%
   restic ls latest --tag pi-server |
-    grep -E "vaultwarden|pihole|uptime-kuma|streamingcommunity|aurral|lidarr|slskd|navidrome|nextcloud.sql|immich.sql|n8n.sql"
+    grep -E "vaultwarden|pihole|uptime-kuma|seerr|radarr|sonarr|prowlarr|qbittorrent|bazarr|streamingcommunity|aurral|lidarr|slskd|navidrome|nextcloud.sql|immich.sql|n8n.sql"
 '
 
 sudo systemctl enable --now backup.timer backup-recovery.timer
@@ -313,6 +316,25 @@ done
 Questo recupera utenti, configurazioni, preferiti, playlist e cronologia. La
 cache Navidrome e ogni file sotto `/srv/media/music` restano esclusi e devono
 provenire dall'eventuale backup separato del disco media.
+
+Lo stack di automazione video si ripristina allo stesso modo, mantenendo ferme
+le applicazioni SQLite e qBittorrent:
+
+```bash
+sudo systemctl stop media-stack.service
+for service in radarr sonarr prowlarr qbittorrent bazarr; do
+  sudo rsync -aHAX \
+    "/srv/restore/srv/raspberry-server/data/${service}/" \
+    "/srv/raspberry-server/data/${service}/"
+done
+sudo rsync -aHAX \
+  /srv/restore/etc/raspberry-server/video-automation.env \
+  /etc/raspberry-server/video-automation.env
+sudo chmod 600 /etc/raspberry-server/video-automation.env
+```
+
+I file sotto `/srv/media/downloads`, inclusi transito qBittorrent e librerie
+finali, non fanno parte di questo backup di configurazione.
 
 ## Ripristino PostgreSQL
 

@@ -122,6 +122,41 @@
         description: Scoperta e richieste media
         server: local
         container: raspberry-server-seerr-1
+    - Radarr:
+        icon: radarr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8458/
+        siteMonitor: http://radarr:7878/ping
+        description: Ricerca e gestione film
+        server: local
+        container: raspberry-server-radarr-1
+    - Sonarr:
+        icon: sonarr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8459/
+        siteMonitor: http://sonarr:8989/ping
+        description: Ricerca e gestione serie
+        server: local
+        container: raspberry-server-sonarr-1
+    - Prowlarr:
+        icon: prowlarr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8460/
+        siteMonitor: http://prowlarr:9696/ping
+        description: Indexer da configurare
+        server: local
+        container: raspberry-server-prowlarr-1
+    - qBittorrent:
+        icon: qbittorrent.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8461/
+        siteMonitor: http://qbittorrent:8080/
+        description: Download BitTorrent
+        server: local
+        container: raspberry-server-qbittorrent-1
+    - Bazarr:
+        icon: bazarr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8462/
+        siteMonitor: http://bazarr:6767/
+        description: Sottotitoli da configurare
+        server: local
+        container: raspberry-server-bazarr-1
     - Immich:
         icon: immich.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/

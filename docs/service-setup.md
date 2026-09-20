@@ -250,8 +250,8 @@ Aprire `https://TAILSCALE_FQDN:8457/` e completare il wizard usando Jellyfin:
 1. impostare `http://jellyfin:8096` come URL interno del server;
 2. autenticarsi con l'amministratore solo per il setup iniziale;
 3. sincronizzare tutte le librerie Jellyfin interessate;
-4. lasciare Radarr e Sonarr non configurati: questa installazione è
-   intenzionalmente discovery-only;
+4. collegare Radarr e Sonarr dopo aver completato la configurazione dello stack
+   di automazione descritta sotto;
 5. copiare l'API key Seerr nelle impostazioni di Jellyfin Helper e usare
    `http://seerr:5055` come URL interno;
 6. lasciare le richieste in approvazione manuale e verificare che i titoli già
@@ -260,6 +260,39 @@ Aprire `https://TAILSCALE_FQDN:8457/` e completare il wizard usando Jellyfin:
 La configurazione risiede in `/srv/raspberry-server/data/seerr` ed entra nel
 backup Restic. La card corrispondente è nella sezione **Media e file** di
 Homepage.
+
+## Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr
+
+Le interfacce sono disponibili esclusivamente sulla Tailnet:
+
+| Servizio | URL |
+| --- | --- |
+| Radarr | `https://TAILSCALE_FQDN:8458/` |
+| Sonarr | `https://TAILSCALE_FQDN:8459/` |
+| Prowlarr | `https://TAILSCALE_FQDN:8460/` |
+| qBittorrent | `https://TAILSCALE_FQDN:8461/` |
+| Bazarr | `https://TAILSCALE_FQDN:8462/` |
+
+La catena prevista è Seerr → Radarr/Sonarr → Prowlarr → qBittorrent. Tutti i
+container che manipolano file usano lo stesso percorso interno `/data`:
+Radarr importa in `/data/Films`, Sonarr in `/data/Series` e qBittorrent usa
+`/data/.arr-downloads/{complete,incomplete}`. Jellyfin indicizza già le due
+librerie finali.
+
+La porta peer BitTorrent `6881` non viene pubblicata da Docker e UPnP/NAT-PMP
+devono restare disabilitati. Le connessioni in uscita funzionano comunque,
+anche se alcuni peer non raggiungibili in uscita potrebbero ridurre la velocità.
+
+Configurare un profilo che preferisca release italiane, accetti l'inglese come
+fallback e privilegi il 1080p. Il 2160p va lasciato come fallback di qualità,
+non come scelta preferita. Bazarr userà italiano e inglese per i sottotitoli.
+Indexer Prowlarr e provider Bazarr sono intenzionalmente rinviati: finché non
+vengono aggiunti, le richieste possono essere registrate ma non completate
+automaticamente.
+
+Le configurazioni risiedono in `/srv/raspberry-server/data/{radarr,sonarr,
+prowlarr,qbittorrent,bazarr}` e sono incluse nel backup Restic. I media e i
+download sotto `/srv/media` restano esclusi dal backup di configurazione.
 
 ## StreamingCommunity downloader
 
