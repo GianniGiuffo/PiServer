@@ -101,12 +101,22 @@ class Bridge:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("""CREATE TABLE IF NOT EXISTS work (
             seerr_id INTEGER PRIMARY KEY, state TEXT NOT NULL, media_type TEXT NOT NULL,
-            sc_ids TEXT NOT NULL DEFAULT '[]', updated_at INTEGER NOT NULL
+            sc_ids TEXT NOT NULL DEFAULT '[]', missing INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL
         )""")
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(work)")}
+        if "missing" not in columns:
+            self.db.execute("ALTER TABLE work ADD COLUMN missing INTEGER NOT NULL DEFAULT 0")
         self.db.execute("""CREATE TABLE IF NOT EXISTS source_failures (
             seerr_id INTEGER PRIMARY KEY, attempts INTEGER NOT NULL
         )""")
         self.db.commit()
+        self.seerr_db = sqlite3.connect(required("SEERR_DB"), timeout=10)
+        self.seerr_db.execute("PRAGMA busy_timeout=10000")
+        request_columns = {row[1] for row in self.seerr_db.execute(
+            "PRAGMA table_info(media_request)")}
+        if not {"id", "status", "requestedById"} <= request_columns:
+            raise RuntimeError("Unsupported Seerr media_request schema")
         self.seerr = requests.Session()
         self.seerr.headers["X-Api-Key"] = self.seerr_key
         self.sc = requests.Session()
@@ -146,19 +156,51 @@ class Bridge:
                 kwargs["headers"]["X-CSRF-Token"] = self.csrf
             return self._request(self.sc, self.sc_url, method, path, **kwargs)
 
-    def state(self, request_id: int) -> tuple[str, list[int]] | None:
-        row = self.db.execute("SELECT state,sc_ids FROM work WHERE seerr_id=?",
+    def state(self, request_id: int) -> tuple[str, list[int], bool] | None:
+        row = self.db.execute("SELECT state,sc_ids,missing FROM work WHERE seerr_id=?",
                               (request_id,)).fetchone()
-        return (row[0], json.loads(row[1])) if row else None
+        return (row[0], json.loads(row[1]), bool(row[2])) if row else None
 
     def save(self, request_id: int, state: str, media_type: str,
-             sc_ids: list[int] | None = None) -> None:
-        self.db.execute("""INSERT INTO work(seerr_id,state,media_type,sc_ids,updated_at)
-            VALUES(?,?,?,?,?) ON CONFLICT(seerr_id) DO UPDATE SET
+             sc_ids: list[int] | None = None, missing: bool = False) -> None:
+        self.db.execute("""INSERT INTO work(seerr_id,state,media_type,sc_ids,missing,updated_at)
+            VALUES(?,?,?,?,?,?) ON CONFLICT(seerr_id) DO UPDATE SET
             state=excluded.state,media_type=excluded.media_type,
-            sc_ids=excluded.sc_ids,updated_at=excluded.updated_at""",
-            (request_id, state, media_type, json.dumps(sc_ids or []), int(time.time())))
+            sc_ids=excluded.sc_ids,missing=excluded.missing,
+            updated_at=excluded.updated_at""",
+            (request_id, state, media_type, json.dumps(sc_ids or []),
+             int(missing), int(time.time())))
         self.db.commit()
+
+    def hold_seerr(self, request_id: int) -> bool:
+        """Keep Seerr from auto-approving a pending request during library scan.
+
+        Seerr v3.4.1 promotes PENDING requests when media becomes AVAILABLE,
+        which invokes Radarr/Sonarr before the bridge can observe completion.
+        Use a guarded update for this one request; the bridge DB retains its
+        actual download state and restores PENDING only for a real fallback.
+        """
+        with self.seerr_db:
+            changed = self.seerr_db.execute("""UPDATE media_request
+                SET status=5, updatedAt=CURRENT_TIMESTAMP
+                WHERE id=? AND status=1 AND requestedById=?""",
+                (request_id, self.seerr_user_id)).rowcount
+        if changed:
+            LOG.info("Seerr request %s reserved for StreamingCommunity", request_id)
+            return True
+        row = self.seerr_db.execute("SELECT status,requestedById FROM media_request WHERE id=?",
+                                    (request_id,)).fetchone()
+        if row and row == (5, self.seerr_user_id):
+            return True
+        LOG.warning("Seerr request %s changed outside bridge; SC approval deferred", request_id)
+        return False
+
+    def release_seerr(self, request_id: int) -> None:
+        with self.seerr_db:
+            self.seerr_db.execute("""UPDATE media_request
+                SET status=1, updatedAt=CURRENT_TIMESTAMP
+                WHERE id=? AND status=5 AND requestedById=?""",
+                (request_id, self.seerr_user_id))
 
     def pending(self) -> list[dict]:
         results = []
@@ -209,7 +251,7 @@ class Bridge:
                 and row.get("subtitle_languages") == ["eng", "ita"]]
 
     def create_sc_requests(self, candidate: dict, media_type: str,
-                           seasons: list[int]) -> list[int]:
+                           seasons: list[int], expected: dict[int, int]) -> tuple[list[int], bool]:
         base = {"source": "streamingcommunity", "external_id": str(candidate["id"]),
                 "title": candidate["name"], "year": year(candidate.get("release_date")),
                 "poster": candidate.get("poster"), "audio_languages": ["ita"],
@@ -219,28 +261,32 @@ class Bridge:
                 result = self.sc_api("POST", "/api/requests", json={**base, "media_type": "film"})
             except requests.HTTPError as error:
                 if error.response.status_code in (400, 404):
-                    return []
+                    return [], False
                 raise
-            return [int(result["request"]["id"])]
-        missing = 0
+            return [int(result["request"]["id"])], False
+        missing = False
         created_seasons = []
         for season in seasons:
             try:
-                self.sc_api("POST", "/api/requests/season", json={
+                result = self.sc_api("POST", "/api/requests/season", json={
                     **base, "slug": candidate.get("slug"), "season": season})
                 created_seasons.append(season)
+                if expected.get(season, 0) > int(result["total"]):
+                    missing = True
             except requests.HTTPError as error:
                 if error.response.status_code in (400, 404):
-                    missing += 1
+                    missing = True
                     continue
                 raise
-        if not created_seasons and missing:
-            return []
+        if not created_seasons:
+            return [], missing
         rows = self.sc_requests_for(candidate, created_seasons)
-        return [int(row["id"]) for row in rows
-                if row["status"] in OPEN | SUCCESS]
+        ids = [int(row["id"]) for row in rows if row["status"] in OPEN | SUCCESS]
+        return ids, missing or len(ids) < sum(
+            expected.get(season, 0) for season in created_seasons)
 
     def fallback(self, request_id: int, media_type: str) -> None:
+        self.release_seerr(request_id)
         self.seerr_api("POST", f"/request/{request_id}/approve")
         self.save(request_id, "fallback", media_type)
         LOG.info("Seerr request %s sent to %s", request_id,
@@ -293,8 +339,10 @@ class Bridge:
         if media_type == "tv" and not seasons:
             LOG.warning("No seasons in TV request %s", request_id)
             return
+        expected = {int(s["seasonNumber"]): int(s.get("episodeCount") or 0)
+                    for s in details.get("seasons", [])}
         try:
-            ids = self.create_sc_requests(best, media_type, seasons)
+            ids, missing = self.create_sc_requests(best, media_type, seasons, expected)
         except (requests.ConnectionError, requests.Timeout) as error:
             self.source_failure(request_id, media_type, error)
             return
@@ -307,7 +355,10 @@ class Bridge:
         if not ids:
             self.fallback(request_id, media_type)
             return
-        self.save(request_id, "running" if certain else "review", media_type, ids)
+        self.save(request_id, "running" if certain else "review", media_type,
+                  ids, missing)
+        if not self.hold_seerr(request_id):
+            return
         if certain:
             for sc_id in ids:
                 row = self.sc_api("GET", f"/api/requests/{sc_id}")
@@ -316,22 +367,30 @@ class Bridge:
         else:
             LOG.info("Seerr request %s awaits confirmation in StreamingCommunity", request_id)
 
-    def update_request(self, request: dict, state: str, ids: list[int]) -> None:
+    def update_request(self, request: dict, state: str, ids: list[int],
+                       missing: bool) -> None:
         request_id = int(request["id"])
         media_type = request.get("type") or request["media"].get("mediaType")
+        if not self.hold_seerr(request_id):
+            return
         rows = [self.sc_api("GET", f"/api/requests/{sc_id}") for sc_id in ids]
+        if state == "running":
+            for row in rows:
+                if row["status"] == "pending":
+                    self.sc_api("POST", f"/api/requests/{row['id']}/approve", json={})
+            rows = [self.sc_api("GET", f"/api/requests/{sc_id}") for sc_id in ids]
         statuses = [row["status"] for row in rows]
         if state == "review" and all(status == "pending" for status in statuses):
             return
         if any(status in ("needs_attention", "pending") for status in statuses):
             return
         if any(status in OPEN for status in statuses):
-            self.save(request_id, "running", media_type, ids)
+            self.save(request_id, "running", media_type, ids, missing)
             return
-        if media_type == "tv" or any(status in FAILURE for status in statuses):
+        if missing or any(status in FAILURE for status in statuses):
             self.fallback(request_id, media_type)
         elif all(status in SUCCESS for status in statuses):
-            self.save(request_id, "done", media_type, ids)
+            self.save(request_id, "done", media_type, ids, missing)
 
     def tick(self) -> None:
         for request in self.pending():
@@ -340,10 +399,17 @@ class Bridge:
             try:
                 if state is None:
                     self.new_request(request)
-                elif state[0] in ("running", "review"):
-                    self.update_request(request, *state)
             except requests.RequestException as error:
                 LOG.warning("Request %s deferred after API error: %s", request_id, error)
+            except (KeyError, TypeError, ValueError) as error:
+                LOG.exception("Request %s needs operator review: %s", request_id, error)
+        for (request_id,) in self.db.execute(
+                "SELECT seerr_id FROM work WHERE state IN ('running','review')").fetchall():
+            try:
+                request = self.seerr_api("GET", f"/request/{request_id}")
+                self.update_request(request, *self.state(request_id))
+            except requests.RequestException as error:
+                LOG.warning("Request %s monitoring deferred: %s", request_id, error)
             except (KeyError, TypeError, ValueError) as error:
                 LOG.exception("Request %s needs operator review: %s", request_id, error)
 

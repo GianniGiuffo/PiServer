@@ -338,10 +338,20 @@ consecutivi, il bridge approva automaticamente la richiesta Seerr e attiva il
 fallback. Non approvare manualmente in Seerr una richiesta ancora in attesa
 del bridge: quell'azione avvia subito Radarr o Sonarr.
 
+Quando StreamingCommunity accetta una richiesta, il bridge la riserva nel
+database di Seerr prima di avviare il download. Questo impedisce a Seerr di
+inviarla a Radarr o Sonarr quando Jellyfin rileva il file. La sezione Requests
+di Seerr può mostrarla come completata mentre StreamingCommunity sta ancora
+scaricando; lo stato effettivo è nel pannello StreamingCommunity. Se il
+download fallisce, il bridge riporta la richiesta allo stato pendente e attiva
+il fallback. Il bridge deve quindi avere accesso in scrittura al database
+SQLite di Seerr: verificare la compatibilità di questa integrazione quando si
+aggiorna Seerr.
+
 Per le serie il bridge richiede gli episodi delle stagioni selezionate che la
-fonte rende disponibili. Dopo i download, approva la richiesta Seerr affinché
-Sonarr recuperi quelli mancanti. Per i film, Radarr riceve la richiesta solo
-quando StreamingCommunity non trova il titolo o il download fallisce.
+fonte rende disponibili. Sonarr riceve la richiesta solo se mancano episodi o
+un download fallisce. Per i film, Radarr riceve la richiesta solo quando
+StreamingCommunity non trova il titolo o il download fallisce.
 
 Per inizializzare una nuova installazione, dopo aver creato `NormalUser` in
 Seerr con il solo permesso **Request (32)** ed aver configurato il pannello

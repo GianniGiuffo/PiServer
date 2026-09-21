@@ -413,12 +413,14 @@ services:
       SEERR_URL: http://seerr:5055
       STREAMINGCOMMUNITY_URL: http://streamingcommunity:8000
       BRIDGE_DB: /state/bridge.db
+      SEERR_DB: /seerr-db/db.sqlite3
       PYTHONDONTWRITEBYTECODE: "1"
     expose:
       - "8765"
     volumes:
       - ./scripts/seerr-streamingcommunity-bridge.py:/app/bridge/bridge.py:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/seerr-streamingcommunity-bridge:/state
+      - ${DATA_DIR:?Set DATA_DIR in .env}/seerr/db:/seerr-db
     read_only: true
     networks:
       - web
