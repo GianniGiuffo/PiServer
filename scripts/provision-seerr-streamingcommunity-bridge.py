@@ -85,6 +85,8 @@ def main():
     os.chown(CONFIG.parent, 0, bridge_gid)
     os.chmod(CONFIG.parent, 0o710)
     os.chown(CONFIG, 0, bridge_gid)
+    subprocess.run(['python3', str(Path(__file__).with_name(
+        'configure-seerr-bridge-webhook.py'))], check=True)
     print(f'Provisioned {NAME} with StreamingCommunity REQUEST and MANAGE_REQUESTS permissions')
 
 

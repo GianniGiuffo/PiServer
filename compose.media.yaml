@@ -414,6 +414,8 @@ services:
       STREAMINGCOMMUNITY_URL: http://streamingcommunity:8000
       BRIDGE_DB: /state/bridge.db
       PYTHONDONTWRITEBYTECODE: "1"
+    expose:
+      - "8765"
     volumes:
       - ./scripts/seerr-streamingcommunity-bridge.py:/app/bridge/bridge.py:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/seerr-streamingcommunity-bridge:/state

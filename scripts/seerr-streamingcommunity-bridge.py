@@ -8,13 +8,17 @@ Uncertain matches remain in StreamingCommunity's native approval queue.
 from __future__ import annotations
 
 import json
+import hmac
 import logging
 import os
+import queue
 import re
 import sqlite3
+import threading
 import time
 import unicodedata
 from difflib import SequenceMatcher
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import requests
@@ -90,6 +94,7 @@ class Bridge:
         self.seerr_user_id = int(required("SEERR_REQUEST_USER_ID"))
         self.seerr_key = required("SEERR_API_KEY")
         self.jellyfin_token = required("BRIDGE_JELLYFIN_TOKEN")
+        self.webhook_token = required("BRIDGE_WEBHOOK_TOKEN")
         self.db_path = Path(required("BRIDGE_DB"))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.db_path)
@@ -97,6 +102,9 @@ class Bridge:
         self.db.execute("""CREATE TABLE IF NOT EXISTS work (
             seerr_id INTEGER PRIMARY KEY, state TEXT NOT NULL, media_type TEXT NOT NULL,
             sc_ids TEXT NOT NULL DEFAULT '[]', updated_at INTEGER NOT NULL
+        )""")
+        self.db.execute("""CREATE TABLE IF NOT EXISTS source_failures (
+            seerr_id INTEGER PRIMARY KEY, attempts INTEGER NOT NULL
         )""")
         self.db.commit()
         self.seerr = requests.Session()
@@ -238,6 +246,22 @@ class Bridge:
         LOG.info("Seerr request %s sent to %s", request_id,
                  "Sonarr" if media_type == "tv" else "Radarr")
 
+    def source_failure(self, request_id: int, media_type: str,
+                       error: requests.RequestException) -> None:
+        self.db.execute("""INSERT INTO source_failures(seerr_id,attempts) VALUES(?,1)
+            ON CONFLICT(seerr_id) DO UPDATE SET attempts=attempts+1""", (request_id,))
+        attempts = self.db.execute("SELECT attempts FROM source_failures WHERE seerr_id=?",
+                                   (request_id,)).fetchone()[0]
+        self.db.commit()
+        LOG.warning("StreamingCommunity unavailable for Seerr request %s (%s/3): %s",
+                    request_id, attempts, error)
+        if attempts >= 3:
+            self.fallback(request_id, media_type)
+
+    def clear_source_failures(self, request_id: int) -> None:
+        self.db.execute("DELETE FROM source_failures WHERE seerr_id=?", (request_id,))
+        self.db.commit()
+
     def new_request(self, request: dict) -> None:
         request_id = int(request["id"])
         media = request["media"]
@@ -251,7 +275,16 @@ class Bridge:
         if not names:
             LOG.warning("No title for Seerr request %s", request_id)
             return
-        candidates = self.sc_candidates(names, media_type)
+        try:
+            candidates = self.sc_candidates(names, media_type)
+        except (requests.ConnectionError, requests.Timeout) as error:
+            self.source_failure(request_id, media_type, error)
+            return
+        except requests.HTTPError as error:
+            if error.response.status_code not in (502, 503, 504):
+                raise
+            self.source_failure(request_id, media_type, error)
+            return
         best, certain = choose(candidates, names, wanted_year, tmdb_id)
         if best is None:
             self.fallback(request_id, media_type)
@@ -260,7 +293,17 @@ class Bridge:
         if media_type == "tv" and not seasons:
             LOG.warning("No seasons in TV request %s", request_id)
             return
-        ids = self.create_sc_requests(best, media_type, seasons)
+        try:
+            ids = self.create_sc_requests(best, media_type, seasons)
+        except (requests.ConnectionError, requests.Timeout) as error:
+            self.source_failure(request_id, media_type, error)
+            return
+        except requests.HTTPError as error:
+            if error.response.status_code not in (502, 503, 504):
+                raise
+            self.source_failure(request_id, media_type, error)
+            return
+        self.clear_source_failures(request_id)
         if not ids:
             self.fallback(request_id, media_type)
             return
@@ -305,12 +348,55 @@ class Bridge:
                 LOG.exception("Request %s needs operator review: %s", request_id, error)
 
 
+def start_webhook(token: str, wakeups: queue.Queue) -> None:
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            if self.path != "/webhook":
+                self.send_error(404)
+                return
+            if not hmac.compare_digest(self.headers.get("Authorization", ""),
+                                       "Bearer " + token):
+                self.send_error(401)
+                return
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self.send_error(400)
+                return
+            if not 0 < size <= 16384:
+                self.send_error(400)
+                return
+            try:
+                event = json.loads(self.rfile.read(size))
+            except (ValueError, UnicodeDecodeError):
+                self.send_error(400)
+                return
+            if isinstance(event, dict) and event.get("notification_type") == "MEDIA_PENDING":
+                try:
+                    wakeups.put_nowait(True)
+                except queue.Full:
+                    pass
+            self.send_response(202)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            LOG.info("Webhook: " + format, *args)
+
+    server = ThreadingHTTPServer(("0.0.0.0", 8765), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     bridge = Bridge()
+    wakeups = queue.Queue(maxsize=1)
+    start_webhook(bridge.webhook_token, wakeups)
     while True:
         try:
             bridge.tick()
         except requests.RequestException as error:
             LOG.warning("Poll deferred after API error: %s", error)
-        time.sleep(60)
+        try:
+            wakeups.get(timeout=30)
+        except queue.Empty:
+            pass

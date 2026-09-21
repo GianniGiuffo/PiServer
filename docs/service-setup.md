@@ -324,12 +324,19 @@ dopo un backup tramite `scripts/update-images.sh media`.
 
 ### Priorità per le richieste Seerr
 
-Il servizio `seerr-streamingcommunity-bridge` legge ogni minuto le richieste
-ancora da approvare di `NormalUser`. Un titolo con TMDB ID uguale, oppure nome
+Il webhook **Request Pending Approval** di Seerr avvisa subito
+`seerr-streamingcommunity-bridge`; il servizio ricontrolla periodicamente le
+richieste ancora da approvare di `NormalUser` se la notifica non arriva. Un
+titolo con TMDB ID uguale, oppure nome
 e anno esatti, viene richiesto a StreamingCommunity. Le corrispondenze dubbie
 restano **In attesa** nella sezione **Richieste** del pannello StreamingCommunity:
 approvarle o rifiutarle lì. Il pannello mostra anche **In corso**,
 **Completato** e **Fallito**. Non è stata modificata l'interfaccia Seerr.
+
+Se StreamingCommunity non riesce a verificare la fonte per tre tentativi
+consecutivi, il bridge approva automaticamente la richiesta Seerr e attiva il
+fallback. Non approvare manualmente in Seerr una richiesta ancora in attesa
+del bridge: quell'azione avvia subito Radarr o Sonarr.
 
 Per le serie il bridge richiede gli episodi delle stagioni selezionate che la
 fonte rende disponibili. Dopo i download, approva la richiesta Seerr affinché
@@ -347,6 +354,11 @@ iniziale è conservata nello stesso percorso come
 `seerr-bridge-jellyfin-password`, con accesso limitato a root. Lo stato del
 bridge è in `/srv/raspberry-server/data/seerr-streamingcommunity-bridge` ed è
 incluso nel backup Restic.
+
+Per aggiornare una configurazione già attiva, eseguire come root
+`python3 scripts/configure-seerr-bridge-webhook.py`, poi ricreare il container
+del bridge. Il listener è raggiungibile solo sulla rete Docker: non pubblica
+alcuna porta sull'host.
 
 ## Aurral, Lidarr, slskd e Navidrome
 
