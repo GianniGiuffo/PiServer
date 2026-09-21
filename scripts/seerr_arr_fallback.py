@@ -62,6 +62,11 @@ class ArrFallback:
         if not movie:
             raise LookupError(f"Radarr has no TMDB result for {tmdb_id}")
         if movie.get("id"):
+            if not movie.get("hasFile") and not movie.get("monitored"):
+                movie = self.call("movie", "PUT", "/movie",
+                                  json={**movie, "monitored": True,
+                                        "qualityProfileId": self.movie_profile,
+                                        "rootFolderPath": self.movie_root})
             return int(movie["id"]), not bool(movie.get("hasFile"))
         title = details.get("title") or movie.get("title")
         release = details.get("releaseDate") or movie.get("releaseDate") or ""
@@ -151,6 +156,9 @@ class ArrFallback:
                     raise
         if not record.get("id"):
             raise RuntimeError("Sonarr returned no series ID")
+        if not record.get("monitored"):
+            record = self.call("tv", "PUT", "/series",
+                               json={**record, "monitored": True})
         series_id = int(record["id"])
         episodes = self.call("tv", "GET", "/episode", params={"seriesId": series_id})
         wanted = {(season, episode) for season, numbers in missing.items()

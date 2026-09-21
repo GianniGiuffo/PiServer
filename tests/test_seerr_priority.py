@@ -59,6 +59,28 @@ class PriorityRoutingTests(unittest.TestCase):
         bridge.arr.search_movie.assert_not_called()
         self.assertEqual(bridge.save.call_args.args[1], "fallback_done")
 
+    def test_new_radarr_movie_searches_on_first_add(self):
+        from seerr_arr_fallback import ArrFallback
+
+        arr = ArrFallback.__new__(ArrFallback)
+        arr.movie_profile = 7
+        arr.movie_root = "/data/Films"
+        arr.minimum_availability = "released"
+
+        def api(_kind, method, path, **kwargs):
+            if method == "GET" and path == "/movie/lookup":
+                return [{"tmdbId": 863, "title": "Toy Story 2", "year": 1999}]
+            if method == "POST" and path == "/movie":
+                self.assertEqual(kwargs["json"]["addOptions"],
+                                 {"searchForMovie": True})
+                return {"id": 201}
+            self.fail(f"Unexpected API call {method} {path}")
+
+        arr.call = Mock(side_effect=api)
+        self.assertEqual(arr.movie(863, {"title": "Toy Story 2",
+                                         "releaseDate": "1999-11-24"}),
+                         (201, False))
+
     def test_series_without_tvdb_id_uses_real_sonarr_lookup(self):
         from seerr_arr_fallback import ArrFallback
 
@@ -80,7 +102,7 @@ class PriorityRoutingTests(unittest.TestCase):
 
         def api(_kind, method, path, **_kwargs):
             if method == "GET" and path == "/series":
-                return [{"id": 30, "tvdbId": 54321}]
+                return [{"id": 30, "tvdbId": 54321, "monitored": True}]
             if method == "GET" and path == "/episode":
                 return [{"id": 101, "seasonNumber": 2, "episodeNumber": 1,
                          "hasFile": True},
@@ -97,6 +119,36 @@ class PriorityRoutingTests(unittest.TestCase):
         self.assertEqual((series_id, episodes), (30, [102]))
         arr.call.assert_any_call("tv", "PUT", "/episode/monitor",
                                  json={"episodeIds": [102], "monitored": True})
+
+    def test_new_sonarr_series_does_not_search_whole_season(self):
+        from seerr_arr_fallback import ArrFallback
+
+        arr = ArrFallback.__new__(ArrFallback)
+        arr.series_profile = 7
+        arr.series_root = "/data/Series"
+        arr.lookup_series = Mock(return_value={
+            "title": "Example", "tvdbId": 54321,
+            "seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}]})
+
+        def api(_kind, method, path, **kwargs):
+            if method == "GET" and path == "/series":
+                return []
+            if method == "POST" and path == "/series":
+                self.assertFalse(kwargs["json"]["addOptions"]
+                                 ["searchForMissingEpisodes"])
+                self.assertTrue(all(not season["monitored"] for season in
+                                    kwargs["json"]["seasons"]))
+                return {"id": 30, "monitored": True}
+            if method == "GET" and path == "/episode":
+                return [{"id": 102, "seasonNumber": 2,
+                         "episodeNumber": 2, "hasFile": False}]
+            if method == "PUT" and path == "/episode/monitor":
+                return {}
+            self.fail(f"Unexpected API call {method} {path}")
+
+        arr.call = Mock(side_effect=api)
+        self.assertEqual(arr.series("Example", "2024", None, {2: {2}}),
+                         (30, [102]))
 
 
 if __name__ == "__main__":
