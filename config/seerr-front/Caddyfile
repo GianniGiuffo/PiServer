@@ -1,0 +1,16 @@
+{
+    admin off
+    auto_https off
+}
+
+:5055 {
+    # Seerr's TVDB selection modal requires this endpoint even when no Sonarr
+    # server is configured in Seerr. The bridge returns real Sonarr lookup IDs.
+    @tvdb_lookup path /api/v1/service/sonarr/lookup/*
+    handle @tvdb_lookup {
+        reverse_proxy seerr-streamingcommunity-bridge:8765
+    }
+    handle {
+        reverse_proxy seerr:5055
+    }
+}

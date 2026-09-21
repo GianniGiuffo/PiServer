@@ -273,9 +273,10 @@ Le interfacce sono disponibili esclusivamente sulla Tailnet:
 | qBittorrent | `https://TAILSCALE_FQDN:8461/` |
 | Bazarr | `https://TAILSCALE_FQDN:8462/` |
 
-Per le richieste dell'utente locale Seerr `NormalUser`, la catena è Seerr →
-StreamingCommunity → Radarr/Sonarr per i titoli assenti, gli episodi mancanti
-o i download falliti. Gli altri utenti seguono la catena Seerr → Radarr/Sonarr.
+Per le richieste Seerr dell'admin collegato a Jellyfin e dell'utente locale
+`NormalUser`, la catena è Seerr → StreamingCommunity → Radarr/Sonarr per i
+titoli assenti, gli episodi mancanti o i download falliti. Gli Arr sono
+configurati nel bridge, non in Seerr.
 Tutti i
 container che manipolano file usano lo stesso percorso interno `/data`:
 Radarr importa in `/data/Films`, Sonarr in `/data/Series` e qBittorrent usa
@@ -324,34 +325,41 @@ dopo un backup tramite `scripts/update-images.sh media`.
 
 ### Priorità per le richieste Seerr
 
-Il webhook **Request Pending Approval** di Seerr avvisa subito
-`seerr-streamingcommunity-bridge`; il servizio ricontrolla periodicamente le
-richieste ancora da approvare di `NormalUser` se la notifica non arriva. Un
-titolo con TMDB ID uguale, oppure nome
-e anno esatti, viene richiesto a StreamingCommunity. Le corrispondenze dubbie
-restano **In attesa** nella sezione **Richieste** del pannello StreamingCommunity:
-approvarle o rifiutarle lì. Il pannello mostra anche **In corso**,
-**Completato** e **Fallito**. Non è stata modificata l'interfaccia Seerr.
+Seerr autoapprova le richieste dell'admin e le invia immediatamente agli Arr:
+un webhook non può precedere quell'invio. In modalità priorità Seerr non ha
+server Arr configurati; il bridge riceve il webhook e ricontrolla il database
+ogni dieci secondi. Prende in carico le richieste dell'admin e di `NormalUser`
+senza cambiare utenti, permessi o collegamento Jellyfin. Il bridge conserva lo
+stato su disco e scrive il fallback direttamente nelle API Arr reali.
 
-Se StreamingCommunity non riesce a verificare la fonte per tre tentativi
-consecutivi, il bridge approva automaticamente la richiesta Seerr e attiva il
-fallback. Non approvare manualmente in Seerr una richiesta ancora in attesa
-del bridge: quell'azione avvia subito Radarr o Sonarr.
+Un TMDB ID uguale, oppure titolo e anno esatti e univoci, costituisce una
+corrispondenza certa. Le corrispondenze dubbie restano **In attesa** nel
+pannello StreamingCommunity: approvarle o rifiutarle lì. Tre errori consecutivi
+della sorgente avviano il fallback. Il pannello StreamingCommunity mostra
+**In corso**, **Completato** e **Fallito**. L'interfaccia Seerr non è modificata.
 
-Quando StreamingCommunity accetta una richiesta, il bridge la riserva nel
-database di Seerr prima di avviare il download. Questo impedisce a Seerr di
-inviarla a Radarr o Sonarr quando Jellyfin rileva il file. La sezione Requests
-di Seerr può mostrarla come completata mentre StreamingCommunity sta ancora
-scaricando; lo stato effettivo è nel pannello StreamingCommunity. Se il
-download fallisce, il bridge riporta la richiesta allo stato pendente e attiva
-il fallback. Il bridge deve quindi avere accesso in scrittura al database
-SQLite di Seerr: verificare la compatibilità di questa integrazione quando si
-aggiorna Seerr.
+Se StreamingCommunity scarica il film, Radarr non riceve alcuna richiesta. Per
+le serie il bridge confronta i singoli episodi richiesti con quelli completati:
+Sonarr cerca solo gli episodi mancanti o falliti, mai l'intera stagione già
+presa in carico da StreamingCommunity. Le richieste e gli intenti di ricerca
+sono persistenti per impedire duplicati dopo i riavvii. Il bridge usa il
+database SQLite di Seerr per riservare le richieste; verificarne la
+compatibilità quando si aggiorna Seerr.
 
-Per le serie il bridge richiede gli episodi delle stagioni selezionate che la
-fonte rende disponibili. Sonarr riceve la richiesta solo se mancano episodi o
-un download fallisce. Per i film, Radarr riceve la richiesta solo quando
-StreamingCommunity non trova il titolo o il download fallisce.
+Se una serie non ha TVDB ID su TMDB, l'unico percorso di ricerca usato dalla
+finestra Seerr è inoltrato da `seerr-front` al bridge. Il bridge interroga Sonarr
+per titolo e restituisce i suoi TVDB ID reali. Il fallback diretto può anche
+risolvere un titolo/anno univoco senza TVDB ID; risultati ambigui richiedono
+una decisione manuale. Gli altri URL restano inoltrati a Seerr senza modifiche.
+
+Per attivare questa modalità su un'installazione esistente: eseguire prima il
+backup Restic, aggiornare i file del repository sul mini PC, poi eseguire come
+root `python3 scripts/activate-seerr-priority.py prepare`. Solo dopo aver
+verificato configurazione e servizi, fermare Seerr e il vecchio bridge, quindi
+eseguire `python3 scripts/activate-seerr-priority.py activate` e avviare
+Seerr, bridge e `seerr-front`. Lo script conserva una copia privata delle
+impostazioni Seerr precedenti. Non riconfigurare manualmente Radarr o Sonarr
+nell'interfaccia Seerr: riattiverebbe l'invio immediato dell'admin.
 
 Per inizializzare una nuova installazione, dopo aver creato `NormalUser` in
 Seerr con il solo permesso **Request (32)** ed aver configurato il pannello

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Route pending Seerr requests through StreamingCommunity before *arr.
+"""Give StreamingCommunity first refusal on Seerr requests from two real users.
 
-Only requests from the configured, non-auto-approving Seerr user are handled.
-Uncertain matches remain in StreamingCommunity's native approval queue.
+Seerr has no configured Arr services in priority mode. Its admin requests are
+already approved at insertion, so a webhook cannot stop Seerr's Arr subscriber.
+The bridge reserves each new request in Seerr's SQLite database, tracks source
+episodes durably, and calls the real Arr APIs only for confirmed gaps/failures.
 """
 
 from __future__ import annotations
 
-import json
 import hmac
+import json
 import logging
 import os
 import queue
@@ -23,11 +25,15 @@ from pathlib import Path
 
 import requests
 
+from seerr_arr_fallback import ArrFallback, UncertainSeries
+
 
 LOG = logging.getLogger("seerr-bridge")
 OPEN = {"pending", "approved", "downloading", "needs_attention"}
 SUCCESS = {"completed", "available"}
 FAILURE = {"failed", "denied", "cancelled"}
+ACTIVE = {"matching", "running", "review", "fallback_prepare",
+          "fallback_command_intent"}
 
 
 def required(name: str) -> str:
@@ -37,10 +43,10 @@ def required(name: str) -> str:
     return value
 
 
-def normalized(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text or "")
-    text = "".join(c for c in text if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+def normalized(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value or "")
+    value = "".join(c for c in value if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
 
 
 def year(value: str | None) -> str:
@@ -52,94 +58,100 @@ def seerr_title(details: dict, media_type: str) -> tuple[str, str, list[str]]:
     if media_type == "movie":
         title = details.get("title") or details.get("originalTitle") or ""
         other = details.get("originalTitle") or ""
-        release = details.get("releaseDate") or details.get("release_date")
+        release = details.get("releaseDate")
     else:
         title = details.get("name") or details.get("originalName") or ""
         other = details.get("originalName") or ""
-        release = details.get("firstAirDate") or details.get("first_air_date")
+        release = details.get("firstAirDate")
     return title, year(release), list(dict.fromkeys(x for x in (title, other) if x))
 
 
 def choose(candidates: list[dict], names: list[str], wanted_year: str,
            tmdb_id: int) -> tuple[dict | None, bool]:
-    """Return (best result, certain). A weak result is never downloaded."""
+    """An ID match, or a unique exact title/year without conflicting ID, is certain."""
     seen = {normalized(name) for name in names if name}
-    ranked: list[tuple[float, dict]] = []
+    ranked = []
     for item in candidates:
-        item_year = year(item.get("release_date"))
-        same_name = normalized(item.get("name", "")) in seen
-        tmdb_match = str(item.get("tmdb_id") or "") == str(tmdb_id)
-        similarity = max((SequenceMatcher(None, normalized(item.get("name", "")), n).ratio()
-                          for n in seen), default=0.0)
-        score = (10 if tmdb_match else 0) + (3 if same_name else similarity)
-        if wanted_year and item_year == wanted_year:
-            score += 1
+        title = normalized(item.get("name", ""))
+        source_id = item.get("tmdb_id")
+        if source_id and str(source_id) != str(tmdb_id):
+            continue
+        similarity = max((SequenceMatcher(None, title, name).ratio()
+                          for name in seen), default=0.0)
+        id_match = str(source_id or "") == str(tmdb_id)
+        exact = title in seen and bool(title)
+        year_match = bool(wanted_year and year(item.get("release_date")) == wanted_year)
+        score = (10 if id_match else 0) + (3 if exact else similarity) + year_match
         if score >= 0.55:
-            ranked.append((score, item))
+            ranked.append((score, item, id_match, exact, year_match))
     if not ranked:
         return None, False
-    ranked.sort(key=lambda pair: pair[0], reverse=True)
-    best = ranked[0][1]
-    certain = bool(str(best.get("tmdb_id") or "") == str(tmdb_id) or
-                   (normalized(best.get("name", "")) in seen and
-                    wanted_year and year(best.get("release_date")) == wanted_year and
-                    (len(ranked) == 1 or ranked[0][0] > ranked[1][0])))
-    return best, certain
+    ranked.sort(key=lambda row: row[0], reverse=True)
+    top = ranked[0]
+    unique = len(ranked) == 1 or top[0] > ranked[1][0]
+    return top[1], bool(unique and (top[2] or (top[3] and top[4])))
 
 
 class Bridge:
     def __init__(self) -> None:
         self.seerr_url = required("SEERR_URL").rstrip("/")
         self.sc_url = required("STREAMINGCOMMUNITY_URL").rstrip("/")
-        self.seerr_user_id = int(required("SEERR_REQUEST_USER_ID"))
+        self.normal_id = int(required("SEERR_REQUEST_USER_ID"))
+        self.admin_id = int(required("SEERR_ADMIN_USER_ID"))
+        self.admin_min_request_id = int(required("SEERR_ADMIN_MIN_REQUEST_ID"))
         self.seerr_key = required("SEERR_API_KEY")
         self.jellyfin_token = required("BRIDGE_JELLYFIN_TOKEN")
         self.webhook_token = required("BRIDGE_WEBHOOK_TOKEN")
-        self.db_path = Path(required("BRIDGE_DB"))
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.db_path)
+        self.settings_path = Path(required("SEERR_SETTINGS"))
+        self.arr = ArrFallback()
+        db_path = Path(required("BRIDGE_DB"))
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(db_path)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("""CREATE TABLE IF NOT EXISTS work (
             seerr_id INTEGER PRIMARY KEY, state TEXT NOT NULL, media_type TEXT NOT NULL,
             sc_ids TEXT NOT NULL DEFAULT '[]', missing INTEGER NOT NULL DEFAULT 0,
-            updated_at INTEGER NOT NULL
-        )""")
+            updated_at INTEGER NOT NULL)""")
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(work)")}
         if "missing" not in columns:
             self.db.execute("ALTER TABLE work ADD COLUMN missing INTEGER NOT NULL DEFAULT 0")
-        self.db.execute("""CREATE TABLE IF NOT EXISTS source_failures (
-            seerr_id INTEGER PRIMARY KEY, attempts INTEGER NOT NULL
-        )""")
+        if "context" not in columns:
+            self.db.execute("ALTER TABLE work ADD COLUMN context TEXT NOT NULL DEFAULT '{}'")
         self.db.commit()
         self.seerr_db = sqlite3.connect(required("SEERR_DB"), timeout=10)
         self.seerr_db.execute("PRAGMA busy_timeout=10000")
-        request_columns = {row[1] for row in self.seerr_db.execute(
+        columns = {row[1] for row in self.seerr_db.execute(
             "PRAGMA table_info(media_request)")}
-        if not {"id", "status", "requestedById"} <= request_columns:
+        if not {"id", "status", "requestedById", "type"} <= columns:
             raise RuntimeError("Unsupported Seerr media_request schema")
         self.seerr = requests.Session()
         self.seerr.headers["X-Api-Key"] = self.seerr_key
         self.sc = requests.Session()
         self.csrf = ""
+        self.assert_arr_disconnected()
 
-    def _request(self, session: requests.Session, base: str, method: str,
+    def assert_arr_disconnected(self) -> None:
+        settings = json.loads(self.settings_path.read_text(encoding="utf-8"))
+        if settings.get("radarr") or settings.get("sonarr"):
+            raise RuntimeError("Priority mode requires zero Arr services in Seerr")
+
+    @staticmethod
+    def _request(session: requests.Session, base: str, method: str,
                  path: str, **kwargs):
         response = session.request(method, base + path, timeout=30, **kwargs)
         response.raise_for_status()
         return response.json() if response.content else {}
 
     def seerr_api(self, method: str, path: str, **kwargs):
-        return self._request(self.seerr, self.seerr_url, method, "/api/v1" + path, **kwargs)
+        return self._request(self.seerr, self.seerr_url, method,
+                             "/api/v1" + path, **kwargs)
 
     def sc_login(self) -> None:
         data = self._request(self.sc, self.sc_url, "POST", "/api/auth/jellyfin-token",
                              json={"token": self.jellyfin_token})
         self.csrf = data["csrf_token"]
-        # The panel correctly sets Secure for browser sessions behind HTTPS.
-        # This client talks only to its private Docker HTTP endpoint, where
-        # requests otherwise refuses to return that cookie on later calls.
         for cookie in self.sc.cookies:
-            cookie.secure = False
+            cookie.secure = False  # private HTTP Docker network
 
     def sc_api(self, method: str, path: str, **kwargs):
         if not self.csrf:
@@ -156,65 +168,46 @@ class Bridge:
                 kwargs["headers"]["X-CSRF-Token"] = self.csrf
             return self._request(self.sc, self.sc_url, method, path, **kwargs)
 
-    def state(self, request_id: int) -> tuple[str, list[int], bool] | None:
-        row = self.db.execute("SELECT state,sc_ids,missing FROM work WHERE seerr_id=?",
-                              (request_id,)).fetchone()
-        return (row[0], json.loads(row[1]), bool(row[2])) if row else None
+    def work(self, request_id: int) -> tuple[str, str, list[int], dict] | None:
+        row = self.db.execute(
+            "SELECT state,media_type,sc_ids,context FROM work WHERE seerr_id=?",
+            (request_id,)).fetchone()
+        return (row[0], row[1], json.loads(row[2]), json.loads(row[3])) if row else None
 
     def save(self, request_id: int, state: str, media_type: str,
-             sc_ids: list[int] | None = None, missing: bool = False) -> None:
-        self.db.execute("""INSERT INTO work(seerr_id,state,media_type,sc_ids,missing,updated_at)
-            VALUES(?,?,?,?,?,?) ON CONFLICT(seerr_id) DO UPDATE SET
+             ids: list[int] | None = None, context: dict | None = None) -> None:
+        self.db.execute("""INSERT INTO work
+            (seerr_id,state,media_type,sc_ids,missing,updated_at,context)
+            VALUES(?,?,?,?,0,?,?) ON CONFLICT(seerr_id) DO UPDATE SET
             state=excluded.state,media_type=excluded.media_type,
-            sc_ids=excluded.sc_ids,missing=excluded.missing,
-            updated_at=excluded.updated_at""",
-            (request_id, state, media_type, json.dumps(sc_ids or []),
-             int(missing), int(time.time())))
+            sc_ids=excluded.sc_ids,updated_at=excluded.updated_at,
+            context=excluded.context""",
+            (request_id, state, media_type, json.dumps(ids or []),
+             int(time.time()), json.dumps(context or {})))
         self.db.commit()
 
-    def hold_seerr(self, request_id: int) -> bool:
-        """Keep Seerr from auto-approving a pending request during library scan.
-
-        Seerr v3.4.1 promotes PENDING requests when media becomes AVAILABLE,
-        which invokes Radarr/Sonarr before the bridge can observe completion.
-        Use a guarded update for this one request; the bridge DB retains its
-        actual download state and restores PENDING only for a real fallback.
-        """
+    def hold_seerr(self, request_id: int, user_id: int) -> bool:
+        """Guarded status claim; SQLite bypasses Seerr's Arr subscriber."""
         with self.seerr_db:
             changed = self.seerr_db.execute("""UPDATE media_request
                 SET status=5, updatedAt=CURRENT_TIMESTAMP
-                WHERE id=? AND status=1 AND requestedById=?""",
-                (request_id, self.seerr_user_id)).rowcount
+                WHERE id=? AND status IN (1,2) AND requestedById=?""",
+                (request_id, user_id)).rowcount
         if changed:
-            LOG.info("Seerr request %s reserved for StreamingCommunity", request_id)
+            LOG.info("Seerr request %s reserved", request_id)
             return True
-        row = self.seerr_db.execute("SELECT status,requestedById FROM media_request WHERE id=?",
-                                    (request_id,)).fetchone()
-        if row and row == (5, self.seerr_user_id):
-            return True
-        LOG.warning("Seerr request %s changed outside bridge; SC approval deferred", request_id)
-        return False
+        row = self.seerr_db.execute(
+            "SELECT status,requestedById FROM media_request WHERE id=?",
+            (request_id,)).fetchone()
+        return row == (5, user_id)
 
-    def release_seerr(self, request_id: int) -> None:
-        with self.seerr_db:
-            self.seerr_db.execute("""UPDATE media_request
-                SET status=1, updatedAt=CURRENT_TIMESTAMP
-                WHERE id=? AND status=5 AND requestedById=?""",
-                (request_id, self.seerr_user_id))
-
-    def pending(self) -> list[dict]:
-        results = []
-        skip = 0
-        while True:
-            page = self.seerr_api("GET", "/request", params={
-                "filter": "pending", "requestedBy": self.seerr_user_id,
-                "take": 100, "skip": skip,
-            })
-            batch = page.get("results", [])
-            results.extend(batch)
-            if len(batch) < 100:
-                return results
-            skip += len(batch)
+    def new_ids(self) -> list[int]:
+        rows = self.seerr_db.execute("""
+            SELECT id FROM media_request WHERE status IN (1,2)
+              AND (requestedById=? OR (requestedById=? AND id>=?))
+            ORDER BY id""", (self.normal_id, self.admin_id,
+                              self.admin_min_request_id)).fetchall()
+        return [row[0] for row in rows if self.work(row[0]) is None]
 
     def sc_candidates(self, names: list[str], media_type: str) -> list[dict]:
         candidates: dict[int, dict] = {}
@@ -222,8 +215,7 @@ class Bridge:
             for page in range(1, 4):
                 found = self.sc_api("GET", "/api/search", params={
                     "q": name, "source": "streamingcommunity", "page": page,
-                    "media_type": media_type,
-                })
+                    "media_type": media_type})
                 for item in found:
                     candidates[int(item["id"])] = item
         wanted = [normalized(name) for name in names]
@@ -231,8 +223,6 @@ class Bridge:
             (SequenceMatcher(None, normalized(item.get("name", "")), name).ratio()
              for name in wanted), default=0.0), reverse=True)[:12]
         for item in ranked:
-            # Source metadata supplies TMDB IDs when available. Failure here
-            # merely lowers certainty; it never turns a weak match into a grab.
             try:
                 metadata = self.sc_api("GET", f"/api/metadata/{media_type}/{item['id']}",
                                        params={"slug": item.get("slug", "")})
@@ -241,203 +231,347 @@ class Bridge:
                 item["tmdb_id"] = None
         return ranked
 
-    def sc_requests_for(self, candidate: dict, seasons: list[int] | None) -> list[dict]:
-        requests_list = self.sc_api("GET", "/api/requests")
-        return [row for row in requests_list
+    def sc_rows_for(self, candidate: dict, seasons: list[int] | None) -> list[dict]:
+        rows = self.sc_api("GET", "/api/requests")
+        return [row for row in rows
                 if row.get("source") == "streamingcommunity"
                 and str(row.get("external_id")) == str(candidate["id"])
                 and (seasons is None or row.get("season") in seasons)
                 and row.get("audio_languages") == ["ita"]
                 and row.get("subtitle_languages") == ["eng", "ita"]]
 
-    def create_sc_requests(self, candidate: dict, media_type: str,
-                           seasons: list[int], expected: dict[int, int]) -> tuple[list[int], bool]:
+    @staticmethod
+    def source_success(row: dict) -> bool:
+        if row.get("status") not in SUCCESS:
+            return False
+        output = row.get("output_path")
+        return bool(output and Path(output).is_file()) or row.get("status") == "available"
+
+    def requested_episodes(self, tmdb_id: int, seasons: list[int]) -> dict[int, set[int]]:
+        expected = {}
+        for season in seasons:
+            data = self.seerr_api("GET", f"/tv/{tmdb_id}/season/{season}")
+            expected[season] = {int(row["episodeNumber"]) for row in data["episodes"]
+                                if int(row.get("episodeNumber") or 0) > 0}
+            if not expected[season]:
+                raise RuntimeError(f"No episode metadata for season {season}")
+        return expected
+
+    def create_sc(self, candidate: dict, media_type: str,
+                  seasons: list[int]) -> list[int]:
         base = {"source": "streamingcommunity", "external_id": str(candidate["id"]),
                 "title": candidate["name"], "year": year(candidate.get("release_date")),
                 "poster": candidate.get("poster"), "audio_languages": ["ita"],
                 "subtitle_languages": ["eng", "ita"]}
         if media_type == "movie":
-            try:
-                result = self.sc_api("POST", "/api/requests", json={**base, "media_type": "film"})
-            except requests.HTTPError as error:
-                if error.response.status_code in (400, 404):
-                    return [], False
-                raise
-            return [int(result["request"]["id"])], False
-        missing = False
-        created_seasons = []
-        for season in seasons:
-            try:
-                result = self.sc_api("POST", "/api/requests/season", json={
-                    **base, "slug": candidate.get("slug"), "season": season})
-                created_seasons.append(season)
-                if expected.get(season, 0) > int(result["total"]):
-                    missing = True
-            except requests.HTTPError as error:
-                if error.response.status_code in (400, 404):
-                    missing = True
-                    continue
-                raise
-        if not created_seasons:
-            return [], missing
-        rows = self.sc_requests_for(candidate, created_seasons)
-        ids = [int(row["id"]) for row in rows if row["status"] in OPEN | SUCCESS]
-        return ids, missing or len(ids) < sum(
-            expected.get(season, 0) for season in created_seasons)
-
-    def fallback(self, request_id: int, media_type: str) -> None:
-        self.release_seerr(request_id)
-        self.seerr_api("POST", f"/request/{request_id}/approve")
-        self.save(request_id, "fallback", media_type)
-        LOG.info("Seerr request %s sent to %s", request_id,
-                 "Sonarr" if media_type == "tv" else "Radarr")
+            if not self.sc_rows_for(candidate, None):
+                try:
+                    self.sc_api("POST", "/api/requests", json={**base, "media_type": "film"})
+                except requests.HTTPError as error:
+                    if error.response.status_code not in (400, 404):
+                        raise
+        else:
+            for season in seasons:
+                if not self.sc_rows_for(candidate, [season]):
+                    try:
+                        self.sc_api("POST", "/api/requests/season", json={
+                            **base, "slug": candidate.get("slug"), "season": season})
+                    except requests.HTTPError as error:
+                        if error.response.status_code not in (400, 404):
+                            raise
+        rows = self.sc_rows_for(candidate, None if media_type == "movie" else seasons)
+        return sorted({int(row["id"]) for row in rows
+                       if row.get("status") in OPEN | SUCCESS | FAILURE})
 
     def source_failure(self, request_id: int, media_type: str,
-                       error: requests.RequestException) -> None:
-        self.db.execute("""INSERT INTO source_failures(seerr_id,attempts) VALUES(?,1)
-            ON CONFLICT(seerr_id) DO UPDATE SET attempts=attempts+1""", (request_id,))
-        attempts = self.db.execute("SELECT attempts FROM source_failures WHERE seerr_id=?",
-                                   (request_id,)).fetchone()[0]
-        self.db.commit()
-        LOG.warning("StreamingCommunity unavailable for Seerr request %s (%s/3): %s",
-                    request_id, attempts, error)
+                       ids: list[int], context: dict, error: Exception) -> None:
+        # A season call can fail after earlier seasons created requests. Never
+        # hand those same episodes to Sonarr while they are still in flight.
+        if context.get("candidate"):
+            try:
+                seasons = ([int(s) for s in context.get("expected", {})]
+                           if media_type == "tv" else None)
+                rows = self.sc_rows_for(context["candidate"], seasons)
+                recovered = sorted({int(row["id"]) for row in rows
+                                    if row.get("status") in OPEN | SUCCESS | FAILURE})
+                if recovered:
+                    self.save(request_id, "running" if context.get("certain")
+                              else "review", media_type, recovered, context)
+                    return
+            except requests.RequestException:
+                pass
+        attempts = int(context.get("source_attempts", 0)) + 1
+        context["source_attempts"] = attempts
+        self.save(request_id, "matching", media_type, ids, context)
+        LOG.warning("Source unavailable for request %s (%s/3): %s",
+                    request_id, attempts, type(error).__name__)
         if attempts >= 3:
-            self.fallback(request_id, media_type)
+            self.prepare_fallback(request_id, media_type, ids, context)
 
-    def clear_source_failures(self, request_id: int) -> None:
-        self.db.execute("DELETE FROM source_failures WHERE seerr_id=?", (request_id,))
-        self.db.commit()
-
-    def new_request(self, request: dict) -> None:
+    def start_request(self, request: dict) -> None:
         request_id = int(request["id"])
-        media = request["media"]
-        media_type = request.get("type") or media.get("mediaType")
-        if media_type not in ("movie", "tv"):
-            LOG.warning("Unsupported Seerr request %s type %s", request_id, media_type)
+        media_type = request.get("type") or request["media"].get("mediaType")
+        if media_type not in ("movie", "tv") or request.get("is4k"):
+            self.save(request_id, "needs_attention", media_type or "unknown",
+                      context={"reason": "unsupported type or 4K"})
+            LOG.warning("Request %s needs operator review (type/4K)", request_id)
             return
-        tmdb_id = int(media["tmdbId"])
+        requester = int(request["requestedBy"]["id"])
+        if requester not in (self.admin_id, self.normal_id):
+            return
+        context = {"requester": requester, "tmdb_id": int(request["media"]["tmdbId"])}
+        self.save(request_id, "matching", media_type, context=context)
+        self.match_request(request, context)
+
+    def match_request(self, request: dict, context: dict) -> None:
+        request_id = int(request["id"])
+        media_type = request.get("type") or request["media"].get("mediaType")
+        if not self.hold_seerr(request_id, int(context["requester"])):
+            self.save(request_id, "needs_attention", media_type, context=context)
+            return
+        tmdb_id = int(context["tmdb_id"])
         details = self.seerr_api("GET", f"/{media_type}/{tmdb_id}")
         title, wanted_year, names = seerr_title(details, media_type)
         if not names:
-            LOG.warning("No title for Seerr request %s", request_id)
+            self.save(request_id, "needs_attention", media_type, context=context)
             return
+        context.update({"title": title, "year": wanted_year,
+                        "tvdb_id": request["media"].get("tvdbId")})
+        seasons = ([int(s["seasonNumber"]) for s in request.get("seasons", [])]
+                   if media_type == "tv" else [])
+        if media_type == "tv":
+            if not seasons:
+                self.save(request_id, "needs_attention", media_type, context=context)
+                return
+            expected = self.requested_episodes(tmdb_id, seasons)
+            context["expected"] = {str(s): sorted(numbers)
+                                   for s, numbers in expected.items()}
+        self.save(request_id, "matching", media_type, context=context)
         try:
             candidates = self.sc_candidates(names, media_type)
-        except (requests.ConnectionError, requests.Timeout) as error:
-            self.source_failure(request_id, media_type, error)
+            best, certain = choose(candidates, names, wanted_year, tmdb_id)
+            if best is None:
+                self.prepare_fallback(request_id, media_type, [], context)
+                return
+            context["candidate"] = {key: best.get(key) for key in
+                                    ("id", "name", "slug", "release_date", "poster")}
+            context["certain"] = certain
+            self.save(request_id, "matching", media_type, context=context)
+            ids = self.create_sc(best, media_type, seasons)
+        except (requests.RequestException, OSError) as error:
+            self.source_failure(request_id, media_type, [], context, error)
             return
-        except requests.HTTPError as error:
-            if error.response.status_code not in (502, 503, 504):
-                raise
-            self.source_failure(request_id, media_type, error)
-            return
-        best, certain = choose(candidates, names, wanted_year, tmdb_id)
-        if best is None:
-            self.fallback(request_id, media_type)
-            return
-        seasons = [int(s["seasonNumber"]) for s in request.get("seasons", [])]
-        if media_type == "tv" and not seasons:
-            LOG.warning("No seasons in TV request %s", request_id)
-            return
-        expected = {int(s["seasonNumber"]): int(s.get("episodeCount") or 0)
-                    for s in details.get("seasons", [])}
-        try:
-            ids, missing = self.create_sc_requests(best, media_type, seasons, expected)
-        except (requests.ConnectionError, requests.Timeout) as error:
-            self.source_failure(request_id, media_type, error)
-            return
-        except requests.HTTPError as error:
-            if error.response.status_code not in (502, 503, 504):
-                raise
-            self.source_failure(request_id, media_type, error)
-            return
-        self.clear_source_failures(request_id)
         if not ids:
-            self.fallback(request_id, media_type)
+            self.prepare_fallback(request_id, media_type, [], context)
             return
         self.save(request_id, "running" if certain else "review", media_type,
-                  ids, missing)
-        if not self.hold_seerr(request_id):
-            return
-        if certain:
-            for sc_id in ids:
-                row = self.sc_api("GET", f"/api/requests/{sc_id}")
-                if row["status"] == "pending":
-                    self.sc_api("POST", f"/api/requests/{sc_id}/approve", json={})
-        else:
-            LOG.info("Seerr request %s awaits confirmation in StreamingCommunity", request_id)
+                  ids, context)
+        self.monitor_sc(request_id, media_type, ids, context)
 
-    def update_request(self, request: dict, state: str, ids: list[int],
-                       missing: bool) -> None:
-        request_id = int(request["id"])
-        media_type = request.get("type") or request["media"].get("mediaType")
-        if not self.hold_seerr(request_id):
+    def prepare_fallback(self, request_id: int, media_type: str,
+                         ids: list[int], context: dict,
+                         missing: dict[int, set[int]] | None = None) -> None:
+        if media_type == "tv":
+            missing = missing if missing is not None else {
+                int(season): set(numbers)
+                for season, numbers in context.get("expected", {}).items()}
+            context["missing"] = {str(season): sorted(numbers)
+                                  for season, numbers in missing.items() if numbers}
+            if not context["missing"]:
+                self.save(request_id, "done", media_type, ids, context)
+                return
+        self.save(request_id, "fallback_prepare", media_type, ids, context)
+        self.dispatch_fallback(request_id, media_type, ids, context)
+
+    def dispatch_fallback(self, request_id: int, media_type: str,
+                          ids: list[int], context: dict) -> None:
+        self.assert_arr_disconnected()
+        try:
+            if media_type == "movie":
+                details = self.seerr_api("GET", f"/movie/{context['tmdb_id']}")
+                movie_id, needs_search = self.arr.movie(int(context["tmdb_id"]), details)
+                context["arr_id"] = movie_id
+                if needs_search:
+                    context["command_kind"] = "movie"
+                    self.save(request_id, "fallback_command_intent", media_type,
+                              ids, context)
+                    self.arr.search_movie(movie_id)
+                self.save(request_id, "fallback_done", media_type, ids, context)
+                LOG.info("Request %s handed to Radarr", request_id)
+                return
+            missing = {int(season): set(numbers)
+                       for season, numbers in context["missing"].items()}
+            series_id, episode_ids = self.arr.series(
+                context["title"], context["year"],
+                int(context["tvdb_id"]) if context.get("tvdb_id") else None,
+                missing)
+            context.update({"arr_id": series_id, "episode_ids": episode_ids})
+            if not episode_ids:
+                self.save(request_id, "fallback_done", media_type, ids, context)
+                return
+            # At-most-once search command across restarts. A crash in this
+            # narrow interval is reconciled from Sonarr's command history.
+            context["command_kind"] = "tv"
+            self.save(request_id, "fallback_command_intent", media_type, ids, context)
+            self.arr.search_episodes(episode_ids)
+            self.save(request_id, "fallback_done", media_type, ids, context)
+            LOG.info("Request %s handed %s episode(s) to Sonarr",
+                     request_id, len(episode_ids))
+        except UncertainSeries:
+            self.save(request_id, "needs_attention", media_type, ids, context)
+            LOG.warning("Request %s needs a TVDB match before Sonarr fallback", request_id)
+        except (requests.RequestException, LookupError, RuntimeError) as error:
+            LOG.warning("Fallback for request %s deferred: %s",
+                        request_id, type(error).__name__)
+
+    def reconcile_command(self, request_id: int, media_type: str,
+                          ids: list[int], context: dict) -> None:
+        try:
+            kind = context.get("command_kind", "tv")
+            commands = self.arr.call(kind, "GET", "/command",
+                                     params={"pageSize": 100})
+            rows = commands.get("records", []) if isinstance(commands, dict) else commands
+            field = "movieIds" if kind == "movie" else "episodeIds"
+            wanted = ({context["arr_id"]} if kind == "movie" else
+                      set(context.get("episode_ids", [])))
+            name = "moviessearch" if kind == "movie" else "episodesearch"
+            if any(str(row.get("name", "")).lower() == name
+                   and set((row.get("body") or {}).get(field, [])) == wanted
+                   for row in rows):
+                self.save(request_id, "fallback_done", media_type, ids, context)
+            else:
+                self.save(request_id, "needs_attention", media_type, ids, context)
+                LOG.warning("Request %s: Arr search acknowledgement uncertain", request_id)
+        except requests.RequestException:
+            LOG.warning("Request %s: Arr command reconciliation deferred", request_id)
+
+    def monitor_sc(self, request_id: int, media_type: str,
+                   ids: list[int], context: dict) -> None:
+        if not self.hold_seerr(request_id, int(context["requester"])):
+            self.save(request_id, "needs_attention", media_type, ids, context)
             return
         rows = [self.sc_api("GET", f"/api/requests/{sc_id}") for sc_id in ids]
-        if state == "running":
+        if context.get("certain"):
             for row in rows:
-                if row["status"] == "pending":
+                if row.get("status") == "pending":
                     self.sc_api("POST", f"/api/requests/{row['id']}/approve", json={})
             rows = [self.sc_api("GET", f"/api/requests/{sc_id}") for sc_id in ids]
-        statuses = [row["status"] for row in rows]
-        if state == "review" and all(status == "pending" for status in statuses):
+        elif any(row.get("status") == "pending" for row in rows):
+            self.save(request_id, "review", media_type, ids, context)
             return
-        if any(status in ("needs_attention", "pending") for status in statuses):
+        if any(row.get("status") in OPEN for row in rows):
+            self.save(request_id, "running", media_type, ids, context)
             return
-        if any(status in OPEN for status in statuses):
-            self.save(request_id, "running", media_type, ids, missing)
+        if media_type == "movie":
+            if any(self.source_success(row) for row in rows):
+                self.save(request_id, "done", media_type, ids, context)
+            else:
+                self.prepare_fallback(request_id, media_type, ids, context)
             return
-        if missing or any(status in FAILURE for status in statuses):
-            self.fallback(request_id, media_type)
-        elif all(status in SUCCESS for status in statuses):
-            self.save(request_id, "done", media_type, ids, missing)
+        delivered = {(int(row["season"]), int(row["episode_number"]))
+                     for row in rows if self.source_success(row)
+                     and row.get("season") is not None
+                     and str(row.get("episode_number") or "").isdigit()}
+        expected = {int(season): set(numbers)
+                    for season, numbers in context["expected"].items()}
+        missing = {season: numbers - {ep for s, ep in delivered if s == season}
+                   for season, numbers in expected.items()}
+        if any(missing.values()):
+            self.prepare_fallback(request_id, media_type, ids, context, missing)
+        else:
+            self.save(request_id, "done", media_type, ids, context)
 
     def tick(self) -> None:
-        for request in self.pending():
-            request_id = int(request["id"])
-            state = self.state(request_id)
+        self.assert_arr_disconnected()
+        for request_id in self.new_ids():
             try:
-                if state is None:
-                    self.new_request(request)
-            except requests.RequestException as error:
-                LOG.warning("Request %s deferred after API error: %s", request_id, error)
-            except (KeyError, TypeError, ValueError) as error:
-                LOG.exception("Request %s needs operator review: %s", request_id, error)
-        for (request_id,) in self.db.execute(
-                "SELECT seerr_id FROM work WHERE state IN ('running','review')").fetchall():
+                self.start_request(self.seerr_api("GET", f"/request/{request_id}"))
+            except (requests.RequestException, KeyError, TypeError, ValueError,
+                    RuntimeError) as error:
+                LOG.warning("Request %s deferred: %s", request_id, type(error).__name__)
+        rows = self.db.execute("SELECT seerr_id FROM work WHERE state IN "
+                               "('matching','running','review','fallback_prepare',"
+                               "'fallback_command_intent')").fetchall()
+        for (request_id,) in rows:
             try:
-                request = self.seerr_api("GET", f"/request/{request_id}")
-                self.update_request(request, *self.state(request_id))
-            except requests.RequestException as error:
-                LOG.warning("Request %s monitoring deferred: %s", request_id, error)
-            except (KeyError, TypeError, ValueError) as error:
-                LOG.exception("Request %s needs operator review: %s", request_id, error)
+                state, media_type, ids, context = self.work(request_id)
+                if state == "matching":
+                    request = self.seerr_api("GET", f"/request/{request_id}")
+                    self.match_request(request, context)
+                elif state in ("running", "review"):
+                    self.monitor_sc(request_id, media_type, ids, context)
+                elif state == "fallback_prepare":
+                    self.dispatch_fallback(request_id, media_type, ids, context)
+                elif state == "fallback_command_intent":
+                    self.reconcile_command(request_id, media_type, ids, context)
+            except (requests.RequestException, KeyError, TypeError, ValueError,
+                    RuntimeError,
+                    sqlite3.Error, OSError) as error:
+                LOG.warning("Request %s monitoring deferred: %s",
+                            request_id, type(error).__name__)
+
+    def tvdb_lookup(self, tmdb_id: int, cookie: str) -> list[dict]:
+        identity = requests.get(self.seerr_url + "/api/v1/auth/me",
+                                headers={"Cookie": cookie}, timeout=10)
+        if identity.status_code != 200:
+            raise PermissionError("Seerr session required")
+        details = requests.get(self.seerr_url + f"/api/v1/tv/{tmdb_id}",
+                               headers={"X-Api-Key": self.seerr_key}, timeout=20)
+        details.raise_for_status()
+        title = details.json().get("name")
+        if not title:
+            return []
+        rows = self.arr.call("tv", "GET", "/series/lookup",
+                             params={"term": title})
+        return [row for row in rows if row.get("tvdbId")]
 
 
-def start_webhook(token: str, wakeups: queue.Queue) -> None:
+def start_webhook(bridge: Bridge, wakeups: queue.Queue) -> None:
     class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.end_headers()
+                return
+            match = re.fullmatch(r"/api/v1/service/sonarr/lookup/(\d+)", self.path)
+            if not match:
+                self.send_error(404)
+                return
+            try:
+                rows = bridge.tvdb_lookup(int(match.group(1)),
+                                          self.headers.get("Cookie", ""))
+            except PermissionError:
+                self.send_error(401)
+                return
+            except requests.RequestException:
+                self.send_error(502)
+                return
+            payload = json.dumps(rows).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(payload)
+
         def do_POST(self):
             if self.path != "/webhook":
                 self.send_error(404)
                 return
             if not hmac.compare_digest(self.headers.get("Authorization", ""),
-                                       "Bearer " + token):
+                                       "Bearer " + bridge.webhook_token):
                 self.send_error(401)
                 return
             try:
                 size = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                self.send_error(400)
-                return
-            if not 0 < size <= 16384:
-                self.send_error(400)
-                return
-            try:
+                if not 0 < size <= 16384:
+                    raise ValueError("Invalid size")
                 event = json.loads(self.rfile.read(size))
             except (ValueError, UnicodeDecodeError):
                 self.send_error(400)
                 return
-            if isinstance(event, dict) and event.get("notification_type") == "MEDIA_PENDING":
+            if isinstance(event, dict) and event.get("notification_type") in (
+                    "MEDIA_PENDING", "MEDIA_AUTO_APPROVED", "MEDIA_APPROVED"):
                 try:
                     wakeups.put_nowait(True)
                 except queue.Full:
@@ -445,24 +579,25 @@ def start_webhook(token: str, wakeups: queue.Queue) -> None:
             self.send_response(202)
             self.end_headers()
 
-        def log_message(self, format, *args):
-            LOG.info("Webhook: " + format, *args)
+        def log_message(self, _format, *_args):
+            return  # never log session cookies, URLs or tokens
 
     server = ThreadingHTTPServer(("0.0.0.0", 8765), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(message)s")
     bridge = Bridge()
-    wakeups = queue.Queue(maxsize=1)
-    start_webhook(bridge.webhook_token, wakeups)
+    wakeups: queue.Queue = queue.Queue(maxsize=1)
+    start_webhook(bridge, wakeups)
     while True:
         try:
             bridge.tick()
-        except requests.RequestException as error:
-            LOG.warning("Poll deferred after API error: %s", error)
+        except (requests.RequestException, OSError, sqlite3.Error) as error:
+            LOG.warning("Poll deferred: %s", type(error).__name__)
         try:
-            wakeups.get(timeout=30)
+            wakeups.get(timeout=10)
         except queue.Empty:
             pass

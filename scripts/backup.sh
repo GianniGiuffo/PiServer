@@ -111,6 +111,7 @@ QBITTORRENT_STOPPED=false
 BAZARR_STOPPED=false
 STREAMINGCOMMUNITY_STOPPED=false
 SEERR_BRIDGE_STOPPED=false
+SEERR_FRONT_STOPPED=false
 AURRAL_STOPPED=false
 NAVIDROME_STOPPED=false
 LIDARR_STOPPED=false
@@ -134,6 +135,7 @@ cleanup() {
         ${BAZARR_STOPPED} == true ||
         ${STREAMINGCOMMUNITY_STOPPED} == true ||
         ${SEERR_BRIDGE_STOPPED} == true ||
+        ${SEERR_FRONT_STOPPED} == true ||
         ${AURRAL_STOPPED} == true ||
         ${NAVIDROME_STOPPED} == true ||
         ${LIDARR_STOPPED} == true ||
@@ -178,6 +180,9 @@ cleanup() {
   fi
   if [[ ${SEERR_BRIDGE_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start seerr-streamingcommunity-bridge || true
+  fi
+  if [[ ${SEERR_FRONT_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start seerr-front || true
   fi
   if [[ ${IMMICH_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start immich-server || true
@@ -293,6 +298,10 @@ fi
 if is_running MEDIA slskd; then
   "${MEDIA[@]}" stop slskd
   SLSKD_STOPPED=true
+fi
+if is_running MEDIA seerr-front; then
+  "${MEDIA[@]}" stop seerr-front
+  SEERR_FRONT_STOPPED=true
 fi
 if is_running MEDIA seerr-streamingcommunity-bridge; then
   "${MEDIA[@]}" stop seerr-streamingcommunity-bridge

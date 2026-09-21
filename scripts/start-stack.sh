@@ -21,7 +21,7 @@ case "${STACK}" in
       lidarr slskd navidrome aurral
     )
     if [[ -f /etc/raspberry-server/seerr-streamingcommunity-bridge.env ]]; then
-      SERVICES+=(seerr-streamingcommunity-bridge)
+      SERVICES+=(seerr-streamingcommunity-bridge seerr-front)
     fi
     ;;
   automation)

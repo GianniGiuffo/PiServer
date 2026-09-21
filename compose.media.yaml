@@ -173,8 +173,8 @@ services:
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/seerr:/app/config
     ports:
-      # Exposed only through host-controlled Tailscale Serve, never on the LAN.
-      - "127.0.0.1:5055:5055/tcp"
+      # Direct backend for diagnostics. Tailscale Serve uses seerr-front:5055.
+      - "127.0.0.1:5056:5055/tcp"
     networks:
       - web
     healthcheck:
@@ -412,15 +412,21 @@ services:
     environment:
       SEERR_URL: http://seerr:5055
       STREAMINGCOMMUNITY_URL: http://streamingcommunity:8000
+      RADARR_URL: http://radarr:7878
+      SONARR_URL: http://sonarr:8989
       BRIDGE_DB: /state/bridge.db
       SEERR_DB: /seerr-db/db.sqlite3
+      SEERR_SETTINGS: /seerr-settings/settings.json
       PYTHONDONTWRITEBYTECODE: "1"
     expose:
       - "8765"
     volumes:
       - ./scripts/seerr-streamingcommunity-bridge.py:/app/bridge/bridge.py:ro
+      - ./scripts/seerr_arr_fallback.py:/app/bridge/seerr_arr_fallback.py:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/seerr-streamingcommunity-bridge:/state
       - ${DATA_DIR:?Set DATA_DIR in .env}/seerr/db:/seerr-db
+      - ${DATA_DIR:?Set DATA_DIR in .env}/seerr:/seerr-settings:ro
+      - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads:/app/videos:ro
     read_only: true
     networks:
       - web
@@ -428,6 +434,36 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  seerr-front:
+    image: ${CADDY_IMAGE:?Set CADDY_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      seerr:
+        condition: service_healthy
+      seerr-streamingcommunity-bridge:
+        condition: service_healthy
+    volumes:
+      - ./config/seerr-front/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      # Existing Tailscale Serve endpoint; no LAN or public exposure.
+      - "127.0.0.1:5055:5055/tcp"
+    read_only: true
+    tmpfs:
+      - /config
+      - /data
+      - /tmp
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
 
   lidarr:
     image: ${LIDARR_IMAGE:?Set LIDARR_IMAGE in .env}
