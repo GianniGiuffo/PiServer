@@ -38,6 +38,14 @@ class PriorityRoutingTests(unittest.TestCase):
         bridge.arr.movie.assert_not_called()
         self.assertEqual(bridge.save.call_args.args[1], "done")
 
+    def test_localized_subtitle_is_manual_match_instead_of_arr_fallback(self):
+        source = {"id": 842,
+                  "name": "Toy Story 2 - Woody & Buzz alla riscossa",
+                  "release_date": None, "tmdb_id": None}
+        chosen, certain = module.choose([source], ["Toy Story 2"], "1999", 863)
+        self.assertEqual(chosen, source)
+        self.assertFalse(certain)
+
     def test_only_failed_tv_episode_is_handed_to_fallback(self):
         bridge = self.bridge()
         rows = [

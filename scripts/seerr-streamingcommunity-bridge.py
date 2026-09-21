@@ -49,6 +49,17 @@ def normalized(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
 
 
+def title_score(candidate: str, wanted: str) -> float:
+    if not candidate or not wanted:
+        return 0.0
+    similarity = SequenceMatcher(None, candidate, wanted).ratio()
+    # Localized releases often append a subtitle, e.g. the Italian release
+    # name of a movie. Keep them for manual review even without year/ID.
+    if candidate.startswith(wanted + " ") or wanted.startswith(candidate + " "):
+        return max(similarity, 0.7)
+    return similarity
+
+
 def year(value: str | None) -> str:
     match = re.match(r"^\d{4}", str(value or ""))
     return match.group() if match else ""
@@ -76,7 +87,7 @@ def choose(candidates: list[dict], names: list[str], wanted_year: str,
         source_id = item.get("tmdb_id")
         if source_id and str(source_id) != str(tmdb_id):
             continue
-        similarity = max((SequenceMatcher(None, title, name).ratio()
+        similarity = max((title_score(title, name)
                           for name in seen), default=0.0)
         id_match = str(source_id or "") == str(tmdb_id)
         exact = title in seen and bool(title)
@@ -220,7 +231,7 @@ class Bridge:
                     candidates[int(item["id"])] = item
         wanted = [normalized(name) for name in names]
         ranked = sorted(candidates.values(), key=lambda item: max(
-            (SequenceMatcher(None, normalized(item.get("name", "")), name).ratio()
+            (title_score(normalized(item.get("name", "")), name)
              for name in wanted), default=0.0), reverse=True)[:12]
         for item in ranked:
             try:
