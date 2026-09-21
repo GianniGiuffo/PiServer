@@ -59,7 +59,7 @@ class PriorityRoutingTests(unittest.TestCase):
         bridge.arr.search_movie.assert_not_called()
         self.assertEqual(bridge.save.call_args.args[1], "fallback_done")
 
-    def test_new_radarr_movie_searches_on_first_add(self):
+    def test_new_radarr_movie_defers_search_until_intent_is_saved(self):
         from seerr_arr_fallback import ArrFallback
 
         arr = ArrFallback.__new__(ArrFallback)
@@ -72,14 +72,24 @@ class PriorityRoutingTests(unittest.TestCase):
                 return [{"tmdbId": 863, "title": "Toy Story 2", "year": 1999}]
             if method == "POST" and path == "/movie":
                 self.assertEqual(kwargs["json"]["addOptions"],
-                                 {"searchForMovie": True})
+                                 {"searchForMovie": False})
                 return {"id": 201}
             self.fail(f"Unexpected API call {method} {path}")
 
         arr.call = Mock(side_effect=api)
         self.assertEqual(arr.movie(863, {"title": "Toy Story 2",
                                          "releaseDate": "1999-11-24"}),
-                         (201, False))
+                         (201, True))
+
+    def test_movie_command_is_recorded_before_search(self):
+        bridge = self.bridge()
+        bridge.arr = SimpleNamespace(movie=Mock(return_value=(201, True)),
+                                     search_movie=Mock())
+        context = {"tmdb_id": 863}
+        bridge.dispatch_fallback(13, "movie", [], context)
+        self.assertEqual([call.args[1] for call in bridge.save.call_args_list],
+                         ["fallback_command_intent", "fallback_done"])
+        bridge.arr.search_movie.assert_called_once_with(201)
 
     def test_series_without_tvdb_id_uses_real_sonarr_lookup(self):
         from seerr_arr_fallback import ArrFallback

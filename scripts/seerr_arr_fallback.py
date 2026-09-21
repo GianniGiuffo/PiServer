@@ -55,7 +55,7 @@ class ArrFallback:
         return response.json() if response.content else {}
 
     def movie(self, tmdb_id: int, details: dict) -> tuple[int, bool]:
-        """Add or reuse the unique TMDB movie; report if it still needs search."""
+        """Add or reuse a TMDB movie without an implicit search command."""
         matches = self.call("movie", "GET", "/movie/lookup",
                             params={"term": f"tmdb:{tmdb_id}"})
         movie = next((row for row in matches if row.get("tmdbId") == tmdb_id), None)
@@ -79,7 +79,10 @@ class ArrFallback:
             "minimumAvailability": self.minimum_availability,
             "monitored": True,
             "tags": [],
-            "addOptions": {"searchForMovie": True},
+            # The bridge records command intent before submitting a search.
+            # Automatic search here would duplicate work after a crash between
+            # this POST and the bridge state update.
+            "addOptions": {"searchForMovie": False},
         }
         try:
             added = self.call("movie", "POST", "/movie", json=payload)
@@ -91,13 +94,11 @@ class ArrFallback:
             found = next((row for row in matches if row.get("tmdbId") == tmdb_id
                           and row.get("id")), None)
             if found:
-                # A lost POST response may have launched its own search. Never
-                # launch a second one without an operator reconciling it.
-                return int(found["id"]), False
+                return int(found["id"]), not bool(found.get("hasFile"))
             raise
         if not added.get("id"):
             raise RuntimeError("Radarr returned no movie ID")
-        return int(added["id"]), False
+        return int(added["id"]), not bool(added.get("hasFile"))
 
     def search_movie(self, movie_id: int) -> None:
         self.call("movie", "POST", "/command",
