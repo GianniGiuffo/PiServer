@@ -85,6 +85,8 @@ install -d -m 0750 -o 1001 -g 1001 /srv/raspberry-server/data/uptime-kuma
 # The downloader currently runs as root inside its upstream image. Its
 # configuration contains sessions and a Jellyfin API key, so keep it root-only.
 install -d -m 0750 -o root -g root /srv/raspberry-server/data/streamingcommunity
+install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
+  /srv/raspberry-server/data/seerr-streamingcommunity-bridge
 install -d -m 0755 /srv/media
 install -d -m 0755 /etc/raspberry-server/sites
 

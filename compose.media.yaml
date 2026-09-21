@@ -393,6 +393,38 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  seerr-streamingcommunity-bridge:
+    image: ${STREAMINGCOMMUNITY_IMAGE:?Set STREAMINGCOMMUNITY_IMAGE in .env}
+    command: ["python", "/app/bridge/bridge.py"]
+    restart: on-failure:5
+    init: true
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    mem_limit: 384m
+    cpus: 0.5
+    depends_on:
+      seerr:
+        condition: service_healthy
+      streamingcommunity:
+        condition: service_healthy
+    env_file:
+      - path: /etc/raspberry-server/seerr-streamingcommunity-bridge.env
+        required: false
+    environment:
+      SEERR_URL: http://seerr:5055
+      STREAMINGCOMMUNITY_URL: http://streamingcommunity:8000
+      BRIDGE_DB: /state/bridge.db
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./scripts/seerr-streamingcommunity-bridge.py:/app/bridge/bridge.py:ro
+      - ${DATA_DIR:?Set DATA_DIR in .env}/seerr-streamingcommunity-bridge:/state
+    read_only: true
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   lidarr:
     image: ${LIDARR_IMAGE:?Set LIDARR_IMAGE in .env}
     restart: on-failure:5

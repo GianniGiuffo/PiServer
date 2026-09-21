@@ -273,7 +273,10 @@ Le interfacce sono disponibili esclusivamente sulla Tailnet:
 | qBittorrent | `https://TAILSCALE_FQDN:8461/` |
 | Bazarr | `https://TAILSCALE_FQDN:8462/` |
 
-La catena prevista è Seerr → Radarr/Sonarr → Prowlarr → qBittorrent. Tutti i
+Per le richieste dell'utente locale Seerr `NormalUser`, la catena è Seerr →
+StreamingCommunity → Radarr/Sonarr per i titoli assenti, gli episodi mancanti
+o i download falliti. Gli altri utenti seguono la catena Seerr → Radarr/Sonarr.
+Tutti i
 container che manipolano file usano lo stesso percorso interno `/data`:
 Radarr importa in `/data/Films`, Sonarr in `/data/Series` e qBittorrent usa
 `/data/.arr-downloads/{complete,incomplete}`. Jellyfin indicizza già le due
@@ -318,6 +321,32 @@ sono esclusi dal backup di configurazione.
 Usare il pannello esclusivamente per contenuti che si è autorizzati a
 scaricare. L'immagine upstream usa un tag `latest` mobile: aggiornarla soltanto
 dopo un backup tramite `scripts/update-images.sh media`.
+
+### Priorità per le richieste Seerr
+
+Il servizio `seerr-streamingcommunity-bridge` legge ogni minuto le richieste
+ancora da approvare di `NormalUser`. Un titolo con TMDB ID uguale, oppure nome
+e anno esatti, viene richiesto a StreamingCommunity. Le corrispondenze dubbie
+restano **In attesa** nella sezione **Richieste** del pannello StreamingCommunity:
+approvarle o rifiutarle lì. Il pannello mostra anche **In corso**,
+**Completato** e **Fallito**. Non è stata modificata l'interfaccia Seerr.
+
+Per le serie il bridge richiede gli episodi delle stagioni selezionate che la
+fonte rende disponibili. Dopo i download, approva la richiesta Seerr affinché
+Sonarr recuperi quelli mancanti. Per i film, Radarr riceve la richiesta solo
+quando StreamingCommunity non trova il titolo o il download fallisce.
+
+Per inizializzare una nuova installazione, dopo aver creato `NormalUser` in
+Seerr con il solo permesso **Request (32)** ed aver configurato il pannello
+StreamingCommunity, eseguire come root
+`python3 scripts/provision-seerr-streamingcommunity-bridge.py`. Lo script crea
+un account tecnico Jellyfin `SeerrBridge`, gli assegna nel pannello i soli
+permessi **Request** e **Manage Requests** e salva le credenziali in
+`/etc/raspberry-server/seerr-streamingcommunity-bridge.env`. La password
+iniziale è conservata nello stesso percorso come
+`seerr-bridge-jellyfin-password`, con accesso limitato a root. Lo stato del
+bridge è in `/srv/raspberry-server/data/seerr-streamingcommunity-bridge` ed è
+incluso nel backup Restic.
 
 ## Aurral, Lidarr, slskd e Navidrome
 

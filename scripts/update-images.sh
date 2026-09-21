@@ -20,6 +20,9 @@ case "${STACK}" in
       streamingcommunity immich-postgres immich-redis immich-server
       lidarr slskd navidrome aurral
     )
+    if [[ -f /etc/raspberry-server/seerr-streamingcommunity-bridge.env ]]; then
+      SERVICES+=(seerr-streamingcommunity-bridge)
+    fi
     ;;
   automation)
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.automation.yaml")

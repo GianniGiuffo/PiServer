@@ -110,6 +110,7 @@ PROWLARR_STOPPED=false
 QBITTORRENT_STOPPED=false
 BAZARR_STOPPED=false
 STREAMINGCOMMUNITY_STOPPED=false
+SEERR_BRIDGE_STOPPED=false
 AURRAL_STOPPED=false
 NAVIDROME_STOPPED=false
 LIDARR_STOPPED=false
@@ -132,6 +133,7 @@ cleanup() {
         ${QBITTORRENT_STOPPED} == true ||
         ${BAZARR_STOPPED} == true ||
         ${STREAMINGCOMMUNITY_STOPPED} == true ||
+        ${SEERR_BRIDGE_STOPPED} == true ||
         ${AURRAL_STOPPED} == true ||
         ${NAVIDROME_STOPPED} == true ||
         ${LIDARR_STOPPED} == true ||
@@ -173,6 +175,9 @@ cleanup() {
   fi
   if [[ ${STREAMINGCOMMUNITY_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start streamingcommunity || true
+  fi
+  if [[ ${SEERR_BRIDGE_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start seerr-streamingcommunity-bridge || true
   fi
   if [[ ${IMMICH_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start immich-server || true
@@ -289,6 +294,10 @@ if is_running MEDIA slskd; then
   "${MEDIA[@]}" stop slskd
   SLSKD_STOPPED=true
 fi
+if is_running MEDIA seerr-streamingcommunity-bridge; then
+  "${MEDIA[@]}" stop seerr-streamingcommunity-bridge
+  SEERR_BRIDGE_STOPPED=true
+fi
 if is_running MEDIA streamingcommunity; then
   "${MEDIA[@]}" stop streamingcommunity
   STREAMINGCOMMUNITY_STOPPED=true
@@ -341,6 +350,9 @@ if [[ -e ${DATA_DIR}/n8n/n8n ]]; then
 fi
 if [[ -e ${DATA_DIR}/streamingcommunity ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/streamingcommunity")
+fi
+if [[ -e ${DATA_DIR}/seerr-streamingcommunity-bridge ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/seerr-streamingcommunity-bridge")
 fi
 if [[ -e ${DATA_DIR}/seerr ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/seerr")
