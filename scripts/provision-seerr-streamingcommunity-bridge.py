@@ -81,7 +81,10 @@ def main():
     with os.fdopen(fd, 'w') as output:
         output.write('\n'.join(lines) + '\n')
     import grp
-    os.chown(CONFIG, 0, grp.getgrnam('tommaso').gr_gid)
+    bridge_gid = grp.getgrnam('tommaso').gr_gid
+    os.chown(CONFIG.parent, 0, bridge_gid)
+    os.chmod(CONFIG.parent, 0o710)
+    os.chown(CONFIG, 0, bridge_gid)
     print(f'Provisioned {NAME} with StreamingCommunity REQUEST and MANAGE_REQUESTS permissions')
 
 

@@ -117,6 +117,11 @@ class Bridge:
         data = self._request(self.sc, self.sc_url, "POST", "/api/auth/jellyfin-token",
                              json={"token": self.jellyfin_token})
         self.csrf = data["csrf_token"]
+        # The panel correctly sets Secure for browser sessions behind HTTPS.
+        # This client talks only to its private Docker HTTP endpoint, where
+        # requests otherwise refuses to return that cookie on later calls.
+        for cookie in self.sc.cookies:
+            cookie.secure = False
 
     def sc_api(self, method: str, path: str, **kwargs):
         if not self.csrf:
