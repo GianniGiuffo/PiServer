@@ -56,7 +56,7 @@ def title_score(candidate: str, wanted: str) -> float:
     # Localized releases often append a subtitle, e.g. the Italian release
     # name of a movie. Keep them for manual review even without year/ID.
     if candidate.startswith(wanted + " ") or wanted.startswith(candidate + " "):
-        return max(similarity, 0.7)
+        return 1.2
     return similarity
 
 

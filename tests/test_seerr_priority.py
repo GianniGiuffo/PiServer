@@ -42,7 +42,10 @@ class PriorityRoutingTests(unittest.TestCase):
         source = {"id": 842,
                   "name": "Toy Story 2 - Woody & Buzz alla riscossa",
                   "release_date": None, "tmdb_id": None}
-        chosen, certain = module.choose([source], ["Toy Story 2"], "1999", 863)
+        other_sequel = {"id": 871, "name": "Toy Story 4",
+                        "release_date": None, "tmdb_id": None}
+        chosen, certain = module.choose([source, other_sequel],
+                                        ["Toy Story 2"], "1999", 863)
         self.assertEqual(chosen, source)
         self.assertFalse(certain)
 
