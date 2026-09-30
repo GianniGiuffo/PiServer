@@ -90,6 +90,20 @@ class RepositoryWatchTests(unittest.TestCase):
                     process.wait()
 
 
+class BackupAvailabilityTests(unittest.TestCase):
+    def test_nextcloud_leaves_maintenance_immediately_after_database_dump(self):
+        script = (ROOT / "scripts/backup.sh").read_text(encoding="utf-8")
+        dump = script.index("pg_dump -U nextcloud nextcloud")
+        maintenance_off = script.index("php occ maintenance:mode --off", dump)
+        immich = script.index("if is_running MEDIA immich-server", dump)
+
+        self.assertLess(maintenance_off, immich)
+        self.assertIn(
+            "NEXTCLOUD_MAINTENANCE=false",
+            script[maintenance_off:immich],
+        )
+
+
 class MountIdentityTests(unittest.TestCase):
     def test_same_live_repository_is_accepted(self):
         with tempfile.TemporaryDirectory() as directory:

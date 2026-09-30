@@ -31,9 +31,11 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, Seerr, Radarr, Sonarr, Prowlarr,
 qBittorrent, Bazarr, il downloader e i quattro servizi musicali vengono fermati
 brevemente per rendere coerenti i rispettivi database e file di stato.
-Nextcloud entra in maintenance mode. n8n e Immich vengono fermati mentre viene
-creato il loro dump PostgreSQL. Immich riparte subito dopo il dump; gli altri
-servizi fermati ripartono nella fase finale del backup, anche in caso di errore.
+Nextcloud entra in maintenance mode soltanto durante il proprio dump PostgreSQL
+e torna disponibile appena il dump è completo. n8n e Immich vengono fermati
+mentre viene creato il loro dump PostgreSQL. Immich riparte subito dopo il dump;
+gli altri servizi fermati ripartono nella fase finale del backup, anche in caso
+di errore.
 
 Prima di un upgrade major di Jellyfin usare un backup completo che includa
 anche i metadata ricostruibili ma necessari per un rollback identico:

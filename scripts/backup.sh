@@ -242,6 +242,14 @@ if is_running MEDIA nextcloud-postgres; then
 else
   echo "WARNING: nextcloud-postgres is not running; this snapshot has no new Nextcloud dump." >&2
 fi
+if [[ ${NEXTCLOUD_MAINTENANCE} == true ]]; then
+  # The consistent database dump is complete. Keeping Nextcloud in maintenance
+  # mode during the unrelated Restic transfer makes active Text sessions lose
+  # their connection for the full backup duration.
+  "${MEDIA[@]}" exec -T --user www-data nextcloud \
+    php occ maintenance:mode --off
+  NEXTCLOUD_MAINTENANCE=false
+fi
 
 if is_running MEDIA immich-server; then
   "${MEDIA[@]}" stop immich-server

@@ -46,6 +46,18 @@ class MediaDiscoveryStackTests(unittest.TestCase):
         self.assertIn("--https=8457", serve)
         self.assertIn("http://127.0.0.1:5055", serve)
 
+    def test_nextcloud_readonly_healthcheck_uses_a_trusted_host(self) -> None:
+        compose = self.read("compose.media.yaml")
+        readonly = compose.split("  nextcloud-readonly:", 1)[1].split(
+            "  nextcloud-cron:", 1
+        )[0]
+
+        self.assertIn(
+            '--header="Host: $${NEXTCLOUD_INTERNAL_HOST}:8445"',
+            readonly,
+        )
+        self.assertIn("http://nextcloud/status.php", readonly)
+
     def test_helper_installer_is_version_and_checksum_pinned(self) -> None:
         installer = self.read("scripts/install-jellyfin-helper.sh")
         self.assertIn("PLUGIN_VERSION=3.0.0.2", installer)
