@@ -218,5 +218,7 @@ WebDAV; dump PostgreSQL ripristinato in un database temporaneo (2 tabelle).
 Stirling mostra il login, rifiuta la conversione anonima con HTTP 401 e
 converte DOCX in PDF con account admin (HTTP 200). Porte Docker pubblicate
 solo su loopback, RAM/CPU/swap verificati e Funnel disabilitato.
+Terminata la preparazione iniziale, ONLYOFFICE è stato misurato a circa
+0,3% CPU e 1,02 GiB RAM, entro il limite di 4 GiB.
 Non è stato eseguito un nuovo trasferimento Restic completo durante questa
 diagnosi: il prossimo backup pianificato include i nuovi percorsi e il dump.
