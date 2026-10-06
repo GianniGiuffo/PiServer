@@ -18,6 +18,8 @@
 | Prowlarr | Tailscale Serve `8460`, backend solo loopback | no |
 | qBittorrent Web UI | Tailscale Serve `8461`, backend solo loopback | no |
 | Bazarr | Tailscale Serve `8462`, backend solo loopback | no |
+| Stirling PDF | Tailscale Serve `8463`, backend `127.0.0.1:8087` | no |
+| ONLYOFFICE Docs | Tailscale Serve `8464`, backend `127.0.0.1:8088` | no |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
@@ -45,7 +47,21 @@ Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
 8086, 8096, 8455, 8686, 8989, 9696,
 11434, 2222 o per le porte Sunshine 47984-48010.
 
+## File e documenti
+
+Stirling PDF richiede login anche all'interno della Tailnet, con account admin
+e registrazione libera disabilitata. La password casuale è nella `.env` con
+permessi 0600; il database utenti è incluso in Restic. ONLYOFFICE usa gli account Nextcloud e un segreto JWT
+condiviso con il connettore. Entrambi sono esposti solo da Tailscale Serve:
+nessuna route Cloudflare, Funnel o apertura sul router. La comunicazione Office
+con Nextcloud usa la rete Docker `nextcloud-access`; l'accesso a indirizzi
+privati è consentito nel solo connettore ONLYOFFICE e nel Document Server,
+senza abilitare globalmente `allow_local_remote_servers` in Nextcloud.
+Le condivisioni pubbliche Nextcloud esistenti restano utilizzabili per i file,
+ma l'editor ONLYOFFICE richiede comunque Tailscale.
+
 ## Vaultwarden
+
 
 - Tenere `SIGNUPS_ALLOWED=false` dopo la creazione dell'account.
 - Usare master password unica e 2FA.

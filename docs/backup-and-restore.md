@@ -24,6 +24,8 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - configurazione, utenti, sessioni e richieste del downloader;
 - database e configurazioni di Aurral, Lidarr, slskd e Navidrome;
 - configurazione Nextcloud e dump PostgreSQL;
+- configurazione/database Stirling PDF e definizioni pipeline;
+- dati di configurazione ONLYOFFICE e connettore nel dump DB Nextcloud;
 - dump PostgreSQL Immich;
 - configurazione e dump PostgreSQL n8n, inclusa la tabella
   `ai_chat_memory` con la cronologia delle chat;
@@ -63,6 +65,15 @@ configurato; non vengono interrotti soltanto perché sono lunghi.
 - Redis/Valkey;
 - cache e thumbnail ricostruibili, inclusa la cache SearXNG;
 - checkout e release del sito.
+- cache, log, pacchetti OCR scaricabili e output documenti Stirling/ONLYOFFICE.
+
+Stirling PDF viene fermato per rendere coerente il database locale in
+`stirling-pdf/configs` e riavviato dalla cleanup anche in caso di errore.
+ONLYOFFICE 9.3.1 usa PostgreSQL incorporato: il backup genera `onlyoffice.sql`
+con `pg_dump`, senza copiare la directory PostgreSQL live. Il segreto JWT e la
+password amministratore Stirling sono nella `.env`, le chiavi persistenti in
+`onlyoffice/data`, mentre il connettore è salvato con le app e il DB Nextcloud.
+Per il ripristino specifico vedere [documents.md](documents.md#ripristino).
 
 Restic protegge la configurazione del server, non il futuro disco dati da 4 TB.
 Se quei dati diventeranno importanti servirà un secondo supporto o repository

@@ -32,6 +32,8 @@ soltanto dopo la scelta dell'hardware.
 | Homepage | Tailnet, porta 443 | configurazione in Git |
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
 | Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
+| Stirling PDF | solo Tailnet, porta 8463, login amministratore | config su SSD + Restic, OCR italiano/inglese |
+| ONLYOFFICE Docs | solo Tailnet, porta 8464, integrato in Nextcloud | config su SSD + Restic, connettore nel DB Nextcloud |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Seerr | Tailnet, porta 8457 | config su SSD, discovery collegata a Jellyfin |
 | Radarr | Tailnet, porta 8458 | config su SSD, film in `/srv/media/downloads/Films` |
@@ -60,6 +62,7 @@ router deve essere inoltrata.
 ## Tre stack indipendenti
 
 - `compose.yaml`: servizi core, sempre disponibili e senza dati utente sul NAS;
+  comprende Stirling PDF e ONLYOFFICE Docs; l'editing Office dipende da Nextcloud;
 - `compose.media.yaml`: Nextcloud, Jellyfin, Immich, downloader e stack
   musicale; parte solo dopo la verifica del mount `/srv/media`;
 - `compose.automation.yaml`: n8n, PostgreSQL e SearXNG.
@@ -145,6 +148,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Raspberry rack-pi, DNS secondario e backup remoto](docs/rack-pi.md)
 - [Accesso remoto e sicurezza](docs/security.md)
 - [Configurazione iniziale dei servizi](docs/service-setup.md)
+- [PDF, OCR e ONLYOFFICE integrato in Nextcloud](docs/documents.md)
 - [Stack musicale](docs/music-stack.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
 - [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)

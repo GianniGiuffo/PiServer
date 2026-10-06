@@ -85,6 +85,7 @@ fi
 
 mkdir -p "${STAGING_DIR}"
 rm -f \
+  "${STAGING_DIR}/onlyoffice.sql" \
   "${STAGING_DIR}/nextcloud.sql" \
   "${STAGING_DIR}/immich.sql" \
   "${STAGING_DIR}/n8n.sql"
@@ -119,6 +120,7 @@ SLSKD_STOPPED=false
 UPTIME_STOPPED=false
 VAULTWARDEN_STOPPED=false
 PIHOLE_STOPPED=false
+STIRLING_STOPPED=false
 BACKUP_COMPLETED=false
 
 cleanup() {
@@ -147,6 +149,9 @@ cleanup() {
   fi
   if [[ ${PIHOLE_STOPPED} == true ]]; then
     "${BASE[@]}" start pihole || true
+  fi
+  if [[ ${STIRLING_STOPPED} == true ]]; then
+    "${BASE[@]}" start stirling-pdf || true
   fi
   if [[ ${VAULTWARDEN_STOPPED} == true ]]; then
     "${BASE[@]}" start vaultwarden || true
@@ -220,6 +225,14 @@ trap cleanup EXIT
 
 # SQL databases are dumped after their application writer is quiesced. Raw
 # PostgreSQL directories are never copied while running.
+# ONLYOFFICE keeps transient collaboration state in its bundled PostgreSQL.
+# pg_dump takes a consistent transaction snapshot; originals stay in Nextcloud.
+if is_running BASE onlyoffice; then
+  "${BASE[@]}" exec -T --user postgres onlyoffice \
+    pg_dump --no-acl onlyoffice > "${STAGING_DIR}/onlyoffice.sql"
+else
+  echo "WARNING: ONLYOFFICE is not running; this snapshot has no new ONLYOFFICE dump." >&2
+fi
 if is_running AUTOMATION n8n; then
   "${AUTOMATION[@]}" stop n8n
   N8N_STOPPED=true
@@ -271,6 +284,10 @@ fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
+if is_running BASE stirling-pdf; then
+  "${BASE[@]}" stop stirling-pdf
+  STIRLING_STOPPED=true
+fi
 if is_running MEDIA bazarr; then
   "${MEDIA[@]}" stop bazarr
   BAZARR_STOPPED=true
@@ -390,7 +407,20 @@ for music_state_path in \
   [[ -e ${music_state_path} ]] && BACKUP_PATHS+=("${music_state_path}")
 done
 
+for document_state_path in \
+  "${DATA_DIR}/stirling-pdf/configs" \
+  "${DATA_DIR}/onlyoffice/data"; do
+  [[ -e ${document_state_path} ]] && BACKUP_PATHS+=("${document_state_path}")
+done
+# Pipeline definitions can contain credentials. Processed documents, queues
+# and output are user files and are excluded along with the PDF tool's cache.
+if [[ -e ${DATA_DIR}/stirling-pdf/pipeline/defaultWebUIConfigs ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/stirling-pdf/pipeline/defaultWebUIConfigs")
+fi
+
 RESTIC_EXCLUDES=(
+  --exclude "${DATA_DIR}/stirling-pdf/configs/heap_dumps"
+  --exclude "${DATA_DIR}/stirling-pdf/configs/cache"
   --exclude "${DATA_DIR}/jellyfin/config/log"
   --exclude "${DATA_DIR}/jellyfin/config/transcodes"
   --exclude "${DATA_DIR}/aurral/cache"

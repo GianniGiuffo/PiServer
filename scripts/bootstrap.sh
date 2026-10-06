@@ -60,6 +60,16 @@ usermod -aG docker "${TARGET_USER}"
 # /srv/media and is never created here: doing so could hide a failed NAS mount.
 install -d -m 0750 /srv/raspberry-server/data
 install -d -m 0750 /srv/raspberry-server/staging
+install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
+  /srv/raspberry-server/data/stirling-pdf/configs \
+  /srv/raspberry-server/data/stirling-pdf/tessdata \
+  /srv/raspberry-server/data/stirling-pdf/pipeline \
+  /srv/raspberry-server/data/stirling-pdf/logs
+install -d -m 0750 \
+  /srv/raspberry-server/data/onlyoffice/data \
+  /srv/raspberry-server/data/onlyoffice/lib \
+  /srv/raspberry-server/data/onlyoffice/logs \
+  /srv/raspberry-server/data/onlyoffice/postgresql
 install -d -m 0755 -o root -g root /srv/raspberry-server/data/monitoring
 install -d -m 0750 -o 1000 -g 1000 /srv/raspberry-server/data/n8n/n8n
 # The official SearXNG image runs the application as UID/GID 977.

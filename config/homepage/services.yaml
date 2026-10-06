@@ -100,7 +100,7 @@
         server: local
         container: raspberry-server-caddy-1
 
-- Media e file:
+- File e documenti:
     - Nextcloud:
         icon: nextcloud.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8445/
@@ -108,6 +108,22 @@
         description: File personali
         server: local
         container: raspberry-server-nextcloud-1
+    - Stirling PDF:
+        icon: mdi-file-pdf-box
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8463/
+        siteMonitor: http://stirling-pdf:8080/api/v1/info/status
+        description: PDF, OCR e conversioni
+        server: local
+        container: raspberry-server-stirling-pdf-1
+    - ONLYOFFICE:
+        icon: onlyoffice.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8445/index.php/apps/files/
+        siteMonitor: http://onlyoffice/healthcheck
+        description: Modifica documenti in Nextcloud
+        server: local
+        container: raspberry-server-onlyoffice-1
+
+- Media:
     - Jellyfin:
         icon: jellyfin.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8446/

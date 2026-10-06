@@ -170,8 +170,12 @@ In **Administration settings > Basic settings**, scegliere `Cron` come sistema
 per i job in background. Il container `nextcloud-cron` esegue `/cron.sh`.
 
 I file risiedono in `/srv/media/nextcloud`; configurazione, app e PostgreSQL
-restano sull'SSD. Non installare componenti Office o riconoscimento AI finché
-non ne è stata valutata la RAM.
+restano sull'SSD. ONLYOFFICE Docs è integrato tramite il connettore Nextcloud;
+Stirling PDF richiede il login amministratore e include OCR italiano e inglese
+e conversioni LibreOffice. Setup,
+limiti di risorse e verifiche sono in [documents.md](documents.md).
+Homepage raccoglie Nextcloud, Stirling PDF e ONLYOFFICE in **File e documenti**;
+la card ONLYOFFICE apre i file Nextcloud, dove si usa l'editor.
 
 Per i link pubblici con password facoltativa e senza scadenza obbligatoria,
 seguire [public-sharing.md](public-sharing.md). Non aprire porte sul router.
@@ -258,7 +262,7 @@ Aprire `https://TAILSCALE_FQDN:8457/` e completare il wizard usando Jellyfin:
    presenti in Jellyfin non vengano proposti dalla discovery.
 
 La configurazione risiede in `/srv/raspberry-server/data/seerr` ed entra nel
-backup Restic. La card corrispondente è nella sezione **Media e file** di
+backup Restic. La card corrispondente è nella sezione **Media** di
 Homepage.
 
 ## Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr

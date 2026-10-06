@@ -178,6 +178,96 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # Document tools run on the SSD independently of the NAS. Editing documents
+  # still requires Nextcloud and its media mount to be available.
+  stirling-pdf:
+    image: ${STIRLING_PDF_IMAGE:?Set STIRLING_PDF_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 2g
+    mem_reservation: 512m
+    memswap_limit: 2g
+    cpus: 1.0
+    cpu_shares: 256
+    pids_limit: 256
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      SECURITY_ENABLELOGIN: "true"
+      DISABLE_ADDITIONAL_FEATURES: "false"
+      SECURITY_ENABLESELFREGISTRATION: "false"
+      SECURITY_INITIALLOGIN_USERNAME: ${STIRLING_ADMIN_USERNAME:-admin}
+      SECURITY_INITIALLOGIN_PASSWORD: ${STIRLING_ADMIN_PASSWORD:?Set STIRLING_ADMIN_PASSWORD in .env}
+      SYSTEM_DEFAULTLOCALE: it-IT
+      SYSTEM_TESSDATADIR: /usr/share/tessdata
+      TESSDATA_PREFIX: /usr/share/tessdata
+      SYSTEM_ENABLEANALYTICS: "false"
+      JAVA_CUSTOM_OPTS: "-Xms128m -Xmx768m -XX:ActiveProcessorCount=1"
+      OMP_THREAD_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_LIBRE_OFFICE_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_TESSERACT_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_GHOSTSCRIPT_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_PYTHON_OPEN_CV_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_IMAGE_MAGICK_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_QPDF_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_OCR_MY_PDF_SESSION_LIMIT: "1"
+      PROCESS_EXECUTOR_SESSION_LIMIT_WEASY_PRINT_SESSION_LIMIT: "1"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/stirling-pdf/configs:/configs
+      - ${DATA_DIR}/stirling-pdf/tessdata:/usr/share/tessdata
+      - ${DATA_DIR}/stirling-pdf/pipeline:/pipeline
+      - ${DATA_DIR}/stirling-pdf/logs:/logs
+    ports:
+      - "127.0.0.1:8087:8080/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "10", "http://127.0.0.1:8080/api/v1/info/status"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 180s
+    security_opt:
+      - no-new-privileges:true
+
+  onlyoffice:
+    image: ${ONLYOFFICE_IMAGE:?Set ONLYOFFICE_IMAGE in .env}
+    restart: unless-stopped
+    mem_limit: 4g
+    mem_reservation: 1g
+    memswap_limit: 4g
+    cpus: 1.0
+    cpu_shares: 256
+    pids_limit: 512
+    stop_grace_period: 90s
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?Set ONLYOFFICE_JWT_SECRET in .env}
+      JWT_HEADER: AuthorizationJwt
+      # Required for download/callback requests to Nextcloud on the dedicated
+      # frontend network; metadata-address access stays disabled.
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      ALLOW_META_IP_ADDRESS: "false"
+      NGINX_WORKER_PROCESSES: "1"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/onlyoffice/data:/var/www/onlyoffice/Data
+      - ${DATA_DIR}/onlyoffice/lib:/var/lib/onlyoffice
+      - ${DATA_DIR}/onlyoffice/logs:/var/log/onlyoffice
+      - ${DATA_DIR}/onlyoffice/postgresql:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:8088:80/tcp"
+    networks:
+      - nextcloud-access
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "10", "http://127.0.0.1/healthcheck"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 180s
+    security_opt:
+      - no-new-privileges:true
+
   uptime-kuma:
     image: ${UPTIME_KUMA_IMAGE:?Set UPTIME_KUMA_IMAGE in .env}
     restart: unless-stopped

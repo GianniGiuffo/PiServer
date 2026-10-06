@@ -21,7 +21,10 @@ layout:
   Servizi principali:
     style: row
     columns: 4
-  Media e file:
+  File e documenti:
+    style: row
+    columns: 3
+  Media:
     style: row
     columns: 4
   Musica:
