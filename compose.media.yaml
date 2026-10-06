@@ -625,6 +625,22 @@ services:
       AURRAL_IMAGE_PROXY_MAX_BYTES: "67108864"
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/aurral:/config
+      # Aurral 2.10 validates audio before writing canonical tags. Preserve
+      # YouTube's own title/artist so the fallback can pass that validation.
+      - type: bind
+        source: ./config/aurral/yt-dlp.conf
+        target: /etc/yt-dlp.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      # Backport for 2.10.0: an embedded title is already a track title.
+      # Keep suffixes such as " - Slowed" instead of parsing them as artists.
+      - type: bind
+        source: ./patches/aurral/postDownloadValidator-2.10.0.js
+        target: /app/backend/services/trackMatching/postDownloadValidator.js
+        read_only: true
+        bind:
+          create_host_path: false
       # The permanent library is read-only. Nested writable mounts allow
       # Aurral to write only its own output and consume completed slskd jobs.
       - type: bind

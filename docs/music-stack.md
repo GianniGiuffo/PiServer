@@ -449,11 +449,28 @@ come upstream di Pi-hole. Questo evita dipendenze circolari dal DNS del host
 dopo un riavvio, mentre i nomi dei servizi (`lidarr`, `navidrome`, `slskd`)
 continuano a essere risolti dal DNS interno di Docker.
 
-Aurral `2.8.0` include già yt-dlp e ffmpeg: non installare un altro container.
+Aurral `2.10.0` include già yt-dlp e ffmpeg: non installare un altro container.
 Con le priorità indicate prova prima slskd e usa yt-dlp solo quando le sorgenti
 precedenti falliscono. L'audio ottenuto da YouTube è normalmente lossy; Aurral
 lo valida, applica i tag e invia a **Activity > Review** le corrispondenze con
 durata dubbia.
+
+Il compose monta `config/aurral/yt-dlp.conf` per incorporare nel download i
+metadati originali del video prima della validazione. Il parsing del titolo
+avviene soltanto prima del download, lasciando invariati i risultati della
+ricerca. Monta inoltre il backport
+`patches/aurral/postDownloadValidator-2.10.0.js`, che conserva il titolo già
+presente nei tag: in `2.10.0`, titoli come `Titolo - Slowed` venivano ridotti
+alla sola parola `Slowed`. Prima di aggiornare Aurral, rimuovere o adattare
+questo backport specifico per versione, come indicato nel relativo README.
+
+Per diagnosticare un brano **Missing**, leggere l'errore del job: una stringa
+`Soulseek: ...; yt-dlp: ...` conferma che entrambe le sorgenti sono state
+provate. **Missing** può indicare anche un download rifiutato dalla
+validazione, oppure un errore YouTube `403`, e non soltanto l'assenza di
+risultati. Dopo una correzione, usare **Re-search missing tracks** sulla
+singola playlist per riprovare solo i brani falliti attraverso tutte le
+sorgenti configurate; i brani completati vengono mantenuti.
 
 Da questo momento non è più necessario usare l'interfaccia Lidarr nella
 gestione quotidiana. In Aurral, cercare un artista, scegliere **Add to Library**
