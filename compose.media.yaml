@@ -641,6 +641,56 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      # Try every source for the requested version before a final normal pass.
+      - type: bind
+        source: ./patches/aurral/slskdOrchestrator-2.10.0.js
+        target: /app/backend/services/slskdOrchestrator.js
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./patches/aurral/playlistDownloadUtils-2.10.0.js
+        target: /app/backend/services/playlistDownloadUtils.js
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./patches/aurral/ytdlpOrchestrator-2.10.0.js
+        target: /app/backend/services/ytdlpOrchestrator.js
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./patches/aurral/versionFallback.js
+        target: /app/backend/services/versionFallback.js
+        read_only: true
+        bind:
+          create_host_path: false
+      # Preserve durable pipeline jobs on restart and schedule fallbacks promptly.
+      - type: bind
+        source: ./patches/aurral/honkerDb-2.10.0.js
+        target: /app/backend/services/honkerDb.js
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./patches/aurral/weeklyFlowDownloadTracker-2.10.0.js
+        target: /app/backend/services/weeklyFlow/weeklyFlowDownloadTracker.js
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./patches/aurral/pipelinePerformance.js
+        target: /app/backend/services/pipelinePerformance.js
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./patches/aurral/semanticPolicy-2.10.0.js
+        target: /app/backend/services/trackMatching/semanticPolicy.js
+        read_only: true
+        bind:
+          create_host_path: false
       # The permanent library is read-only. Nested writable mounts allow
       # Aurral to write only its own output and consume completed slskd jobs.
       - type: bind

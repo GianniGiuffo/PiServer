@@ -187,8 +187,8 @@ export async function validateDownloadedTrackFile({
   const identityCandidate = {
     ...actual,
     variants: {
-      ...extractVariants([actual.title, actual.filename].filter(Boolean).join(" ")),
       ...(candidate?.variants && typeof candidate.variants === "object" ? candidate.variants : {}),
+      ...extractVariants(actual.title),
     },
   };
   const hardIdentity = evaluateTrackIdentity({

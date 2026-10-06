@@ -58,14 +58,19 @@ class YtdlpSourceMetadataTests(unittest.TestCase):
     def test_source_tags_and_actual_aurral_validation(self):
         script = """
 const { validateDownloadedTrackFile } = await import(process.env.AURRAL_VALIDATOR_PATH || '/app/backend/services/trackMatching/index.js');
-const result = await validateDownloadedTrackFile({request: JSON.parse(process.argv[1]), filePath: process.argv[2], source: 'ytdlp', candidate: {provider: {id: 'abc123DEF45'}}});
+const { extractVariants } = await import('/app/backend/services/trackMatching/semanticPolicy.js');
+const request = JSON.parse(process.argv[1]);
+const result = await validateDownloadedTrackFile({request, filePath: process.argv[2], source: 'ytdlp', candidate: {provider: {id: 'abc123DEF45'}, variants: extractVariants(request.trackName)}});
 console.log(JSON.stringify({valid: result.valid, reason: result.reason, title: result.parsedTags?.title}));
 process.exit(0);
 """
         cases = [
+            ('ZAYLO - MONTAGEM URANIUM', 'ZAYLO', 'MONTAGEM URANIUM', True),
+            ('ZAYLO - MONTAGEM URANIUM (Official Audio)', 'ZAYLO', 'MONTAGEM URANIUM', True),
             ('ZAYLO - MONTAGEM URANIUM - Slowed', 'ZAYLO', 'MONTAGEM URANIUM - Slowed', True),
             ('ZAYLO – MONTAGEM URANIUM - Slowed', 'ZAYLO', 'MONTAGEM URANIUM - Slowed', True),
             ('BRYX - PARA VIBRAR - Super Slowed', 'BRYX', 'PARA VIBRAR - Super Slowed', True),
+            ('BRYX - PARA VIBRAR - Slowed', 'BRYX', 'PARA VIBRAR - Super Slowed', False),
             ('ZAYLO - MONTAGEM URANIUM', 'ZAYLO', 'MONTAGEM URANIUM - Slowed', False),
             ('ZAYLO - MONTAGEM URANIUM (Karaoke Version)', 'ZAYLO', 'MONTAGEM URANIUM', False),
             ('Another Artist - Another Track', 'ZAYLO', 'MONTAGEM URANIUM', False),

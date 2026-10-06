@@ -56,6 +56,12 @@ rimuove il file precedente. Attendere il completamento prima di verificare
 le playlist in Navidrome o eliminare il backup temporaneo di aggiornamento.
 Non serve un container deemix: questo stack mantiene slskd e yt-dlp.
 
+La versione attualmente prevista è **Aurral `2.10.0` con patch locali**.
+Prima di scegliere un'altra versione in `AURRAL_IMAGE`, seguire la
+[procedura di revisione delle patch](../patches/aurral/README.md#aggiornare-aurral):
+i mount del compose sostituiscono alcuni moduli dell'immagine e non si
+aggiornano automaticamente insieme a essa.
+
 Sul server:
 
 ```bash
@@ -130,7 +136,7 @@ nano .env
 Aggiungere le immagini:
 
 ```dotenv
-AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.8.0
+AURRAL_IMAGE=ghcr.io/lklynet/aurral:2.10.0
 LIDARR_IMAGE=lscr.io/linuxserver/lidarr:nightly
 SLSKD_IMAGE=slskd/slskd:0.26.0
 NAVIDROME_IMAGE=deluan/navidrome:0.63.2
@@ -463,6 +469,86 @@ ricerca. Monta inoltre il backport
 presente nei tag: in `2.10.0`, titoli come `Titolo - Slowed` venivano ridotti
 alla sola parola `Slowed`. Prima di aggiornare Aurral, rimuovere o adattare
 questo backport specifico per versione, come indicato nel relativo README.
+
+Per le playlist, la versione richiesta ha precedenza su tutte le sorgenti:
+prima slskd, poi yt-dlp. Solo dopo il fallimento di entrambe viene cercata
+la versione normale, ancora su slskd e poi yt-dlp; se anche questo passaggio
+fallisce, il brano diventa **Missing**. Una richiesta della versione normale
+ha soltanto il primo passaggio. Slowed, Super Slowed e Ultra Slowed sono
+distinte; la versione normale di ripiego mantiene i propri titolo e tag,
+senza ricevere gli identificativi della versione speciale. Questa
+sostituzione non si applica agli upgrade di qualità né alle richieste di
+libreria. Anche i moduli del fallback sono specifici per Aurral `2.10.0`.
+
+Il percorso completo per una versione speciale è quindi:
+
+```text
+Versione richiesta: slskd → yt-dlp
+                             │ entrambe fallite
+                             ▼
+Versione normale:   slskd → yt-dlp → Missing se entrambe falliscono
+```
+
+Per esempio, una richiesta `Titolo - Super Slowed` prova prima quella
+versione su entrambe le sorgenti. Se non è disponibile, cerca `Titolo`
+nella versione normale, senza accettare automaticamente Slowed o Ultra
+Slowed come equivalenti alla versione richiesta. Se si richiede direttamente
+`Titolo`, la versione normale viene accettata nel primo passaggio.
+
+### Patch locali e aggiornamenti di Aurral
+
+Il fix comprende la configurazione yt-dlp e sette moduli derivati dal
+codice Aurral `2.10.0`, oltre agli helper `versionFallback.js` e
+`pipelinePerformance.js`. I file
+sono conservati in `config/aurral` e `patches/aurral` e montati in sola
+lettura da `compose.media.yaml`; sopravvivono quindi alla ricreazione del
+container. Il [README delle patch](../patches/aurral/README.md) descrive
+ogni modulo, i test e la procedura di aggiornamento.
+
+**Il fix è specifico per Aurral `2.10.0`: va rivisto prima di aggiornare.**
+Cambiare soltanto il tag Docker lascerebbe attivi i vecchi moduli sopra il
+codice nuovo, con possibili incompatibilità di API, import o schema del
+database. Bisogna verificare cosa è stato corretto upstream, rimuovere le
+patch assorbite dalla nuova versione e adattare quelle ancora necessarie,
+compresi tutti i mount associati. In particolare, rimuovere il validatore
+locale non rimuove gli altri moduli del fallback.
+
+La configurazione `yt-dlp.conf` usa opzioni standard del downloader e può
+essere mantenuta se compatibile, ma da sola non implementa il secondo
+passaggio alla versione normale. Anche dopo un aggiornamento devono essere
+verificati l'ordine delle sorgenti, la precedenza della versione richiesta
+e i tag della versione normale di ripiego.
+
+### Download lenti e coda dei fallback
+
+Il 6 ottobre 2026 PhonkForAurral aveva 15 brani completati e 30 ancora
+attivi, ma 96 elementi nella coda interna: 66 erano duplicati o tentativi
+ormai superati. I riavvii azzeravano lo stato dei download senza rispettare
+la coda persistente. Inoltre una ricerca Soulseek poteva attendere fino a
+60 secondi, altri 20 di tolleranza e fino a 120 di assestamento, per ognuna
+delle query. L'unico worker ritardava così sia i controlli dei trasferimenti
+sia i fallback YouTube, accodati alla stessa priorità delle ricerche iniziali.
+Diversi peer avevano trasferimenti `Queued, Remotely` a zero byte da ore.
+
+Le patch della coda conservano i tentativi persistenti ai riavvii, eseguono
+una sola query Soulseek per turno con attesa attiva di 20 secondi senza
+ulteriore assestamento, e danno precedenza ai fallback già avviati rispetto
+alle nuove ricerche. Poll, download e importazione mantengono priorità
+superiore. Un peer senza nuovi byte per 180 secondi viene abbandonato per
+provare il candidato successivo; esauriti i candidati, parte il fallback.
+Un trasferimento lento che continua a produrre byte resta attivo. Questi
+limiti non modificano l'ordine delle sorgenti o la precedenza della versione
+richiesta, e non garantiscono una durata totale per playlist.
+
+Lo stato **Downloading** comprende anche ricerca e attesa del peer: non
+significa necessariamente che stiano arrivando byte. La riparazione della
+coda è documentata nel [README delle patch](../patches/aurral/README.md#coda-e-prestazioni).
+Per recuperi analoghi, `scripts/aurral-repair-pipeline.mjs` simula per default
+la riduzione dei duplicati della sola playlist indicata. L'applicazione va
+eseguita con Aurral fermo e dopo backup; non cancellare globalmente i
+trasferimenti slskd, condivisi anche con Lidarr.
+
+### Diagnosi e recupero dei brani missing
 
 Per diagnosticare un brano **Missing**, leggere l'errore del job: una stringa
 `Soulseek: ...; yt-dlp: ...` conferma che entrambe le sorgenti sono state

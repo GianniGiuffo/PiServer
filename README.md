@@ -113,6 +113,14 @@ sudo systemctl restart core-stack.service
 Ripetere con `media` o `automation` dopo avere letto le note di rilascio.
 `update-images.sh` scarica esclusivamente le versioni selezionate in `.env`.
 
+Aurral è fissato alla versione `2.10.0` e usa moduli locali montati dal
+compose per il fallback musicale, la validazione delle versioni dei brani e
+la gestione della coda dei download.
+**Prima di cambiare `AURRAL_IMAGE`, rivedere tutte le patch e i relativi
+mount**: un aggiornamento dell'immagine non aggiorna questi moduli, che
+continuerebbero a sostituire il codice della nuova versione. Seguire la
+[procedura di aggiornamento delle patch Aurral](patches/aurral/README.md#aggiornare-aurral).
+
 ## Backup
 
 Restic salva `.env`, configurazioni, database SQLite coerenti e dump PostgreSQL.
