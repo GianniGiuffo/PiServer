@@ -1,0 +1,97 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "enabledManagers": [
+    "custom.regex"
+  ],
+  "baseBranchPatterns": [
+    "master"
+  ],
+  "branchPrefix": "renovate/",
+  "automerge": false,
+  "platformAutomerge": false,
+  "autoApprove": false,
+  "dependencyDashboard": true,
+  "dependencyDashboardApproval": false,
+  "prCreation": "immediate",
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 0,
+  "branchConcurrentLimit": 0,
+  "pinDigests": true,
+  "ignoreUnstable": true,
+  "labels": [
+    "dependencies"
+  ],
+  "prBodyNotes": [
+    "Proposta soltanto: revisione, merge e deploy sono manuali.",
+    "Il riferimento monitorato Ã¨ .env.example su master, non il .env del mini-PC. Dopo il merge riportare soltanto le variabili approvate nel .env locale, verificare un backup e seguire scripts/update-images.sh."
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.env\\.example$/"
+      ],
+      "matchStrings": [
+        "(?<indentation>^|\\r?\\n)(?<depType>[A-Z][A-Z0-9_]*_IMAGE)=(?<depName>[^\\s:@]+(?:/[^\\s:@]+)*):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "{{{indentation}}}{{{depType}}}={{{depName}}}:{{{newValue}}}{{#if newDigest}}@{{{newDigest}}}{{/if}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "pinDigests": true
+    },
+    {
+      "matchDepTypes": [
+        "AURRAL_IMAGE"
+      ],
+      "prBodyNotes": [
+        "ATTENZIONE: Aurral 2.10.0 usa moduli locali montati in compose.media.yaml. Prima di aggiornare verificare ogni patch e mount, rimuovere o adattare i moduli e collaudare la nuova versione. Procedura: patches/aurral/README.md#aggiornare-aurral. Il bot non modifica le patch."
+      ]
+    },
+    {
+      "matchDepTypes": [
+        "IMMICH_POSTGRES_IMAGE",
+        "IMMICH_REDIS_IMAGE"
+      ],
+      "prBodyNotes": [
+        "Versione scelta dal Compose ufficiale Immich: verificare insieme compatibilitÃ  del server, database ed estensioni prima del merge. Non aggiornare questi componenti isolatamente senza revisione."
+      ]
+    },
+    {
+      "matchDepTypes": [
+        "LIDARR_IMAGE",
+        "STREAMINGCOMMUNITY_IMAGE"
+      ],
+      "prBodyNotes": [
+        "Tag mobile nightly/latest: il digest identifica una nuova build, non necessariamente una nuova release stabile. Conservare il canale scelto e verificare plugin e compatibilitÃ  prima del deploy."
+      ]
+    },
+    {
+      "matchDepTypes": [
+        "RADARR_IMAGE",
+        "SONARR_IMAGE",
+        "PROWLARR_IMAGE",
+        "BAZARR_IMAGE"
+      ],
+      "versioning": "regex:^version-v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.(?<build>\\d+))?$"
+    },
+    {
+      "matchDepTypes": [
+        "QBITTORRENT_IMAGE"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)_v\\d+\\.\\d+\\.\\d+-ls(?<build>\\d+)$"
+    },
+    {
+      "matchDepTypes": [
+        "SEARXNG_IMAGE"
+      ],
+      "versioning": "regex:^(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)-[a-f0-9]+$"
+    }
+  ]
+}

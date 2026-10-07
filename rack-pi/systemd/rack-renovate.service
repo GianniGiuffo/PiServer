@@ -1,0 +1,18 @@
+[Unit]
+Description=Propose mini-PC image updates and notify StatusBot (manual merge/deploy)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/etc/rack-pi/renovate.env
+
+[Service]
+Type=oneshot
+WorkingDirectory=__RACK_DIR__
+EnvironmentFile=/etc/rack-pi/renovate.env
+ExecStart=/usr/bin/python3 __RACK_DIR__/scripts/run-renovate.py
+ExecStopPost=/usr/bin/bash -c '/usr/bin/docker container inspect rack-pi-renovate >/dev/null 2>&1 && /usr/bin/docker stop --timeout=30 rack-pi-renovate || true'
+TimeoutStartSec=75min
+TimeoutStopSec=45s
+UMask=0077
+Nice=15
+IOSchedulingClass=idle

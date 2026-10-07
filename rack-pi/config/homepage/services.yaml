@@ -121,6 +121,22 @@
         server: local
         container: rack-pi-rest-server-1
 
+    - Renovate:
+        icon: mdi-source-pull
+        href: https://github.com/GianniGiuffo/PiServer/pulls
+        description: Aggiornamenti mini-PC · merge e deploy manuali
+        widget:
+          type: customapi
+          url: http://monitoring-api:8080/renovate
+          refreshInterval: 15000
+          mappings:
+            - field: status
+              label: Stato
+            - field: last_run_display
+              label: Ultimo controllo
+            - field: open_prs
+              label: PR aperte
+
 - Mini PC:
     - Homepage mini PC:
         icon: homepage.png

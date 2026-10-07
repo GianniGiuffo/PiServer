@@ -29,6 +29,7 @@ BACKUP_STATUS_FILE = Path(
     os.getenv("BACKUP_STATUS_FILE", "/status/backup.json")
 )
 UPS_STATUS_FILE = Path(os.getenv("UPS_STATUS_FILE", "/status/ups.json"))
+RENOVATE_STATUS_FILE = Path(os.getenv("RENOVATE_STATUS_FILE", "/status/renovate.json"))
 NETWORK_INTERFACE = os.getenv("NETWORK_INTERFACE", "auto").strip()
 RACK_PI_STATUS_URL = os.getenv("RACK_PI_STATUS_URL", "").strip().rstrip("/")
 DOCKER_API_URL = os.getenv("DOCKER_API_URL", "").strip().rstrip("/")
@@ -339,6 +340,22 @@ class Metrics:
         }
 
     @staticmethod
+    def renovate() -> dict[str, object]:
+        payload = {}
+        try:
+            value = json.loads(_read_text(RENOVATE_STATUS_FILE))
+            if isinstance(value, dict):
+                payload = value
+        except (OSError, json.JSONDecodeError):
+            pass
+        # Do not expose arbitrary file fields to the dashboard.
+        return {
+            "status": payload.get("status", "Da configurare"),
+            "last_run_display": payload.get("last_run_display", "Mai"),
+            "open_prs": payload.get("open_prs") if payload.get("open_prs") is not None else "—",
+        }
+
+    @staticmethod
     def ups() -> dict[str, object]:
         try:
             payload = json.loads(_read_text(UPS_STATUS_FILE))
@@ -429,6 +446,7 @@ class Handler(BaseHTTPRequestHandler):
             "/network": METRICS.network,
             "/backup": METRICS.backup,
             "/ups": METRICS.ups,
+            "/renovate": METRICS.renovate,
             "/raspberry": METRICS.raspberry,
             "/health": lambda: {"status": "ok"},
         }

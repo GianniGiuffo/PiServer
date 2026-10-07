@@ -124,6 +124,11 @@ mount**: un aggiornamento dell'immagine non aggiorna questi moduli, che
 continuerebbero a sostituire il codice della nuova versione. Seguire la
 [procedura di aggiornamento delle patch Aurral](patches/aurral/README.md#aggiornare-aurral).
 
+Renovate può proporre nuove immagini del mini-PC con PR su branch separati
+e notifiche attraverso StatusBot, eseguendo i controlli dal Raspberry. Merge
+e deploy restano manuali, incluse le versioni fissate e Aurral con patch locali.
+Installazione e limiti in [docs/renovate.md](docs/renovate.md).
+
 ## Backup
 
 Restic salva `.env`, configurazioni, database SQLite coerenti e dump PostgreSQL.
@@ -146,6 +151,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Migrazione dal Raspberry Pi](docs/minipc-migration.md)
 - [Backup e ripristino](docs/backup-and-restore.md)
 - [Raspberry rack-pi, DNS secondario e backup remoto](docs/rack-pi.md)
+- [Renovate, PR degli aggiornamenti e notifiche Telegram](docs/renovate.md)
 - [Accesso remoto e sicurezza](docs/security.md)
 - [Configurazione iniziale dei servizi](docs/service-setup.md)
 - [PDF, OCR e ONLYOFFICE integrato in Nextcloud](docs/documents.md)

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily dependency proposals and Telegram notifications
+
+[Timer]
+OnCalendar=*-*-* 10:00:00 Europe/Rome
+RandomizedDelaySec=15m
+Persistent=true
+Unit=rack-renovate.service
+
+[Install]
+WantedBy=timers.target
