@@ -481,6 +481,15 @@ certificato. Dopo la modifica ricreare soltanto il servizio con `docker compose
 up -d --force-recreate uptime-kuma`. Mantenere retention Uptime Kuma contenuta
 per limitare le scritture sulla microSD.
 
+## 10. Proposte di aggiornamento del mini-PC
+
+Renovate gira separatamente sul Raspberry e propone aggiornamenti delle
+immagini del mini-PC su branch `renovate/*`, con notifiche dello stesso
+StatusBot. Non esegue merge, approvazioni o deploy. Le versioni fissate
+continuano a ricevere proposte, con avvisi per Aurral e i componenti Immich.
+La funzione è opzionale e il suo installer lascia il timer disabilitato
+fino alla prima verifica. Seguire [la procedura Renovate](renovate.md).
+
 ## Riferimenti dei componenti
 
 - [FRITZ!: configurazione di DNS preferito/alternativo e DNS locale](https://fritz.com/en/apps/knowledge-base/FRITZ-Box-7530/165_configuring-different-dns-servers-in-the-fritz-box)
