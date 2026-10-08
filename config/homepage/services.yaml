@@ -219,6 +219,36 @@
         container: raspberry-server-slskd-1
 
 - Automazione e controllo:
+    - Cockpit Files:
+        id: cockpit-files
+        icon: mdi-folder-cog
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8465/files/
+        siteMonitor: http://monitoring-api:8080/cockpit/health
+        description: File del server con accesso amministrativo
+        widgets:
+          # Homepage's block layout displays at most four fields per widget.
+          - type: customapi
+            url: http://monitoring-api:8080/cockpit
+            refreshInterval: 5000
+            mappings:
+              - field: status
+                label: Stato
+          - type: customapi
+            url: http://monitoring-api:8080/cockpit
+            refreshInterval: 5000
+            mappings:
+              - field: cpu_percent
+                label: CPU
+                format: percent
+              - field: memory_bytes
+                label: RAM
+                format: bytes
+              - field: free_bytes
+                label: SSD liberi
+                format: bytes
+              - field: used_percent
+                label: SSD utilizzato
+                format: percent
     - Gaming PC:
         icon: mdi-controller-classic
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8455/

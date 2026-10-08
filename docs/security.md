@@ -34,6 +34,7 @@
 | Rest Server append-only | IPv4 Tailscale `rack-pi:8000` | no |
 | SSH backup mini PC | IPv4 Tailscale `mini-pc:2222`, solo `pibackup` | no |
 | Controller PC gaming | Tailscale Serve `8455`, backend solo loopback | no |
+| Cockpit Files | Tailscale Serve `8465`, backend `127.0.0.1:9090` | no |
 | Controllo Pi-hole doppio | Tailscale Serve `8456`, backend solo loopback | no |
 | Sunshine sul PC gaming | IPv4 Tailscale del PC, porte GameStream | no |
 | Soulseek peer port `50300` | non pubblicata | no |
@@ -46,6 +47,15 @@ Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
 4533, 5030, 5031, 50300, 5055, 5678, 6379, 6767, 6881, 7878, 8000, 8084,
 8086, 8096, 8455, 8686, 8989, 9696,
 11434, 2222 o per le porte Sunshine 47984-48010.
+
+## Cockpit Files
+
+Cockpit Files gira direttamente sul mini PC e usa login Linux con elevazione
+sudo; il login diretto root è disabilitato. Il socket è limitato al loopback
+prima dell'installazione dei pacchetti; l'unico accesso web di rete è Serve 8465
+secondo le regole della Tailnet. Non usare Funnel o route Cloudflare per Cockpit.
+Homepage riceve esclusivamente uno snapshot di salute e statistiche, senza
+credenziali o accesso amministrativo. Procedura in [cockpit-files.md](cockpit-files.md).
 
 ## File e documenti
 

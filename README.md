@@ -52,6 +52,7 @@ soltanto dopo la scelta dell'hardware.
 | Nextcloud read-only connector | solo rete Docker per n8n | nessun dato proprio |
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
 | Controller PC gaming | Tailnet, porta 8455 | stato minimo su SSD, nessuna credenziale Windows |
+| Cockpit Files | solo Tailnet, porta 8465, login Linux + privilegi amministrativi | filesystem dell'host; configurazione Cockpit + Restic |
 | Controllo Pi-hole doppio | Tailnet, porta 8456 | nessuna credenziale nel browser |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
@@ -154,6 +155,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Renovate, PR degli aggiornamenti e notifiche Telegram](docs/renovate.md)
 - [Accesso remoto e sicurezza](docs/security.md)
 - [Configurazione iniziale dei servizi](docs/service-setup.md)
+- [Cockpit Files e gestione amministrativa del mini PC](docs/cockpit-files.md)
 - [PDF, OCR e ONLYOFFICE integrato in Nextcloud](docs/documents.md)
 - [Stack musicale](docs/music-stack.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
