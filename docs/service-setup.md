@@ -439,3 +439,8 @@ nativi collegati al connettore **Tool** dell'AI Agent, usando credenziali create
 nell'interfaccia n8n. La procedura, i permessi GitHub di sola lettura e le
 cautele privacy per DeepL sono in
 [n8n-github-deepl.md](n8n-github-deepl.md).
+
+## Cockpit Files sul mini PC
+
+Installazione separata sull'host Debian, login Linux con elevazione root,
+Homepage e accesso esclusivo via Tailscale Serve: [procedura completa](cockpit-files.md).

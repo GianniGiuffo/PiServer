@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import threading
@@ -30,6 +31,7 @@ BACKUP_STATUS_FILE = Path(
 )
 UPS_STATUS_FILE = Path(os.getenv("UPS_STATUS_FILE", "/status/ups.json"))
 RENOVATE_STATUS_FILE = Path(os.getenv("RENOVATE_STATUS_FILE", "/status/renovate.json"))
+COCKPIT_STATUS_FILE = Path(os.getenv("COCKPIT_STATUS_FILE", "/status/cockpit.json"))
 NETWORK_INTERFACE = os.getenv("NETWORK_INTERFACE", "auto").strip()
 RACK_PI_STATUS_URL = os.getenv("RACK_PI_STATUS_URL", "").strip().rstrip("/")
 DOCKER_API_URL = os.getenv("DOCKER_API_URL", "").strip().rstrip("/")
@@ -296,6 +298,48 @@ class Metrics:
             }
 
     @staticmethod
+    def cockpit() -> dict[str, object]:
+        result: dict[str, object] = {
+            "color": "yellow", "status": "Da configurare",
+            "cpu_percent": None, "memory_bytes": None,
+            "free_bytes": None, "used_percent": None,
+        }
+        try:
+            payload = json.loads(_read_text(COCKPIT_STATUS_FILE))
+        except FileNotFoundError:
+            return result
+        except (OSError, ValueError):
+            result["status"] = "Controlli incompleti"
+            return result
+        if not isinstance(payload, dict):
+            result["status"] = "Controlli incompleti"
+            return result
+        updated = payload.get("updated_at")
+        if (
+            isinstance(updated, bool) or not isinstance(updated, (float, int))
+            or not math.isfinite(updated) or not -5 <= time.time() - updated <= 45
+        ):
+            result["status"] = "Dati scaduti"
+            return result
+        color = payload.get("color")
+        statuses = {"green": "Disponibile", "yellow": "Controlli incompleti", "red": "Non disponibile"}
+        if not isinstance(color, str) or color not in statuses:
+            result["status"] = "Controlli incompleti"
+            return result
+        result.update(color=color, status=statuses[color])
+        for field in ("cpu_percent", "memory_bytes", "free_bytes", "used_percent"):
+            value = payload.get(field)
+            if (
+                not isinstance(value, bool) and isinstance(value, (int, float))
+                and math.isfinite(value) and value >= 0
+                and (field not in {"cpu_percent", "used_percent"} or value <= 100)
+            ):
+                result[field] = value
+            elif color == "green":
+                result.update(color="yellow", status="Controlli incompleti")
+        return result
+
+    @staticmethod
     def nas() -> dict[str, object]:
         if not _media_is_mounted():
             return {
@@ -440,7 +484,12 @@ METRICS = Metrics()
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         endpoint = urlparse(self.path).path
+        if endpoint == "/cockpit/health":
+            payload = METRICS.cockpit()
+            self._send_json(200 if payload["color"] == "green" else 503, payload)
+            return
         routes = {
+            "/cockpit": METRICS.cockpit,
             "/server": METRICS.server,
             "/nas": METRICS.nas,
             "/network": METRICS.network,
@@ -456,6 +505,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json(200, callback())
 
+    def do_HEAD(self) -> None:  # noqa: N802
+        self.do_GET()
+
     def _send_json(self, status: int, payload: dict[str, object]) -> None:
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
             "utf-8"
@@ -465,7 +517,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def log_message(self, format: str, *args: object) -> None:
         return

@@ -1,0 +1,15 @@
+[Unit]
+Description=Collect Cockpit Files health and process metrics for Homepage
+After=cockpit.socket tailscaled.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/refresh-cockpit-status.sh
+TimeoutStartSec=20s
+Nice=19
+UMask=0022
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__STATUS_DIR__

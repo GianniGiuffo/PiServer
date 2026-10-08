@@ -370,6 +370,13 @@ BACKUP_PATHS=(
   "/etc/raspberry-server"
 )
 
+# Cockpit is installed on the host; keep its local auth/proxy/socket settings.
+for cockpit_config in \
+  /etc/cockpit /etc/systemd/system/cockpit.socket.d \
+  /etc/apt/sources.list.d/piserver-cockpit-backports.list; do
+  [[ -e ${cockpit_config} ]] && BACKUP_PATHS+=("${cockpit_config}")
+done
+
 if [[ -e ${DATA_DIR}/jellyfin/config ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/jellyfin/config")
 fi

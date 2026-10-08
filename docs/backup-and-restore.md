@@ -419,3 +419,10 @@ Verificare login e sincronizzazione Vaultwarden, query DNS, dashboard,
 monitoraggi, file Nextcloud, una transcodifica Jellyfin, un upload Immich e un
 workflow n8n. Verificare inoltre login Aurral/Navidrome, stato Soulseek e una
 scansione musicale prima di cancellare `/srv/restore` o il vecchio disco.
+
+## Configurazione Cockpit Files
+
+Se presente, il backup di stato include `/etc/cockpit`, l'override del socket
+`/etc/systemd/system/cockpit.socket.d` e la sorgente backports dedicata.
+I pacchetti, le unità e la route privata sono riproducibili: dopo un restore
+seguire [cockpit-files.md](cockpit-files.md).

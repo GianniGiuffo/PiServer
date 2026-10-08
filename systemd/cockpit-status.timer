@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically refresh Cockpit Files status
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=15s
+AccuracySec=1s
+Unit=cockpit-status.service
+
+[Install]
+WantedBy=timers.target

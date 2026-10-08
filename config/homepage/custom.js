@@ -74,3 +74,30 @@
   observer.observe(document.documentElement, {childList: true, subtree: true});
   installButton();
 })();
+
+// Homepage's native HTTP monitor has two colors. Extend only Cockpit's dot
+// with the collector's three-state result shown in its first widget block.
+// No additional browser endpoint or privileged session is needed.
+(() => {
+  function syncCockpitStatus() {
+    const card = document.querySelector("#cockpit-files");
+    if (!card) return;
+    const text = card.querySelector(".service-block")?.textContent || "";
+    let state = "yellow";
+    if (text.includes("Non disponibile")) state = "red";
+    else if (text.includes("Disponibile")) state = "green";
+    const indicator = card.querySelector(".site-monitor-status");
+    // A transport error may coexist briefly with cached widget values. Do not
+    // advertise green while the monitoring API itself is unreachable.
+    const nativeDot = indicator?.querySelector("div");
+    if (state === "green" && nativeDot?.className.includes("rose") && !indicator.title.includes("503")) {
+      state = "yellow";
+    }
+    card.dataset.cockpitState = state;
+    if (indicator) indicator.setAttribute("aria-label", text.trim() || "Controlli incompleti");
+  }
+  new MutationObserver(syncCockpitStatus).observe(document.documentElement, {
+    childList: true, subtree: true, attributes: true, attributeFilter: ["class", "title"],
+  });
+  syncCockpitStatus();
+})();

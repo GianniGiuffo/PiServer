@@ -122,6 +122,7 @@ services:
       MEDIA_MOUNTPOINT: ${MEDIA_DIR:?Set MEDIA_DIR in .env}
       MEDIA_STATUS_FILE: /status/media.json
       BACKUP_STATUS_FILE: /status/backup.json
+      COCKPIT_STATUS_FILE: /status/cockpit.json
       RACK_PI_STATUS_URL: https://${RACK_PI_TAILSCALE_FQDN:?Set RACK_PI_TAILSCALE_FQDN in .env}:8456
     volumes:
       - ./scripts/monitoring-api.py:/app/monitoring-api.py:ro

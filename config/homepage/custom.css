@@ -39,3 +39,14 @@
   cursor: wait;
   opacity: .65;
 }
+
+/* Three-state host monitor; keep the same Homepage dot and its native layout. */
+#cockpit-files[data-cockpit-state="green"] .site-monitor-status > div {
+  background-color: rgb(16 185 129) !important;
+}
+#cockpit-files[data-cockpit-state="yellow"] .site-monitor-status > div {
+  background-color: rgb(234 179 8) !important;
+}
+#cockpit-files[data-cockpit-state="red"] .site-monitor-status > div {
+  background-color: rgb(244 63 94) !important;
+}
