@@ -4,6 +4,20 @@
 	auto_https off
 }
 
+# ONLYOFFICE virtual path on the existing public share hostname. Called only
+# by the explicit browser-route allowlist below; server APIs stay internal.
+(onlyoffice_public_proxy) {
+	uri strip_prefix /office
+	reverse_proxy onlyoffice:80 {
+		header_up X-Forwarded-Host {$NEXTCLOUD_PUBLIC_DOMAIN}/office
+		header_up X-Forwarded-Proto https
+		header_up -X-Forwarded-Prefix
+		header_up -CloudFront-Forwarded-Proto
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	}
+}
+
 http://{$SITE_1_DOMAIN} {
 	encode zstd gzip
 	root * /srv/sites/site-1/current
@@ -78,6 +92,29 @@ http://:8084 {
 # static assets required to render previews. Login, user APIs, private WebDAV,
 # status.php and the normal UI fall through to the final 404.
 http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
+	# Shared-file pages only: numeric private editor routes are not published.
+	@share_office_page {
+		method GET HEAD
+		path /apps/onlyoffice/s/* /index.php/apps/onlyoffice/s/* /apps/onlyoffice/templates/loader.html /custom_apps/onlyoffice/templates/loader.html
+	}
+	@share_office_config {
+		method GET HEAD
+		path_regexp publicOfficeConfig ^/ocs/v[12]\.php/apps/onlyoffice/api/v1/config/[0-9]+$
+		query shareToken=*
+	}
+	@office_assets {
+		method GET HEAD
+		path_regexp officeAssets ^/office/(?:[0-9]+\.[0-9]+\.[0-9]+[.-][A-Za-z0-9_]+/)?(?:(?:web-apps|sdkjs|sdkjs-plugins|fonts|dictionaries)/.+|document_editor_service_worker\.js|plugins\.json|themes\.json|meta/formats)$
+	}
+	@office_sessions {
+		method GET POST OPTIONS
+		path_regexp officeSessions ^/office/(?:[0-9]+\.[0-9]+\.[0-9]+[.-][A-Za-z0-9_]+/)?(?:doc/[A-Za-z0-9_.=-]+/c(?:/.*)?|downloadas/[A-Za-z0-9_.=-]+)$
+	}
+	@office_signed_files {
+		method GET HEAD
+		path /office/cache/files/*
+	}
+
 	@share_pages {
 		method GET HEAD POST OPTIONS
 		path /s/* /index.php/s/*
@@ -92,13 +129,40 @@ http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
 	}
 	@share_assets {
 		method GET HEAD
-		path_regexp publicAssets ^/(?:core|dist|js|svg|apps/(?:files_sharing|viewer|files_pdfviewer|text|theming))/.*\.(?:css|js|mjs|map|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf)$
+		path_regexp publicAssets ^/(?:core|dist|js|svg|custom_apps/onlyoffice|apps/(?:files_sharing|viewer|files_pdfviewer|text|theming|onlyoffice))/.*\.(?:css|js|mjs|map|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf)$
 	}
 	@share_theme {
 		method GET HEAD
 		path /apps/theming/css/* /apps/theming/favicon/* /apps/theming/icon/* /apps/theming/manifest/* /apps/theming/theme/*
 	}
 
+	handle @share_office_page {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle @share_office_config {
+		encode zstd gzip
+		reverse_proxy nextcloud:80 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Port 443
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle @office_assets {
+		import onlyoffice_public_proxy
+	}
+	handle @office_sessions {
+		import onlyoffice_public_proxy
+	}
+	handle @office_signed_files {
+		import onlyoffice_public_proxy
+	}
 	handle @share_pages {
 		encode zstd gzip
 		reverse_proxy nextcloud:80 {

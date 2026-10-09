@@ -33,7 +33,7 @@ soltanto dopo la scelta dell'hardware.
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
 | Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
 | Stirling PDF | solo Tailnet, porta 8463, login amministratore | config su SSD + Restic, OCR italiano/inglese |
-| ONLYOFFICE Docs | solo Tailnet, porta 8464, integrato in Nextcloud | config su SSD + Restic, connettore nel DB Nextcloud |
+| ONLYOFFICE Docs | Tailnet 8464 + editor dei link pubblici su `cloud…/office/` | config su SSD + Restic, connettore nel DB Nextcloud |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Seerr | Tailnet, porta 8457 | config su SSD, discovery collegata a Jellyfin |
 | Radarr | Tailnet, porta 8458 | config su SSD, film in `/srv/media/downloads/Films` |
@@ -56,7 +56,7 @@ soltanto dopo la scelta dell'hardware.
 | Controllo Pi-hole doppio | Tailnet, porta 8456 | nessuna credenziale nel browser |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
-Vaultwarden, soltanto le route dei link pubblici Nextcloud e `/share/*` di
+Vaultwarden, le route dei link pubblici Nextcloud e del relativo editor Office, e `/share/*` di
 Navidrome; editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
 router deve essere inoltrata.
 

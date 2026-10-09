@@ -93,8 +93,9 @@ In **Administration settings > Sharing**:
 - lasciare disattivato **Enforce password protection**, così la password resta
   una scelta per ogni link;
 - lasciare disattivata la scadenza predefinita/obbligatoria;
-- disabilitare gli upload pubblici se servono soltanto visualizzazione e
-  download;
+- mantenere disabilitati gli upload pubblici; i link ai singoli file possono
+  comunque ricevere il permesso di modifica. Questa configurazione non abilita
+  caricamenti o modifica nelle condivisioni di cartelle;
 - mantenere attiva la protezione brute-force e abilitare la 2FA sugli account.
 
 Per condividere un file o una cartella scegliere **Share > Create a new share
@@ -103,9 +104,75 @@ Il token rimane valido finché il link non viene eliminato con **Unshare**.
 
 Il dominio pubblico non inoltra l'applicazione Nextcloud completa. Caddy ammette
 soltanto `/s/*`, il DAV pubblico tokenizzato, gli endpoint pubblici di anteprima
-e visualizzazione e gli asset statici indispensabili. `/`, `/login`,
+e visualizzazione, il connettore ONLYOFFICE per link tokenizzati e le route
+limitate dell'editor sotto `/office/`. `/`, `/login`,
 `/status.php`, `/remote.php/*` e le API utente non raggiungono Nextcloud e
 restituiscono `404`.
+
+### Modifica pubblica di documenti Office sullo stesso dominio
+
+L'editor usa `https://cloud.tommasofrancescon.it/office/`, sullo stesso tunnel e
+hostname dei link `/s/<token>`: nessun sottodominio, DNS, porta host o port
+forwarding aggiuntivo. Gli ospiti senza Tailscale possono modificare DOCX, XLSX
+e PPTX scegliendo **Consenti modifica** sul link al singolo file. Un link di
+sola lettura resta tale; revoca, scadenza e password sono gestite da Nextcloud.
+La radice `/office/` restituisce intenzionalmente 404: aprire il link al file,
+non il servizio come applicazione autonoma.
+
+Caddy inoltra soltanto le risorse statiche dell'editor, i manifest temi/plugin,
+le connessioni `doc/<key>/c`, i download dell'editor e la cache con URL firmati.
+Per Nextcloud ammette gli asset dell'app custom ONLYOFFICE, la pagina
+`/apps/onlyoffice/s/<token>` e l'API di configurazione con `shareToken`.
+Nextcloud valida il token, l'appartenenza del file e l'autenticazione della
+password prima di emettere la configurazione firmata JWT. Le route private
+numeriche `/apps/onlyoffice/<id>` non vengono pubblicate.
+
+`DocumentServerInternalUrl=http://onlyoffice/` e `StorageUrl=http://nextcloud/`
+mantengono download e callback di salvataggio nella rete Docker. Il JWT
+esistente resta attivo e non viene passato nei comandi o nei log. Caddy rimuove
+il prefisso `/office` e imposta `X-Forwarded-Host` con il prefisso, secondo la
+[configurazione ufficiale per virtual path](https://github.com/ONLYOFFICE/document-server-proxy/blob/master/nginx/proxy-to-virtual-path.conf).
+Il salvataggio aggiorna direttamente il file Nextcloud.
+
+Deploy su un server già configurato, dopo avere salvato Caddyfile,
+configurazione Nextcloud e dump del database in una directory privata:
+
+```bash
+cd /opt/raspberry-server
+git pull --ff-only
+docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+python3 scripts/configure-onlyoffice.py
+python3 scripts/verify-public-office.py
+```
+
+Non occorre riavviare Nextcloud o ONLYOFFICE, aggiornare immagini o creare
+nuove route nel dashboard Cloudflare. `configure-public-sharing.sh` mantiene
+`shareapi_allow_public_upload=no`: non abilita la modifica delle cartelle.
+Nessun permesso dei link esistenti viene modificato dal deploy.
+
+La verifica automatica controlla asset pubblici, rifiuto delle route private,
+metodi di scrittura esclusi, cache senza firma e richieste senza link valido.
+Cloudflare può applicare una challenge ai client non browser; in quel caso
+ripetere le verifiche da un browser anonimo senza Tailscale.
+Per il collaudo completo aprire file sintetici DOCX/XLSX/PPTX, modificarli,
+chiudere l'editor e controllare il contenuto del file salvato. Verificare anche
+link di sola lettura, password errata, accesso a un file esterno alla
+condivisione e revoca del link. Non usare documenti personali per il collaudo.
+
+Collaudo eseguito il 9 ottobre 2026 dal dominio pubblico in sessioni browser
+anonime: DOCX, XLSX, PPTX e Markdown modificati e contenuto salvato verificato
+sul server. Verificati inoltre sola lettura, password errata/corretta, file
+esterno a una cartella condivisa, token invalido e revoca del link. I file e
+i link sintetici vengono eliminati al termine del collaudo. I 14 test di
+condivisioni, configurazione Office e recupero del connettore passano su Linux.
+La suite generale presenta errori preesistenti nei test media (porta Seerr e
+sezioni Homepage non aggiornate) e richiede Node.js per il test Renovate.
+
+Rollback: ricaricare il Caddyfile precedente e ripristinare soltanto
+`DocumentServerUrl` al precedente URL Tailnet; nessun file deve essere
+ripristinato o cancellato. Il dump di backup è una protezione aggiuntiva,
+non va ripristinato globalmente per annullare questa configurazione.
 
 ## 3. Navidrome
 

@@ -13,14 +13,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> None:
     values = {}
-    for line in (ROOT / ".env").read_text().splitlines():
+    for line in (ROOT / ".env").read_text(encoding="utf8").splitlines():
         key, separator, value = line.partition("=")
         if separator and not key.startswith("#"):
             values[key.strip()] = value.strip().strip("\"'")
-    hostname = values.get("TAILSCALE_FQDN", "")
+    hostname = values.get("NEXTCLOUD_PUBLIC_DOMAIN", "")
     secret = values.get("ONLYOFFICE_JWT_SECRET", "")
-    if not re.fullmatch(r"[a-zA-Z0-9.-]+\.ts\.net", hostname):
-        raise SystemExit("Set a valid TAILSCALE_FQDN in .env first.")
+    if (not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?", hostname)
+            or "." not in hostname or ".." in hostname):
+        raise SystemExit("Set a valid NEXTCLOUD_PUBLIC_DOMAIN hostname in .env first.")
     if not re.fullmatch(r"[a-fA-F0-9]{64,}", secret):
         raise SystemExit("Set ONLYOFFICE_JWT_SECRET with openssl rand -hex 32.")
 
@@ -34,7 +35,7 @@ def main() -> None:
         subprocess.run(execute + ["occ", command, "onlyoffice"], check=True)
 
     settings = {
-        "DocumentServerUrl": f"https://{hostname}:8464/",
+        "DocumentServerUrl": f"https://{hostname}/office/",
         "DocumentServerInternalUrl": "http://onlyoffice/",
         "StorageUrl": "http://nextcloud/",
         "jwt_secret": secret,

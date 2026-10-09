@@ -19,7 +19,7 @@
 | qBittorrent Web UI | Tailscale Serve `8461`, backend solo loopback | no |
 | Bazarr | Tailscale Serve `8462`, backend solo loopback | no |
 | Stirling PDF | Tailscale Serve `8463`, backend `127.0.0.1:8087` | no |
-| ONLYOFFICE Docs | Tailscale Serve `8464`, backend `127.0.0.1:8088` | no |
+| ONLYOFFICE Docs | Tailscale Serve `8464`, backend `127.0.0.1:8088`; tunnel su `/office/` | solo editor dei file condivisi |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
@@ -62,13 +62,25 @@ credenziali o accesso amministrativo. Procedura in [cockpit-files.md](cockpit-fi
 Stirling PDF richiede login anche all'interno della Tailnet, con account admin
 e registrazione libera disabilitata. La password casuale è nella `.env` con
 permessi 0600; il database utenti è incluso in Restic. ONLYOFFICE usa gli account Nextcloud e un segreto JWT
-condiviso con il connettore. Entrambi sono esposti solo da Tailscale Serve:
-nessuna route Cloudflare, Funnel o apertura sul router. La comunicazione Office
+condiviso con il connettore. Stirling PDF è esposto solo da Tailscale Serve;
+ONLYOFFICE offre anche l'editor pubblico filtrato descritto sotto. Nessun Funnel
+o apertura sul router. La comunicazione Office
 con Nextcloud usa la rete Docker `nextcloud-access`; l'accesso a indirizzi
 privati è consentito nel solo connettore ONLYOFFICE e nel Document Server,
 senza abilitare globalmente `allow_local_remote_servers` in Nextcloud.
-Le condivisioni pubbliche Nextcloud esistenti restano utilizzabili per i file,
-ma l'editor ONLYOFFICE richiede comunque Tailscale.
+Le condivisioni Nextcloud possono aprire ONLYOFFICE senza Tailscale attraverso
+`https://NEXTCLOUD_PUBLIC_DOMAIN/office/`. Caddy pubblica solo asset dell'editor,
+sessioni di coediting e cache con URL firmati, oltre alla pagina tokenizzata
+`/apps/onlyoffice/s/<token>` e all'API di configurazione con `shareToken`.
+Nextcloud verifica appartenenza del file, permessi, password e validità del link;
+ONLYOFFICE verifica il JWT. Callback e download server-to-server restano sulla
+rete Docker con `StorageUrl=http://nextcloud/`. Login, API utente, editor privato
+per ID numerico, welcome/demo, healthcheck, info, internal, conversioni e comandi
+server restano esclusi dal proxy pubblico. Nessuna porta o regola NAT nuova.
+`shareapi_allow_public_upload` resta disattivato: i link ai singoli file possono
+avere READ+UPDATE, mentre gli upload pubblici via DAV restano bloccati.
+Il possesso di un link modificabile consente di modificare quel file; impostare
+una password sul link quando l'accesso deve essere limitato ai destinatari.
 
 ## Vaultwarden
 

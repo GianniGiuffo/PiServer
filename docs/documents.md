@@ -10,9 +10,12 @@ strumenti. La Homepage di `rack-pi` non viene modificata.
 | Stirling PDF | `https://TAILSCALE_FQDN:8463/` | `127.0.0.1:8087` |
 | ONLYOFFICE Docs | `https://TAILSCALE_FQDN:8464/` | `127.0.0.1:8088` |
 
-I due nuovi servizi sono accessibili solo tramite Tailscale Serve: nessuna
-porta aperta sul router, nessuna route Cloudflare e nessun Funnel.
-Stirling richiede il login; l'editor Office usa gli account Nextcloud.
+Stirling è accessibile solo tramite Tailscale Serve e richiede il login.
+ONLYOFFICE mantiene il backend su loopback e usa anche il tunnel Cloudflare
+esistente, limitato alle route dell'editor su `NEXTCLOUD_PUBLIC_DOMAIN/office/`.
+Nessuna porta aperta sul router e nessun Funnel. Gli utenti autenticati usano
+Nextcloud nella Tailnet; gli ospiti usano il token, i permessi e l'eventuale
+password della singola condivisione pubblica.
 La card ONLYOFFICE apre la pagina File Nextcloud: aprire o creare un `.docx`,
 `.xlsx` o `.pptx` per avviare l'editor. L'URL 8464 serve l'editor e la pagina
 di stato, non un gestore autonomo dei documenti.
@@ -50,8 +53,9 @@ tailscale serve --bg --https=8464 --set-path=/ http://127.0.0.1:8088
 Questi comandi richiedono root oppure un operatore Tailscale già abilitato
 con `sudo tailscale set --operator=tommaso`.
 
-Lo script Python installa/abilita il connettore Nextcloud, registra gli URL
-esterno HTTPS e interni `http://onlyoffice/` e `http://nextcloud/`, aggiunge
+Lo script Python installa/abilita il connettore Nextcloud, registra l'URL esterno
+`https://NEXTCLOUD_PUBLIC_DOMAIN/office/` e quelli interni `http://onlyoffice/`
+e `http://nextcloud/`, aggiunge
 `nextcloud` ai trusted domain e trasmette il JWT a PHP tramite stdin.
 Consente le richieste private nel solo connettore e mantiene la verifica TLS.
 Il Document Server usa `JWT_ENABLED=true` e header `AuthorizationJwt`;
