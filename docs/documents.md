@@ -222,3 +222,68 @@ Terminata la preparazione iniziale, ONLYOFFICE è stato misurato a circa
 0,3% CPU e 1,02 GiB RAM, entro il limite di 4 GiB.
 Non è stato eseguito un nuovo trasferimento Restic completo durante questa
 diagnosi: il prossimo backup pianificato include i nuovi percorsi e il dump.
+
+## Recupero delle voci Office nel menu Nuovo
+
+Il 9 ottobre 2026 le voci Documento, Foglio di calcolo e Presentazione erano
+scomparse, pur con Nextcloud 33.0.9, connettore 10.2.1 e ONLYOFFICE 9.3.1 sani.
+Nei log il controllo `http://onlyoffice/healthcheck` era fallito il 7 ottobre
+alle 23:20 Europe/Rome. Il connettore nasconde i template e gli script Office
+quando conserva `settings_error`; il suo job `EditorsCheck` interrompe le
+verifiche successive se quel valore è presente. Un guasto transitorio può
+quindi lasciare disabilitata l'integrazione dopo il ritorno del servizio.
+
+Il controllo ufficiale ripristina lo stato solo se la connessione e la
+conversione di prova riescono:
+
+```bash
+docker compose -f compose.yaml -f compose.media.yaml exec -T \
+  --user www-data nextcloud php occ onlyoffice:documentserver --check
+```
+
+Dopo il controllo, ricaricare Nextcloud con Ctrl+F5. Il 9 ottobre l'utente ha
+confermato il ritorno delle tre voci. La creazione attraverso il gestore template
+Nextcloud è stata verificata con DOCX, XLSX e PPTX sintetici: archivi Office
+validi e configurazione di editing ONLYOFFICE ottenuta per ciascun file. La
+sola cartella temporanea del test è stata rimossa. Nessun documento esistente,
+volume o versione del servizio è stato modificato. Questa verifica non include
+una nuova prova di modifica e salvataggio nell'interfaccia browser.
+
+`scripts/recover-onlyoffice.sh` ripete il controllo solo quando i due container
+sono già avviati, ONLYOFFICE è healthy e il connettore conserva un errore.
+Non avvia o riavvia container, non cancella manualmente errori e non cambia JWT,
+permessi o file. Un controllo fallito rimane visibile nello stato systemd.
+`onlyoffice-recovery.timer` lo esegue ogni cinque minuti; l'installer systemd
+include entrambe le nuove unità. Su un'installazione esistente, per attivare
+soltanto queste unità dal checkout del server:
+
+```bash
+for unit in onlyoffice-recovery.service onlyoffice-recovery.timer; do
+  sed "s|__REPO_DIR__|$(pwd)|g" "systemd/$unit" | \
+    sudo tee "/etc/systemd/system/$unit" >/dev/null
+done
+sudo systemd-analyze verify /etc/systemd/system/onlyoffice-recovery.service \
+  /etc/systemd/system/onlyoffice-recovery.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now onlyoffice-recovery.timer
+sudo systemctl start onlyoffice-recovery.service
+systemctl list-timers onlyoffice-recovery.timer --no-pager
+```
+
+Per disattivare il recupero automatico:
+
+```bash
+sudo systemctl disable --now onlyoffice-recovery.timer
+```
+
+Test del recupero, da Linux con Bash e Python 3:
+
+```bash
+python3 -m unittest discover -s tests -p test_onlyoffice_recovery.py -v
+```
+
+I test coprono servizi spenti, stato unhealthy, assenza di errore memorizzato,
+recupero riuscito e fallimenti di Docker, lettura configurazione o connessione.
+Il backup di stato del 9 ottobre alle 04:38 era riuscito, ma esclude i file
+Nextcloud sotto `/srv/media`: prima di un futuro aggiornamento del server
+proteggere separatamente anche i documenti, oltre a database, app e configurazione.

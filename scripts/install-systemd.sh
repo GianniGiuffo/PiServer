@@ -28,6 +28,7 @@ for unit in \
   backup-status.service backup-status.timer \
   media-status.service media-status.timer \
   media-recovery.service media-recovery.timer \
+  onlyoffice-recovery.service onlyoffice-recovery.timer \
   lidarr-weekly-search.service lidarr-weekly-search.timer; do
   sed \
     -e "s|__RPI_USER__|${TARGET_USER}|g" \
@@ -47,7 +48,7 @@ fi
 
 systemctl enable \
   core-stack.service site-deploy.timer backup-status.timer \
-  media-status.timer media-recovery.timer
+  media-status.timer media-recovery.timer onlyoffice-recovery.timer
 if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} == true ]]; then
   systemctl disable --now backup.timer backup-recovery.timer
 else
@@ -56,7 +57,7 @@ fi
 if [[ -r ${REPO_DIR}/.env ]]; then
   bash "${REPO_DIR}/scripts/refresh-backup-status.sh" auto
   bash "${REPO_DIR}/scripts/refresh-media-status.sh"
-  systemctl start backup-status.timer media-status.timer media-recovery.timer
+  systemctl start backup-status.timer media-status.timer media-recovery.timer onlyoffice-recovery.timer
   if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} != true ]]; then
     systemctl start backup-recovery.timer
   fi
@@ -69,6 +70,8 @@ Installed systemd units.
   backup-status.timer and media-status.timer are enabled for the next boot.
   media-recovery.timer retries an enabled media stack when its storage becomes
   available.
+- onlyoffice-recovery.timer retries a connector disabled by a transient error
+  every five minutes, only after the existing Document Server is healthy.
 - gaming-pc-controller.service is installed but remains disabled until the
   dedicated setup and Windows host-key verification are complete.
 - Enable pihole-control.service after setting its two variables in .env and

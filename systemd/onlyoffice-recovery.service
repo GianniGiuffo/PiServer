@@ -1,0 +1,10 @@
+[Unit]
+Description=Recover the Nextcloud ONLYOFFICE connector after a transient outage
+After=network-online.target docker.service core-stack.service media-stack.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/bash __REPO_DIR__/scripts/recover-onlyoffice.sh
+TimeoutStartSec=3min
+Nice=19

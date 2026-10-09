@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically recover the Nextcloud ONLYOFFICE connector
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=onlyoffice-recovery.service
+
+[Install]
+WantedBy=timers.target
