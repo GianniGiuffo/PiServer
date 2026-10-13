@@ -43,6 +43,11 @@ abilita solo con `HOMEPAGE_AUTH_ENABLED=true`; l'accesso esistente sulla
 Tailnet continua a funzionare con la configurazione attuale. Conservare
 `HOMEPAGE_ALLOWED_HOSTS`, i widget e i file CSS/JS locali. Le configurazioni
 Homepage, Caddy e i mount dei servizi restano quelli già presenti.
+Dopo la ricreazione rigenerare la pagina con il pulsante di aggiornamento
+di Homepage oppure `POST /api/revalidate`, come descritto nelle
+[impostazioni ufficiali](https://gethomepage.dev/configs/settings/).
+Senza questa operazione la pagina iniziale può mostrare titolo e layout
+predefiniti anziché il contenuto di `settings.yaml`.
 
 Le dipendenze applicative sono incluse nelle immagini selezionate.
 Gli script monitoring-api usano la libreria standard Python; il cambio
@@ -77,6 +82,7 @@ docker compose -f compose.yaml -f compose.media.yaml pull \
 
 docker compose up -d --no-deps --pull never \
   caddy cloudflared pihole homepage monitoring-api uptime-kuma
+curl -fsS -X POST http://127.0.0.1:3000/api/revalidate
 docker compose -f compose.yaml -f compose.media.yaml up -d --no-deps --pull never \
   qbittorrent navidrome
 docker compose -f compose.yaml -f compose.media.yaml stop immich-server
@@ -92,6 +98,7 @@ cd /opt/raspberry-server/rack-pi
 docker compose config --quiet
 docker compose pull pihole homepage monitoring-api uptime-kuma
 docker compose up -d --no-deps --pull never pihole homepage monitoring-api uptime-kuma
+curl -fsS -X POST http://127.0.0.1:3000/api/revalidate
 ```
 
 Le altre immagini, i servizi e le patch Aurral non fanno parte di questa
