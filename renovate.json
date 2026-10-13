@@ -23,7 +23,7 @@
   ],
   "prBodyNotes": [
     "Proposta soltanto: revisione, merge e deploy sono manuali.",
-    "Il riferimento monitorato Ã¨ .env.example su master, non il .env del mini-PC. Dopo il merge riportare soltanto le variabili approvate nel .env locale, verificare un backup e seguire scripts/update-images.sh."
+    "Il riferimento monitorato ÃƒÂ¨ .env.example su master, non il .env del mini-PC. Dopo il merge riportare soltanto le variabili approvate nel .env locale, verificare un backup e seguire scripts/update-images.sh."
   ],
   "customManagers": [
     {
@@ -60,7 +60,7 @@
         "IMMICH_REDIS_IMAGE"
       ],
       "prBodyNotes": [
-        "Versione scelta dal Compose ufficiale Immich: verificare insieme compatibilitÃ  del server, database ed estensioni prima del merge. Non aggiornare questi componenti isolatamente senza revisione."
+        "Versione scelta dal Compose ufficiale Immich: verificare insieme compatibilitÃƒÂ  del server, database ed estensioni prima del merge. Non aggiornare questi componenti isolatamente senza revisione."
       ]
     },
     {
@@ -69,15 +69,14 @@
         "STREAMINGCOMMUNITY_IMAGE"
       ],
       "prBodyNotes": [
-        "Tag mobile nightly/latest: il digest identifica una nuova build, non necessariamente una nuova release stabile. Conservare il canale scelto e verificare plugin e compatibilitÃ  prima del deploy."
+        "Tag mobile nightly/latest: il digest identifica una nuova build, non necessariamente una nuova release stabile. Conservare il canale scelto e verificare plugin e compatibilitÃƒÂ  prima del deploy."
       ]
     },
     {
       "matchDepTypes": [
         "RADARR_IMAGE",
         "SONARR_IMAGE",
-        "PROWLARR_IMAGE",
-        "BAZARR_IMAGE"
+        "PROWLARR_IMAGE"
       ],
       "versioning": "regex:^version-v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.(?<build>\\d+))?$"
     },
@@ -86,12 +85,6 @@
         "QBITTORRENT_IMAGE"
       ],
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)_v\\d+\\.\\d+\\.\\d+-ls(?<build>\\d+)$"
-    },
-    {
-      "matchDepTypes": [
-        "SEARXNG_IMAGE"
-      ],
-      "versioning": "regex:^(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)-[a-f0-9]+$"
     }
   ]
 }

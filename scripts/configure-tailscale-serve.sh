@@ -34,7 +34,6 @@ tailscale serve --bg --https=8458 --set-path=/ http://127.0.0.1:7878
 tailscale serve --bg --https=8459 --set-path=/ http://127.0.0.1:8989
 tailscale serve --bg --https=8460 --set-path=/ http://127.0.0.1:9696
 tailscale serve --bg --https=8461 --set-path=/ http://127.0.0.1:8086
-tailscale serve --bg --https=8462 --set-path=/ http://127.0.0.1:6767
 tailscale serve --bg --https=8463 --set-path=/ http://127.0.0.1:8087
 tailscale serve --bg --https=8464 --set-path=/ http://127.0.0.1:8088
 tailscale serve --bg --https=8465 --set-path=/ http://127.0.0.1:9090
@@ -61,7 +60,6 @@ echo "  8458 Radarr"
 echo "  8459 Sonarr"
 echo "  8460 Prowlarr"
 echo "  8461 qBittorrent"
-echo "  8462 Bazarr"
 echo "  8463 Stirling PDF"
 echo "  8464 ONLYOFFICE Docs"
 echo "  8465 Cockpit Files (install separately on the host)"

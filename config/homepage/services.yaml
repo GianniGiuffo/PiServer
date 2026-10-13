@@ -166,13 +166,6 @@
         description: Download BitTorrent
         server: local
         container: raspberry-server-qbittorrent-1
-    - Bazarr:
-        icon: bazarr.png
-        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8462/
-        siteMonitor: http://bazarr:6767/
-        description: Sottotitoli da configurare
-        server: local
-        container: raspberry-server-bazarr-1
     - Immich:
         icon: immich.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/

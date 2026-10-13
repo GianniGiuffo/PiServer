@@ -245,7 +245,7 @@ Per la configurazione dettagliata di Homepage, Uptime Kuma, Nextcloud,
 Jellyfin, Immich, StreamingCommunity downloader e Vaultwarden seguire
 [service-setup.md](service-setup.md).
 
-## 13. n8n e SearXNG
+## 13. n8n
 
 ```bash
 sudo systemctl enable --now automation-stack.service

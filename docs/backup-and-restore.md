@@ -19,7 +19,7 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - database/configurazione Jellyfin, esclusi log, cache, metadata generati e
   transcodifiche;
 - database e configurazione Seerr;
-- database e configurazioni di Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr,
+- database e configurazioni di Radarr, Sonarr, Prowlarr, qBittorrent,
   esclusi log, cache e copertine ricostruibili;
 - configurazione, utenti, sessioni e richieste del downloader;
 - database e configurazioni di Aurral, Lidarr, slskd e Navidrome;
@@ -31,7 +31,7 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
   `ai_chat_memory` con la cronologia delle chat;
 
 Vaultwarden, Pi-hole, Uptime Kuma, Jellyfin, Seerr, Radarr, Sonarr, Prowlarr,
-qBittorrent, Bazarr, il downloader e i quattro servizi musicali vengono fermati
+qBittorrent, il downloader e i quattro servizi musicali vengono fermati
 brevemente per rendere coerenti i rispettivi database e file di stato.
 Nextcloud entra in maintenance mode soltanto durante il proprio dump PostgreSQL
 e torna disponibile appena il dump è completo. n8n e Immich vengono fermati
@@ -63,7 +63,7 @@ configurato; non vengono interrotti soltanto perché sono lunghi.
   musica e download;
 - database PostgreSQL live;
 - Redis/Valkey;
-- cache e thumbnail ricostruibili, inclusa la cache SearXNG;
+- cache e thumbnail ricostruibili;
 - checkout e release del sito.
 - cache, log, pacchetti OCR scaricabili e output documenti Stirling/ONLYOFFICE.
 
@@ -158,7 +158,7 @@ sudo bash -c '
   restic snapshots --latest 5
   restic check --read-data-subset=5%
   restic ls latest --tag pi-server |
-    grep -E "vaultwarden|pihole|uptime-kuma|seerr|radarr|sonarr|prowlarr|qbittorrent|bazarr|streamingcommunity|aurral|lidarr|slskd|navidrome|nextcloud.sql|immich.sql|n8n.sql"
+    grep -E "vaultwarden|pihole|uptime-kuma|seerr|radarr|sonarr|prowlarr|qbittorrent|streamingcommunity|aurral|lidarr|slskd|navidrome|nextcloud.sql|immich.sql|n8n.sql"
 '
 
 sudo systemctl enable --now backup.timer backup-recovery.timer
@@ -335,7 +335,7 @@ le applicazioni SQLite e qBittorrent:
 
 ```bash
 sudo systemctl stop media-stack.service
-for service in radarr sonarr prowlarr qbittorrent bazarr; do
+for service in radarr sonarr prowlarr qbittorrent; do
   sudo rsync -aHAX \
     "/srv/restore/srv/raspberry-server/data/${service}/" \
     "/srv/raspberry-server/data/${service}/"

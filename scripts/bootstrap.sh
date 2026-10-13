@@ -72,8 +72,6 @@ install -d -m 0750 \
   /srv/raspberry-server/data/onlyoffice/postgresql
 install -d -m 0755 -o root -g root /srv/raspberry-server/data/monitoring
 install -d -m 0750 -o 1000 -g 1000 /srv/raspberry-server/data/n8n/n8n
-# The official SearXNG image runs the application as UID/GID 977.
-install -d -m 0750 -o 977 -g 977 /srv/raspberry-server/data/searxng/cache
 install -d -m 0755 -o "${TARGET_USER}" -g "${TARGET_GROUP}" /srv/raspberry-server/sites
 install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
   /srv/raspberry-server/data/jellyfin/config \
@@ -83,7 +81,6 @@ install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
   /srv/raspberry-server/data/sonarr \
   /srv/raspberry-server/data/prowlarr \
   /srv/raspberry-server/data/qbittorrent \
-  /srv/raspberry-server/data/bazarr \
   /srv/raspberry-server/data/aurral \
   /srv/raspberry-server/data/lidarr \
   /srv/raspberry-server/data/slskd \
