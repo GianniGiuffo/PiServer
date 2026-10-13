@@ -61,7 +61,7 @@ class RenovateTests(unittest.TestCase):
             self.assertEqual(response["open_prs"], 2)
             self.assertNotIn("SECRET", json.dumps(response))
 
-    def test_manager_covers_every_minipc_image_and_both_existing_digests(self):
+    def test_manager_covers_every_minipc_image_and_existing_digests(self):
         config = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
         source = (ROOT / ".env.example").read_text(encoding="utf-8")
         # Execute the actual ECMAScript capture expression, including adjacent lines.
@@ -80,7 +80,11 @@ class RenovateTests(unittest.TestCase):
                                    (ROOT / filename).read_text(encoding="utf-8")))
         self.assertEqual(used, {dep["depType"] for dep in deps})
         digests = {dep["depType"] for dep in deps if dep.get("currentDigest")}
-        self.assertEqual(digests, {"IMMICH_POSTGRES_IMAGE", "IMMICH_REDIS_IMAGE"})
+        expected_digests = set(re.findall(
+            r"^([A-Z0-9_]+_IMAGE)=\S+@sha256:[a-f0-9]{64}$", source, re.M
+        ))
+        self.assertEqual(digests, expected_digests)
+        self.assertTrue({"IMMICH_POSTGRES_IMAGE", "IMMICH_REDIS_IMAGE"} <= digests)
         self.assertEqual(len(deps), len(used))
         self.assertTrue(all("sha256:" not in dep["currentValue"] for dep in deps))
 
