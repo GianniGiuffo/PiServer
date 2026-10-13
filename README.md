@@ -105,6 +105,10 @@ contiene il marker `.piserver-media` e supera
 
 ## Aggiornamenti
 
+La selezione dei servizi aggiornata il 13 ottobre 2026, i database compatibili
+e i comandi mirati per mini-PC e rack-pi sono in
+[docs/service-updates-2026-10.md](docs/service-updates-2026-10.md).
+
 Il sito viene controllato ogni minuto e ricostruito soltanto quando cambia il
 commit remoto. Le immagini dei servizi non vengono aggiornate automaticamente.
 
