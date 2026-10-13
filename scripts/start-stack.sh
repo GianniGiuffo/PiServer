@@ -16,7 +16,7 @@ case "${STACK}" in
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.media.yaml")
     SERVICES=(
       nextcloud-postgres nextcloud-redis nextcloud nextcloud-readonly nextcloud-cron
-      jellyfin qbittorrent radarr sonarr prowlarr bazarr seerr
+      jellyfin qbittorrent radarr sonarr prowlarr seerr
       streamingcommunity immich-postgres immich-redis immich-server
       lidarr slskd navidrome aurral
     )
@@ -26,7 +26,7 @@ case "${STACK}" in
     ;;
   automation)
     COMPOSE=("${BASE[@]}" -f "${REPO_DIR}/compose.automation.yaml")
-    SERVICES=(n8n-postgres searxng n8n)
+    SERVICES=(n8n-postgres n8n)
     ;;
   *)
     echo "Unknown stack '${STACK}'." >&2

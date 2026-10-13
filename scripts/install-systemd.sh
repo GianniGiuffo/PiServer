@@ -79,7 +79,7 @@ Installed systemd units.
 - Enable media-stack.service only after /srv/media passes check-media-mount.sh.
 - Enable lidarr-weekly-search.timer after Lidarr is configured and its API is
   reachable; it refreshes metadata and searches recent releases every Monday.
-- Enable automation-stack.service when n8n and SearXNG should start.
+- Enable automation-stack.service when n8n should start.
 EOF
 
 if [[ ${BACKUP_TIMER_MANAGED_EXTERNALLY} == true ]]; then

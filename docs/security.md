@@ -17,7 +17,6 @@
 | Sonarr | Tailscale Serve `8459`, backend solo loopback | no |
 | Prowlarr | Tailscale Serve `8460`, backend solo loopback | no |
 | qBittorrent Web UI | Tailscale Serve `8461`, backend solo loopback | no |
-| Bazarr | Tailscale Serve `8462`, backend solo loopback | no |
 | Stirling PDF | Tailscale Serve `8463`, backend `127.0.0.1:8087` | no |
 | ONLYOFFICE Docs | Tailscale Serve `8464`, backend `127.0.0.1:8088`; tunnel su `/office/` | solo editor dei file condivisi |
 | Immich | Tailscale Serve `8447` | no |
@@ -40,7 +39,7 @@
 | Soulseek peer port `50300` | non pubblicata | no |
 | BitTorrent peer port `6881` | non pubblicata | no |
 | Pi-hole DNS | porta 53, LAN e Tailnet | no |
-| SearXNG, PostgreSQL, Redis/Valkey | reti Docker interne | no |
+| PostgreSQL, Redis/Valkey | reti Docker interne | no |
 | proxy Nextcloud sola lettura | rete Docker `ai-connectors` | no |
 
 Non creare inoltri sul router per 22, 53, 80, 443, 2283, 3000, 3001, 5432,
@@ -121,11 +120,6 @@ e dal backup Restic cifrato, ma nel database PostgreSQL locale non sono
 cifrati campo per campo. Non inserire in chat segreti che non devono essere
 conservati.
 
-SearXNG non pubblica porte sull'host: n8n usa la sua API JSON sulla rete
-interna `ai-connectors`. Il container dispone di una rete di uscita separata
-per interrogare i motori esterni; le query lasciano quindi la rete locale,
-anche se l'istanza SearXNG non è accessibile da Internet.
-
 n8n non è collegato direttamente al container Nextcloud: Nextcloud usa la rete
 dedicata `nextcloud-access` soltanto con Homepage e Uptime Kuma. Il servizio
 `nextcloud-readonly` inoltra soltanto `GET`, `HEAD`, `OPTIONS` e `PROPFIND`
@@ -164,7 +158,7 @@ key non attraversa la LAN né Internet. La directory di configurazione Seerr,
 che contiene account, sessioni e API key, entra nel backup Restic cifrato.
 
 Seerr non monta i media e comunica con Radarr e Sonarr soltanto sulla rete
-Docker. Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr pubblicano i rispettivi
+Docker. Radarr, Sonarr, Prowlarr e qBittorrent pubblicano i rispettivi
 backend soltanto su `127.0.0.1`; l'accesso umano passa da Tailscale Serve.
 La porta peer qBittorrent non è pubblicata e UPnP/NAT-PMP restano disabilitati:
 non sono richiesti inoltri sul router. Le attività di pulizia di Jellyfin Helper
@@ -248,8 +242,7 @@ porta 53 non deve essere inoltrata da Internet. Il server usa
 Nella console Tailscale, l'IPv4 Tailnet del mini PC viene configurato come
 nameserver globale con **Override local DNS**. MagicDNS resta attivo.
 
-Non serve duplicare in SearXNG le blocklist gestite da Pi-hole. Pi-hole resta
-però un filtro DNS, non una protezione completa contro URL arbitrari o SSRF:
+Pi-hole resta un filtro DNS, non una protezione completa contro URL arbitrari o SSRF:
 gli strumenti HTTP e RSS controllati dal modello devono usare destinazioni
 fisse o validate.
 

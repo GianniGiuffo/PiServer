@@ -109,7 +109,6 @@ RADARR_STOPPED=false
 SONARR_STOPPED=false
 PROWLARR_STOPPED=false
 QBITTORRENT_STOPPED=false
-BAZARR_STOPPED=false
 STREAMINGCOMMUNITY_STOPPED=false
 SEERR_BRIDGE_STOPPED=false
 SEERR_FRONT_STOPPED=false
@@ -134,7 +133,6 @@ cleanup() {
         ${SONARR_STOPPED} == true ||
         ${PROWLARR_STOPPED} == true ||
         ${QBITTORRENT_STOPPED} == true ||
-        ${BAZARR_STOPPED} == true ||
         ${STREAMINGCOMMUNITY_STOPPED} == true ||
         ${SEERR_BRIDGE_STOPPED} == true ||
         ${SEERR_FRONT_STOPPED} == true ||
@@ -173,9 +171,6 @@ cleanup() {
   fi
   if [[ ${PROWLARR_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start prowlarr || true
-  fi
-  if [[ ${BAZARR_STOPPED} == true && ${media_can_restart} == true ]]; then
-    "${MEDIA[@]}" start bazarr || true
   fi
   if [[ ${SEERR_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start seerr || true
@@ -288,10 +283,6 @@ if is_running BASE stirling-pdf; then
   "${BASE[@]}" stop stirling-pdf
   STIRLING_STOPPED=true
 fi
-if is_running MEDIA bazarr; then
-  "${MEDIA[@]}" stop bazarr
-  BAZARR_STOPPED=true
-fi
 if is_running MEDIA prowlarr; then
   "${MEDIA[@]}" stop prowlarr
   PROWLARR_STOPPED=true
@@ -402,8 +393,7 @@ for video_automation_state_path in \
   "${DATA_DIR}/radarr" \
   "${DATA_DIR}/sonarr" \
   "${DATA_DIR}/prowlarr" \
-  "${DATA_DIR}/qbittorrent" \
-  "${DATA_DIR}/bazarr"; do
+  "${DATA_DIR}/qbittorrent"; do
   [[ -e ${video_automation_state_path} ]] && BACKUP_PATHS+=("${video_automation_state_path}")
 done
 for music_state_path in \
@@ -442,8 +432,6 @@ RESTIC_EXCLUDES=(
   --exclude "${DATA_DIR}/sonarr/MediaCover"
   --exclude "${DATA_DIR}/prowlarr/logs"
   --exclude "${DATA_DIR}/qbittorrent/qBittorrent/logs"
-  --exclude "${DATA_DIR}/bazarr/cache"
-  --exclude "${DATA_DIR}/bazarr/log"
 )
 if [[ ${JELLYFIN_FULL_BACKUP} == false ]]; then
   RESTIC_EXCLUDES+=(--exclude "${DATA_DIR}/jellyfin/config/metadata")

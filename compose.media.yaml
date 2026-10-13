@@ -322,40 +322,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  bazarr:
-    image: ${BAZARR_IMAGE:?Set BAZARR_IMAGE in .env}
-    restart: on-failure:5
-    mem_limit: 768m
-    depends_on:
-      radarr:
-        condition: service_healthy
-      sonarr:
-        condition: service_healthy
-    environment:
-      PUID: ${PUID:?Set PUID in .env}
-      PGID: ${PGID:?Set PGID in .env}
-      TZ: ${TZ:-Europe/Rome}
-      UMASK: "002"
-    volumes:
-      - ${DATA_DIR:?Set DATA_DIR in .env}/bazarr:/config
-      - type: bind
-        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads
-        target: /data
-        bind:
-          create_host_path: false
-    ports:
-      - "127.0.0.1:6767:6767/tcp"
-    networks:
-      - web
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS --max-time 5 http://127.0.0.1:6767/ >/dev/null || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    security_opt:
-      - no-new-privileges:true
-
   streamingcommunity:
     image: ${STREAMINGCOMMUNITY_IMAGE:?Set STREAMINGCOMMUNITY_IMAGE in .env}
     restart: on-failure:5

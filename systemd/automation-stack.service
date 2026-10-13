@@ -1,5 +1,5 @@
 [Unit]
-Description=Start n8n, PostgreSQL and SearXNG
+Description=Start n8n and PostgreSQL
 Wants=network-online.target
 After=network-online.target docker.service core-stack.service
 Requires=docker.service core-stack.service

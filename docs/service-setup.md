@@ -254,8 +254,8 @@ Aprire `https://TAILSCALE_FQDN:8457/` e completare il wizard usando Jellyfin:
 1. impostare `http://jellyfin:8096` come URL interno del server;
 2. autenticarsi con l'amministratore solo per il setup iniziale;
 3. sincronizzare tutte le librerie Jellyfin interessate;
-4. collegare Radarr e Sonarr dopo aver completato la configurazione dello stack
-   di automazione descritta sotto;
+4. in modalità priorità lasciare vuote le liste Radarr e Sonarr di Seerr:
+   il bridge usa le proprie credenziali e gestisce il fallback verso Arr;
 5. copiare l'API key Seerr nelle impostazioni di Jellyfin Helper e usare
    `http://seerr:5055` come URL interno;
 6. lasciare le richieste in approvazione manuale e verificare che i titoli già
@@ -265,7 +265,7 @@ La configurazione risiede in `/srv/raspberry-server/data/seerr` ed entra nel
 backup Restic. La card corrispondente è nella sezione **Media** di
 Homepage.
 
-## Radarr, Sonarr, Prowlarr, qBittorrent e Bazarr
+## Radarr, Sonarr, Prowlarr e qBittorrent
 
 Le interfacce sono disponibili esclusivamente sulla Tailnet:
 
@@ -275,7 +275,6 @@ Le interfacce sono disponibili esclusivamente sulla Tailnet:
 | Sonarr | `https://TAILSCALE_FQDN:8459/` |
 | Prowlarr | `https://TAILSCALE_FQDN:8460/` |
 | qBittorrent | `https://TAILSCALE_FQDN:8461/` |
-| Bazarr | `https://TAILSCALE_FQDN:8462/` |
 
 Per le richieste Seerr dell'admin collegato a Jellyfin e dell'utente locale
 `NormalUser`, la catena è Seerr → StreamingCommunity → Radarr/Sonarr per i
@@ -293,13 +292,13 @@ anche se alcuni peer non raggiungibili in uscita potrebbero ridurre la velocità
 
 Configurare un profilo che preferisca release italiane, accetti l'inglese come
 fallback e privilegi il 1080p. Il 2160p va lasciato come fallback di qualità,
-non come scelta preferita. Bazarr userà italiano e inglese per i sottotitoli.
-Indexer Prowlarr e provider Bazarr sono intenzionalmente rinviati: finché non
+non come scelta preferita.
+Gli indexer Prowlarr sono intenzionalmente rinviati: finché non
 vengono aggiunti, le richieste possono essere registrate ma non completate
 automaticamente.
 
 Le configurazioni risiedono in `/srv/raspberry-server/data/{radarr,sonarr,
-prowlarr,qbittorrent,bazarr}` e sono incluse nel backup Restic. I media e i
+prowlarr,qbittorrent}` e sono incluse nel backup Restic. I media e i
 download sotto `/srv/media` restano esclusi dal backup di configurazione.
 
 ## StreamingCommunity downloader
@@ -424,13 +423,12 @@ Dopo il restore:
 Non importare il JSON se il restore completo funziona: Bitwarden non deduplica
 gli elementi importati.
 
-## n8n e SearXNG
+## n8n
 
 Aprire `https://TAILSCALE_FQDN:8449/`. Ollama e i modelli AI locali non fanno
 parte dello stack.
 
-SearXNG e il proxy WebDAV Nextcloud non pubblicano porte. n8n li raggiunge
-rispettivamente su `http://searxng:8080` e
+Il proxy WebDAV Nextcloud non pubblica porte. n8n lo raggiunge su
 `http://nextcloud-readonly:8080`; la configurazione dei relativi strumenti AI
 è descritta in [ai-connectors.md](ai-connectors.md).
 

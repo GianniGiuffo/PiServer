@@ -40,7 +40,6 @@ soltanto dopo la scelta dell'hardware.
 | Sonarr | Tailnet, porta 8459 | config su SSD, serie in `/srv/media/downloads/Series` |
 | Prowlarr | Tailnet, porta 8460 | config su SSD, indexer condivisi con Radarr/Sonarr |
 | qBittorrent | Tailnet, porta 8461 | config su SSD, transito in `/srv/media/downloads/.arr-downloads` |
-| Bazarr | Tailnet, porta 8462 | config su SSD, sottotitoli accanto ai media |
 | Immich senza ML | Tailnet, porta 8447 | DB su SSD, foto/video su `/srv/media` |
 | StreamingCommunity downloader | Tailnet, porta 8450 | config su SSD, download su `/srv/media` |
 | Aurral | Tailnet, porta 8451 | config su SSD, musica su `/srv/media/music` |
@@ -48,7 +47,6 @@ soltanto dopo la scelta dell'hardware.
 | Lidarr | Tailnet, porta 8453 | config su SSD, libreria su `/srv/media/music` |
 | slskd | Tailnet, porta 8454 | config su SSD, transito su `/srv/media/music` |
 | n8n | Tailnet, porta 8449 | SSD locale + Restic |
-| SearXNG | solo rete Docker per n8n | cache eliminabile, non salvata |
 | Nextcloud read-only connector | solo rete Docker per n8n | nessun dato proprio |
 | Area privata del sito | Tailnet, porta 8443 | build del sito |
 | Controller PC gaming | Tailnet, porta 8455 | stato minimo su SSD, nessuna credenziale Windows |
@@ -66,7 +64,7 @@ router deve essere inoltrata.
   comprende Stirling PDF e ONLYOFFICE Docs; l'editing Office dipende da Nextcloud;
 - `compose.media.yaml`: Nextcloud, Jellyfin, Immich, downloader e stack
   musicale; parte solo dopo la verifica del mount `/srv/media`;
-- `compose.automation.yaml`: n8n, PostgreSQL e SearXNG.
+- `compose.automation.yaml`: n8n e PostgreSQL.
 
 Le unità `core-stack.service`, `media-stack.service` e
 `automation-stack.service` li avviano automaticamente e in ordine. I servizi
@@ -108,6 +106,8 @@ contiene il marker `.piserver-media` e supera
 La selezione dei servizi aggiornata il 13 ottobre 2026, i database compatibili
 e i comandi mirati per mini-PC e rack-pi sono in
 [docs/service-updates-2026-10.md](docs/service-updates-2026-10.md).
+La pulizia e gli aggiornamenti Vaultwarden/Prowlarr/Jellyfin/Seerr sono in
+[docs/media-updates-2026-10.md](docs/media-updates-2026-10.md).
 
 Il sito viene controllato ogni minuto e ricostruito soltanto quando cambia il
 commit remoto. Le immagini dei servizi non vengono aggiornate automaticamente.
@@ -164,6 +164,6 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Stack musicale](docs/music-stack.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
 - [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)
-- [Connettori AI: SearXNG e Nextcloud in sola lettura](docs/ai-connectors.md)
+- [Connettore AI: Nextcloud in sola lettura](docs/ai-connectors.md)
 - [Connettori AI: GitHub in sola lettura e DeepL](docs/n8n-github-deepl.md)
 - [Cloud gaming privato con Switch, Sunshine e Tailscale](docs/cloud-gaming.md)

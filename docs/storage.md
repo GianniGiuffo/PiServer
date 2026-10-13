@@ -27,12 +27,10 @@ configurazioni e database:
 │   ├── prowlarr
 │   ├── qbittorrent
 │   ├── radarr
-│   ├── searxng/cache
 │   ├── seerr
 │   ├── sonarr
 │   ├── streamingcommunity
 │   ├── slskd
-│   ├── bazarr
 │   ├── uptime-kuma
 │   └── vaultwarden
 ├── sites
@@ -61,7 +59,7 @@ Il disco da 4 TB condiviso in LAN viene montato così:
 
 Non usare `/srv/media` per PostgreSQL, SQLite, Redis o configurazioni. I database
 richiedono locking POSIX affidabile e bassa latenza; restano sull'SSD locale.
-qBittorrent, Radarr, Sonarr e Bazarr montano tutti `downloads` come `/data`:
+qBittorrent, Radarr e Sonarr montano tutti `downloads` come `/data`:
 questa identità dei percorsi permette importazioni atomiche e hardlink senza
 copie aggiuntive. I download incompleti non vengono mai indicizzati da Jellyfin.
 

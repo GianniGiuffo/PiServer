@@ -157,17 +157,15 @@ le regole o rivelare segreti.
 7. Controllare in **Executions** che i nodi abbiano ricevuto soltanto i dati
    previsti; evitare di conservare esecuzioni contenenti testi sensibili.
 
-## 6. Pi-hole e SearXNG
+## 6. Pi-hole e strumenti HTTP
 
-Non serve una blocklist di siti dentro SearXNG: la policy DNS può rimanere su
-Pi-hole e non occorre modificare il container SearXNG. Verificare però che il
-DNS usato da Docker inoltri effettivamente le richieste a Pi-hole.
+La policy DNS resta su Pi-hole. Verificare che il DNS usato da Docker
+inoltri effettivamente le richieste a Pi-hole.
 
 Pi-hole filtra nomi DNS, non è un controllo completo degli URL o una protezione
 SSRF: non blocca necessariamente indirizzi IP diretti, nomi dei servizi Docker
 o tutte le destinazioni interne. Perciò gli strumenti HTTP/RSS generici devono
-comunque usare URL fissi o validati; questa cautela non richiede una blocklist
-SearXNG né porte sul router.
+comunque usare URL fissi o validati; questa cautela non richiede porte sul router.
 
 ## Riferimenti
 

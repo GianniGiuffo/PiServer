@@ -13,15 +13,15 @@ class MediaDiscoveryStackTests(unittest.TestCase):
 
     def test_images_are_pinned_to_reviewed_stable_releases(self) -> None:
         env = self.read(".env.example")
-        self.assertIn("JELLYFIN_IMAGE=jellyfin/jellyfin:12.1", env)
-        self.assertIn("SEERR_IMAGE=ghcr.io/seerr-team/seerr:v3.4.1", env)
+        self.assertIn("JELLYFIN_IMAGE=jellyfin/jellyfin:12.2", env)
+        self.assertIn("SEERR_IMAGE=ghcr.io/seerr-team/seerr:v3.5.0", env)
         self.assertNotIn("SEERR_IMAGE=ghcr.io/seerr-team/seerr:latest", env)
 
     def test_seerr_is_persistent_hardened_and_loopback_only(self) -> None:
         compose = self.read("compose.media.yaml")
         seerr = compose.split("  seerr:", 1)[1].split("  streamingcommunity:", 1)[0]
         self.assertIn("${DATA_DIR:?Set DATA_DIR in .env}/seerr:/app/config", seerr)
-        self.assertIn('127.0.0.1:5055:5055/tcp', seerr)
+        self.assertIn('127.0.0.1:5056:5055/tcp', seerr)
         self.assertIn("http://127.0.0.1:5055/api/v1/settings/public", seerr)
         self.assertIn("no-new-privileges:true", seerr)
         self.assertIn("cap_drop:", seerr)
@@ -38,7 +38,7 @@ class MediaDiscoveryStackTests(unittest.TestCase):
 
     def test_seerr_is_tailnet_only_and_shown_with_media(self) -> None:
         homepage = self.read("config/homepage/services.yaml")
-        media = homepage.split("- Media e file:", 1)[1].split("- Musica:", 1)[0]
+        media = homepage.split("- Media:", 1)[1].split("- Musica:", 1)[0]
         self.assertIn("- Seerr:", media)
         self.assertIn("HOMEPAGE_VAR_TAILSCALE_FQDN}}:8457", media)
         self.assertIn("http://seerr:5055/api/v1/settings/public", media)
