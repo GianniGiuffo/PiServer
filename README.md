@@ -153,6 +153,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 
 - [Prima installazione](docs/first-boot.md)
 - [Storage di rete e struttura delle directory](docs/storage.md)
+- [Condividere film e serie con un amico via NFSv4 e Tailscale](docs/media-nfs-tailscale.md)
 - [Migrazione dal Raspberry Pi](docs/minipc-migration.md)
 - [Backup e ripristino](docs/backup-and-restore.md)
 - [Raspberry rack-pi, DNS secondario e backup remoto](docs/rack-pi.md)

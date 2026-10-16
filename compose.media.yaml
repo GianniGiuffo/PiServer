@@ -152,6 +152,18 @@ services:
       # Same container path used by the downloader, so Jellyfin can index the
       # generated files without granting the downloader access to /media.
       - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads:/app/videos:ro
+      - type: bind
+        source: /mnt/luca-media/movies
+        target: /media/luca/movies
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/luca-media/tv
+        target: /media/luca/tv
+        read_only: true
+        bind:
+          create_host_path: false
     ports:
       - "127.0.0.1:8096:8096/tcp"
     networks:
