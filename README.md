@@ -108,6 +108,8 @@ e i comandi mirati per mini-PC e rack-pi sono in
 [docs/service-updates-2026-10.md](docs/service-updates-2026-10.md).
 La pulizia e gli aggiornamenti Vaultwarden/Prowlarr/Jellyfin/Seerr sono in
 [docs/media-updates-2026-10.md](docs/media-updates-2026-10.md).
+Il deploy di StreamingCommunity 2.6.0 e le verifiche del bridge Seerr sono in
+[docs/streamingcommunity-update-2026-10.md](docs/streamingcommunity-update-2026-10.md).
 
 Il sito viene controllato ogni minuto e ricostruito soltanto quando cambia il
 commit remoto. Le immagini dei servizi non vengono aggiornate automaticamente.
