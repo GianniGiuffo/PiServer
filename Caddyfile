@@ -4,6 +4,30 @@
 	auto_https off
 }
 
+# Keep access metadata across container replacements, without storing share
+# tokens, document URLs, query strings, cookies or authorization headers.
+(security_access_log) {
+	log {
+		output file /data/security-access.jsonl {
+			mode 0600
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 336h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri delete
+				request>headers delete
+				resp_headers delete
+			}
+		}
+	}
+	# Public listeners are reached through the Cloudflare Tunnel. This field is
+	# edge-reported metadata, not an authorization decision.
+	log_append edge_client_ip {http.request.header.CF-Connecting-IP}
+}
+
 # ONLYOFFICE virtual path on the existing public share hostname. Called only
 # by the explicit browser-route allowlist below; server APIs stay internal.
 (onlyoffice_public_proxy) {
@@ -19,6 +43,7 @@
 }
 
 http://{$SITE_1_DOMAIN} {
+	import security_access_log
 	encode zstd gzip
 	root * /srv/sites/site-1/current
 
@@ -48,6 +73,7 @@ http://:8083 {
 }
 
 http://{$SITE_2_DOMAIN} {
+	import security_access_log
 	encode zstd gzip
 	root * /srv/sites/site-2/current
 	file_server
@@ -55,6 +81,7 @@ http://{$SITE_2_DOMAIN} {
 }
 
 http://{$VAULTWARDEN_DOMAIN} {
+	import security_access_log
 	encode zstd gzip
 	reverse_proxy vaultwarden:80 {
 		# The browser connected to Cloudflare with HTTPS; preserve that fact for
@@ -92,6 +119,7 @@ http://:8084 {
 # static assets required to render previews. Login, user APIs, private WebDAV,
 # status.php and the normal UI fall through to the final 404.
 http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
+	import security_access_log
 	# Shared-file pages only: numeric private editor routes are not published.
 	@share_office_page {
 		method GET HEAD
@@ -217,6 +245,7 @@ http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
 # Navidrome has anonymous tokenized shares but no per-share password. Expose
 # only its public share handler; login, API and the normal UI stay Tailnet-only.
 http://{$NAVIDROME_PUBLIC_DOMAIN} {
+	import security_access_log
 	@public_share {
 		method GET HEAD OPTIONS
 		path /share /share/*

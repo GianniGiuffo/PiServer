@@ -1,5 +1,9 @@
 # Sicurezza e confini di accesso
 
+La [verifica PHP e accessi del 22 ottobre 2026](php-security-2026-10-22.md)
+documenta la correzione di CVE-2026-109618/109619 in Nextcloud, i limiti
+dell'indagine sui log, i nuovi access log Caddy e la restrizione NFS a Tailscale.
+
 ## Matrice di esposizione
 
 | Servizio | Percorso | Internet pubblico |
