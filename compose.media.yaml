@@ -217,6 +217,143 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  komga:
+    image: ${KOMGA_IMAGE:?Set KOMGA_IMAGE in .env}
+    restart: on-failure:5
+    init: true
+    mem_limit: 1536m
+    cpus: 2.0
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+      JAVA_TOOL_OPTIONS: -Xmx1024m
+    volumes:
+      # Reading progress, accounts, metadata and thumbnails are kept on SSD.
+      - ${DATA_DIR:?Set DATA_DIR in .env}/komga:/config
+      # Kapowarr owns the files. Komga can only read the completed library.
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/Comics
+        target: /comics
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:25600:25600/tcp"
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:25600/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  omnibus-redis:
+    image: ${REDIS_IMAGE:?Set REDIS_IMAGE in .env}
+    restart: on-failure:5
+    mem_limit: 256m
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    command: redis-server --appendonly yes --maxmemory 192mb --maxmemory-policy noeviction
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/omnibus/redis:/data
+    networks:
+      - omnibus-queue
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  omnibus-engine:
+    image: ${OMNIBUS_ENGINE_IMAGE:?Set OMNIBUS_ENGINE_IMAGE in .env}
+    restart: on-failure:5
+    init: true
+    mem_limit: 1536m
+    cpus: 2.0
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    environment: &omnibus-environment
+      TZ: ${TZ:-Europe/Rome}
+      DATABASE_URL: file:/config/omnibus.db
+      NEXTAUTH_SECRET: ${OMNIBUS_AUTH_SECRET:?Set OMNIBUS_AUTH_SECRET in .env}
+      OMNIBUS_ENGINE_BIND: 0.0.0.0:8000
+      OMNIBUS_NODE_URL: http://omnibus:3000
+      OMNIBUS_BACKUPS_DIR: /config/backups
+      OMNIBUS_CACHE_DIR: /config/cache
+      OMNIBUS_LOGS_DIR: /config/logs
+      OMNIBUS_WATCHED_DIR: /data/watched
+      OMNIBUS_AWAITING_MATCH_DIR: /data/unmatched
+      UMASK: "002"
+    volumes: &omnibus-volumes
+      - ${DATA_DIR:?Set DATA_DIR in .env}/omnibus/config:/config
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads/.omnibus
+        target: /data
+        bind:
+          create_host_path: false
+      # Both Omnibus processes need identical writable paths. Kapowarr and
+      # Omnibus share the library; Komga continues to mount it read-only.
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/Comics
+        target: /data/comics
+        bind:
+          create_host_path: false
+    networks:
+      - omnibus-backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  omnibus:
+    image: ${OMNIBUS_IMAGE:?Set OMNIBUS_IMAGE in .env}
+    restart: on-failure:5
+    init: true
+    mem_limit: 1536m
+    cpus: 2.0
+    user: "${PUID:?Set PUID in .env}:${PGID:?Set PGID in .env}"
+    depends_on:
+      omnibus-redis:
+        condition: service_healthy
+      omnibus-engine:
+        condition: service_started
+    environment:
+      <<: *omnibus-environment
+      OMNIBUS_REDIS_URL: redis://omnibus-redis:6379
+      OMNIBUS_ENGINE_URL: http://omnibus-engine:8000
+      NEXTAUTH_URL: https://${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}:8468
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: --max-old-space-size=1024
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes: *omnibus-volumes
+    ports:
+      - "127.0.0.1:3003:3000/tcp"
+    networks:
+      - web
+      - omnibus-backend
+      - omnibus-queue
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/setup/check', {signal:AbortSignal.timeout(5000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   seerr:
     image: ${SEERR_IMAGE:?Set SEERR_IMAGE in .env}
     restart: on-failure:5
@@ -829,6 +966,9 @@ services:
       - no-new-privileges:true
 
 networks:
+  omnibus-backend:
+  omnibus-queue:
+    internal: true
   nextcloud-access:
   nextcloud-internal:
     internal: true

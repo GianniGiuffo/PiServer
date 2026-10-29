@@ -105,6 +105,10 @@ N8N_STOPPED=false
 IMMICH_STOPPED=false
 JELLYFIN_STOPPED=false
 KAPOWARR_STOPPED=false
+KOMGA_STOPPED=false
+OMNIBUS_STOPPED=false
+OMNIBUS_ENGINE_STOPPED=false
+OMNIBUS_REDIS_STOPPED=false
 SEERR_STOPPED=false
 RADARR_STOPPED=false
 SONARR_STOPPED=false
@@ -130,6 +134,10 @@ cleanup() {
         ${IMMICH_STOPPED} == true ||
         ${JELLYFIN_STOPPED} == true ||
         ${KAPOWARR_STOPPED} == true ||
+        ${KOMGA_STOPPED} == true ||
+        ${OMNIBUS_STOPPED} == true ||
+        ${OMNIBUS_ENGINE_STOPPED} == true ||
+        ${OMNIBUS_REDIS_STOPPED} == true ||
         ${SEERR_STOPPED} == true ||
         ${RADARR_STOPPED} == true ||
         ${SONARR_STOPPED} == true ||
@@ -164,6 +172,18 @@ cleanup() {
   fi
   if [[ ${KAPOWARR_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start kapowarr || true
+  fi
+  if [[ ${KOMGA_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start komga || true
+  fi
+  if [[ ${OMNIBUS_REDIS_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start omnibus-redis || true
+  fi
+  if [[ ${OMNIBUS_ENGINE_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start omnibus-engine || true
+  fi
+  if [[ ${OMNIBUS_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start omnibus || true
   fi
   if [[ ${QBITTORRENT_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start qbittorrent || true
@@ -284,6 +304,22 @@ fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
+if is_running MEDIA omnibus; then
+  "${MEDIA[@]}" stop omnibus
+  OMNIBUS_STOPPED=true
+fi
+if is_running MEDIA omnibus-engine; then
+  "${MEDIA[@]}" stop omnibus-engine
+  OMNIBUS_ENGINE_STOPPED=true
+fi
+if is_running MEDIA omnibus-redis; then
+  "${MEDIA[@]}" stop omnibus-redis
+  OMNIBUS_REDIS_STOPPED=true
+fi
+if is_running MEDIA komga; then
+  "${MEDIA[@]}" stop komga
+  KOMGA_STOPPED=true
+fi
 if is_running MEDIA kapowarr; then
   "${MEDIA[@]}" stop kapowarr
   KAPOWARR_STOPPED=true
@@ -383,6 +419,12 @@ fi
 if [[ -e ${DATA_DIR}/kapowarr ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/kapowarr")
 fi
+if [[ -e ${DATA_DIR}/komga ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/komga")
+fi
+if [[ -e ${DATA_DIR}/omnibus ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/omnibus")
+fi
 for nextcloud_path in \
   "${DATA_DIR}/nextcloud/html/config" \
   "${DATA_DIR}/nextcloud/html/custom_apps" \
@@ -428,6 +470,10 @@ if [[ -e ${DATA_DIR}/stirling-pdf/pipeline/defaultWebUIConfigs ]]; then
 fi
 
 RESTIC_EXCLUDES=(
+  --exclude "${DATA_DIR}/omnibus/config/logs"
+  --exclude "${DATA_DIR}/omnibus/config/cache"
+  --exclude "${DATA_DIR}/omnibus/config/backups"
+  --exclude "${DATA_DIR}/komga/logs"
   --exclude "${DATA_DIR}/stirling-pdf/configs/heap_dumps"
   --exclude "${DATA_DIR}/stirling-pdf/configs/cache"
   --exclude "${DATA_DIR}/jellyfin/config/log"

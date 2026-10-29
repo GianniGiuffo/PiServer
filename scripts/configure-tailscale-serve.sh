@@ -38,6 +38,8 @@ tailscale serve --bg --https=8463 --set-path=/ http://127.0.0.1:8087
 tailscale serve --bg --https=8464 --set-path=/ http://127.0.0.1:8088
 tailscale serve --bg --https=8465 --set-path=/ http://127.0.0.1:9090
 tailscale serve --bg --https=8466 --set-path=/ http://127.0.0.1:5656
+tailscale serve --bg --https=8467 --set-path=/ http://127.0.0.1:25600
+tailscale serve --bg --https=8468 --set-path=/ http://127.0.0.1:3003
 
 echo
 echo "Private services configured:"
@@ -65,5 +67,7 @@ echo "  8463 Stirling PDF"
 echo "  8464 ONLYOFFICE Docs"
 echo "  8465 Cockpit Files (install separately on the host)"
 echo "  8466 Kapowarr"
+echo "  8467 Komga"
+echo "  8468 Omnibus"
 echo
 echo "Confirm with: tailscale serve status"

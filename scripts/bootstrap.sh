@@ -77,6 +77,9 @@ install -d -m 0750 -o "${TARGET_USER}" -g "${TARGET_GROUP}" \
   /srv/raspberry-server/data/jellyfin/config \
   /srv/raspberry-server/data/jellyfin/cache \
   /srv/raspberry-server/data/kapowarr \
+  /srv/raspberry-server/data/komga \
+  /srv/raspberry-server/data/omnibus/config \
+  /srv/raspberry-server/data/omnibus/redis \
   /srv/raspberry-server/data/seerr \
   /srv/raspberry-server/data/radarr \
   /srv/raspberry-server/data/sonarr \

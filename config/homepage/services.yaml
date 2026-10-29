@@ -170,9 +170,23 @@
         icon: kapowarr.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8466/
         siteMonitor: http://kapowarr:5656/api/public
-        description: Fumetti per Jellyfin
+        description: Gestione e download fumetti
         server: local
         container: raspberry-server-kapowarr-1
+    - Komga:
+        icon: komga.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8467/
+        siteMonitor: http://komga:25600/actuator/health
+        description: Lettura fumetti e manga pagina per pagina
+        server: local
+        container: raspberry-server-komga-1
+    - Omnibus:
+        icon: mdi-bookshelf
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8468/
+        siteMonitor: http://omnibus:3000/api/setup/check
+        description: Scoperta e richieste fumetti e manga
+        server: local
+        container: raspberry-server-omnibus-1
     - Immich:
         icon: immich.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/

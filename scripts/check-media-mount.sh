@@ -24,6 +24,7 @@ for directory in \
   downloads downloads/Films downloads/Series \
   downloads/.arr-downloads downloads/.arr-downloads/complete downloads/.arr-downloads/incomplete \
   immich jellyfin nextcloud Comics downloads/.kapowarr-downloads \
+  downloads/.omnibus downloads/.omnibus/downloads downloads/.omnibus/watched downloads/.omnibus/unmatched \
   music music/library music/aurral \
   music/.downloads/slskd/complete music/.downloads/slskd/incomplete; do
   if [[ ! -d ${MEDIA_DIR}/${directory} ]]; then

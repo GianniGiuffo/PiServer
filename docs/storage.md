@@ -17,6 +17,9 @@ configurazioni e database:
 │   ├── jellyfin/config
 │   ├── jellyfin/cache
 │   ├── kapowarr
+│   ├── komga
+│   ├── omnibus/config  database SQLite, credenziali, metadati
+│   ├── omnibus/redis   coda persistente dei lavori
 │   ├── aurral
 │   ├── lidarr
 │   ├── navidrome
@@ -48,6 +51,7 @@ Il disco da 4 TB condiviso in LAN viene montato così:
 │   ├── Films       libreria film Jellyfin e root folder Radarr
 │   ├── Series      libreria serie Jellyfin e root folder Sonarr
 │   ├── .kapowarr-downloads  transito fumetti, escluso da Jellyfin
+│   ├── .omnibus/{downloads,watched,unmatched}  transito e importazione Omnibus
 │   └── .arr-downloads
 │       ├── complete
 │       └── incomplete
@@ -169,6 +173,7 @@ sudo mkdir -p \
   /srv/media/downloads/{Films,Series} \
   /srv/media/downloads/.arr-downloads/{complete,incomplete} \
   /srv/media/Comics /srv/media/downloads/.kapowarr-downloads \
+  /srv/media/downloads/.omnibus/{downloads,watched,unmatched} \
   /srv/media/music/library \
   /srv/media/music/aurral \
   /srv/media/music/.downloads/slskd/{complete,incomplete}
@@ -186,7 +191,10 @@ Configurare i permessi necessari sul filesystem locale o sul NAS:
 - l'utente indicato da `PUID` deve almeno leggere `jellyfin`.
 - `Comics` e `downloads/.kapowarr-downloads` devono appartenere a `PUID:PGID`
   con mode `2770`. Kapowarr scrive in entrambe; Jellyfin monta soltanto
-  `Comics` in sola lettura come `/comics`.
+  `Comics` in sola lettura come `/comics`. Anche Komga monta `Comics` in sola
+  lettura: utenti, progressi e metadati sono nel suo `/config` sull'SSD.
+  Omnibus monta la stessa `Comics` in scrittura come `/data/comics`; la sua
+  area di transito è `downloads/.omnibus`, montata come `/data`.
 - `music` e tutte le sottodirectory devono appartenere a `PUID:PGID`; Lidarr,
   Aurral e slskd scrivono in aree distinte e Navidrome le monta in sola lettura.
 
