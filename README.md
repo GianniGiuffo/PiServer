@@ -35,6 +35,7 @@ soltanto dopo la scelta dell'hardware.
 | Stirling PDF | solo Tailnet, porta 8463, login amministratore | config su SSD + Restic, OCR italiano/inglese |
 | ONLYOFFICE Docs | Tailnet 8464 + editor dei link pubblici su `cloud…/office/` | config su SSD + Restic, connettore nel DB Nextcloud |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
+| Kapowarr | solo Tailnet, porta 8466 | DB su SSD, fumetti in `/srv/media/Comics`, libreria Jellyfin **Fumetti** |
 | Seerr | Tailnet, porta 8457 | config su SSD, discovery collegata a Jellyfin |
 | Radarr | Tailnet, porta 8458 | config su SSD, film in `/srv/media/downloads/Films` |
 | Sonarr | Tailnet, porta 8459 | config su SSD, serie in `/srv/media/downloads/Series` |
@@ -165,6 +166,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Cockpit Files e gestione amministrativa del mini PC](docs/cockpit-files.md)
 - [PDF, OCR e ONLYOFFICE integrato in Nextcloud](docs/documents.md)
 - [Stack musicale](docs/music-stack.md)
+- [Kapowarr e libreria Fumetti](docs/comics.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
 - [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)
 - [Connettore AI: Nextcloud in sola lettura](docs/ai-connectors.md)

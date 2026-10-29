@@ -166,6 +166,13 @@
         description: Download BitTorrent
         server: local
         container: raspberry-server-qbittorrent-1
+    - Kapowarr:
+        icon: kapowarr.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8466/
+        siteMonitor: http://kapowarr:5656/api/public
+        description: Fumetti per Jellyfin
+        server: local
+        container: raspberry-server-kapowarr-1
     - Immich:
         icon: immich.png
         href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8447/

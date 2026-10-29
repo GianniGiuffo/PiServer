@@ -23,7 +23,7 @@ fi
 for directory in \
   downloads downloads/Films downloads/Series \
   downloads/.arr-downloads downloads/.arr-downloads/complete downloads/.arr-downloads/incomplete \
-  immich jellyfin nextcloud \
+  immich jellyfin nextcloud Comics downloads/.kapowarr-downloads \
   music music/library music/aurral \
   music/.downloads/slskd/complete music/.downloads/slskd/incomplete; do
   if [[ ! -d ${MEDIA_DIR}/${directory} ]]; then

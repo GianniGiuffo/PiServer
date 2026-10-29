@@ -16,6 +16,7 @@ configurazioni e database:
 │   ├── immich/postgres
 │   ├── jellyfin/config
 │   ├── jellyfin/cache
+│   ├── kapowarr
 │   ├── aurral
 │   ├── lidarr
 │   ├── navidrome
@@ -42,9 +43,11 @@ Il disco da 4 TB condiviso in LAN viene montato così:
 ```text
 /srv/media
 ├── .piserver-media
+├── Comics          libreria permanente Kapowarr, letta da Jellyfin
 ├── downloads
 │   ├── Films       libreria film Jellyfin e root folder Radarr
 │   ├── Series      libreria serie Jellyfin e root folder Sonarr
+│   ├── .kapowarr-downloads  transito fumetti, escluso da Jellyfin
 │   └── .arr-downloads
 │       ├── complete
 │       └── incomplete
@@ -165,6 +168,7 @@ sudo mkdir -p /srv/media/{downloads,immich,jellyfin,nextcloud}
 sudo mkdir -p \
   /srv/media/downloads/{Films,Series} \
   /srv/media/downloads/.arr-downloads/{complete,incomplete} \
+  /srv/media/Comics /srv/media/downloads/.kapowarr-downloads \
   /srv/media/music/library \
   /srv/media/music/aurral \
   /srv/media/music/.downloads/slskd/{complete,incomplete}
@@ -180,6 +184,9 @@ Configurare i permessi necessari sul filesystem locale o sul NAS:
   scrivibili dal `PUID`/`PGID` condiviso da qBittorrent, Radarr e Sonarr;
 - l'UID `33` di `www-data` deve poter scrivere in `nextcloud`;
 - l'utente indicato da `PUID` deve almeno leggere `jellyfin`.
+- `Comics` e `downloads/.kapowarr-downloads` devono appartenere a `PUID:PGID`
+  con mode `2770`. Kapowarr scrive in entrambe; Jellyfin monta soltanto
+  `Comics` in sola lettura come `/comics`.
 - `music` e tutte le sottodirectory devono appartenere a `PUID:PGID`; Lidarr,
   Aurral e slskd scrivono in aree distinte e Navidrome le monta in sola lettura.
 

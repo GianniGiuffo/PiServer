@@ -153,6 +153,12 @@ services:
       # generated files without granting the downloader access to /media.
       - ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads:/app/videos:ro
       - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/Comics
+        target: /comics
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
         source: /mnt/luca-media/film
         target: /media/luca/movies
         read_only: true
@@ -168,6 +174,46 @@ services:
       - "127.0.0.1:8096:8096/tcp"
     networks:
       - web
+    security_opt:
+      - no-new-privileges:true
+
+  kapowarr:
+    image: ${KAPOWARR_IMAGE:?Set KAPOWARR_IMAGE in .env}
+    restart: on-failure:5
+    init: true
+    mem_limit: 768m
+    cpus: 1.5
+    environment:
+      PUID: ${PUID:?Set PUID in .env}
+      PGID: ${PGID:?Set PGID in .env}
+      TZ: ${TZ:-Europe/Rome}
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR in .env}/kapowarr:/app/db
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/Comics
+        target: /comics
+        bind:
+          create_host_path: false
+      # Keep incomplete downloads outside the library indexed by Jellyfin.
+      - type: bind
+        source: ${MEDIA_DIR:?Set MEDIA_DIR in .env}/downloads/.kapowarr-downloads
+        target: /app/temp_downloads
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:5656:5656/tcp"
+    networks:
+      - web
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5656/api/public', timeout=5).close()"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     security_opt:
       - no-new-privileges:true
 

@@ -104,6 +104,7 @@ NEXTCLOUD_MAINTENANCE=false
 N8N_STOPPED=false
 IMMICH_STOPPED=false
 JELLYFIN_STOPPED=false
+KAPOWARR_STOPPED=false
 SEERR_STOPPED=false
 RADARR_STOPPED=false
 SONARR_STOPPED=false
@@ -128,6 +129,7 @@ cleanup() {
   if [[ ${NEXTCLOUD_MAINTENANCE} == true ||
         ${IMMICH_STOPPED} == true ||
         ${JELLYFIN_STOPPED} == true ||
+        ${KAPOWARR_STOPPED} == true ||
         ${SEERR_STOPPED} == true ||
         ${RADARR_STOPPED} == true ||
         ${SONARR_STOPPED} == true ||
@@ -159,6 +161,9 @@ cleanup() {
   fi
   if [[ ${JELLYFIN_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start jellyfin || true
+  fi
+  if [[ ${KAPOWARR_STOPPED} == true && ${media_can_restart} == true ]]; then
+    "${MEDIA[@]}" start kapowarr || true
   fi
   if [[ ${QBITTORRENT_STOPPED} == true && ${media_can_restart} == true ]]; then
     "${MEDIA[@]}" start qbittorrent || true
@@ -279,6 +284,10 @@ fi
 
 # SQLite-backed services are stopped briefly so their database and WAL files
 # belong to the same point in time.
+if is_running MEDIA kapowarr; then
+  "${MEDIA[@]}" stop kapowarr
+  KAPOWARR_STOPPED=true
+fi
 if is_running BASE stirling-pdf; then
   "${BASE[@]}" stop stirling-pdf
   STIRLING_STOPPED=true
@@ -370,6 +379,9 @@ done
 
 if [[ -e ${DATA_DIR}/jellyfin/config ]]; then
   BACKUP_PATHS+=("${DATA_DIR}/jellyfin/config")
+fi
+if [[ -e ${DATA_DIR}/kapowarr ]]; then
+  BACKUP_PATHS+=("${DATA_DIR}/kapowarr")
 fi
 for nextcloud_path in \
   "${DATA_DIR}/nextcloud/html/config" \
