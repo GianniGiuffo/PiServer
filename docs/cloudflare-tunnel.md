@@ -1,9 +1,9 @@
-# Pubblicare sito e Vaultwarden con Cloudflare Tunnel
+# Pubblicare il sito con Cloudflare Tunnel
 
 Il percorso HTTPS pubblico è:
 
 ```text
-Browser (HTTPS) -> Cloudflare -> encrypted outbound tunnel -> cloudflared -> Caddy -> site or Vaultwarden
+Browser (HTTPS) -> Cloudflare -> encrypted outbound tunnel -> cloudflared -> Caddy -> sito
 ```
 
 Funziona con CGNAT perché il mini PC apre una connessione uscente verso
@@ -57,17 +57,17 @@ Attendere che Cloudflare mostri il connettore come **Healthy**.
 ## 3. Hostname pubblici
 
 In Cloudflare aprire **Networking** > **Tunnels** > `pi-server` > **Routes** >
-**Add route** > **Published application**. Aggiungere le route seguenti. In
-entrambi i casi selezionare **HTTP** e usare esattamente `http://caddy:80` come
-URL del servizio. `caddy` è il nome interno Docker; non usare `localhost`.
+**Add route** > **Published application**. Selezionare **HTTP** e usare
+`http://caddy:80` come URL del servizio. `caddy` è il nome interno Docker.
 
 | Public hostname | Service URL |
 | --- | --- |
 | `tommasofrancescon.it` | `http://caddy:80` |
-| `vault.tommasofrancescon.it` | `http://caddy:80` |
 
-Un eventuale secondo sito è opzionale: va aggiunta una terza route soltanto
-dopo aver impostato `SITE_2_DOMAIN`. Non pubblicare Homepage, Nextcloud, Immich,
+Per un secondo sito aggiungere una route dopo aver impostato `SITE_2_DOMAIN`.
+Vaultwarden usa Tailscale Serve sulla porta `8469`. Rimuovere l'eventuale
+route del vecchio hostname dal tunnel e il relativo record DNS pubblico.
+Non pubblicare Homepage, Nextcloud, Immich,
 Jellyfin, Pi-hole, Uptime Kuma, l'editor n8n o la chat n8n. Gli endpoint n8n
 restano raggiungibili esclusivamente tramite Tailscale.
 
@@ -76,17 +76,10 @@ restano raggiungibili esclusivamente tramite Tailscale.
 Con il Wi-Fi disattivato su un telefono aprire:
 
 - `https://tommasofrancescon.it`
-- `https://vault.tommasofrancescon.it`
 
 Il sito restituisce una risposta 404 di Caddy finché non è configurato il
 deploy statico. Questo conferma comunque il funzionamento del tunnel; poi va
 configurato `site-1` e, solo se serve, `site-2`.
-
-Per questa migrazione Vaultwarden deve mostrare il vault già ripristinato:
-accedere con un account esistente e verificare almeno un elemento. Se appare
-una nuova installazione vuota, fermarsi, non importare né creare account e
-seguire il rollback in `docs/minipc-migration.md`. Lasciare sempre
-`VAULTWARDEN_SIGNUPS_ALLOWED=false`.
 
 ## Note di sicurezza
 
@@ -94,6 +87,3 @@ seguire il rollback in `docs/minipc-migration.md`. Lasciare sempre
   dalla rete Docker privata.
 - Non salvare il token del tunnel in GitHub. `.env` è ignorato da Git e viene
   incluso nel backup Restic cifrato.
-- Non proteggere Vaultwarden con una regola di login browser Cloudflare Access:
-  i client Bitwarden devono raggiungerlo direttamente. Usare password master
-  robusta e autenticazione a due fattori.

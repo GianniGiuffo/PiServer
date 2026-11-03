@@ -124,6 +124,10 @@ almeno questi monitor HTTP:
 | slskd | `http://slskd:5030/health` |
 | n8n | `http://n8n:5678/` |
 
+Sul Raspberry usare `https://MINIPC_TAILSCALE_FQDN:8469/alive` per monitorare
+Vaultwarden attraverso Tailscale Serve. Il monitor sul mini PC verifica
+direttamente il container.
+
 Configurare una notifica esterna, ad esempio email o Telegram, altrimenti un
 monitor sullo stesso server non può avvisare quando l'intero host è spento.
 Selezionare **Embedded MariaDB** alla prima configurazione. Uptime Kuma resta
@@ -410,6 +414,9 @@ Foto e video sono in `/srv/media/immich`; PostgreSQL è in
 struttura interna della libreria Immich.
 
 ## Vaultwarden
+
+Con Tailscale connesso, aprire `https://TAILSCALE_FQDN:8469/` e impostare lo
+stesso URL come server self-hosted nei client Bitwarden.
 
 Dopo il restore:
 
