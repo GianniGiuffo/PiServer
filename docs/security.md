@@ -9,7 +9,7 @@ dell'indagine sui log, i nuovi access log Caddy e la restrizione NFS a Tailscale
 | Servizio | Percorso | Internet pubblico |
 | --- | --- | --- |
 | Sito | Cloudflare Tunnel → Caddy | sì |
-| Vaultwarden | Cloudflare Tunnel → Caddy | sì |
+| Vaultwarden | Tailscale Serve `8469` → loopback `8080` | no |
 | webhook e chat n8n | Tailscale Serve `8449` | no |
 | Homepage | Tailscale Serve `443` | no |
 | area privata sito | Tailscale Serve `8443` | no |
@@ -94,8 +94,8 @@ una password sul link quando l'accesso deve essere limitato ai destinatari.
 - `ADMIN_TOKEN` deve essere un hash Argon2, non una password in chiaro.
 - Il database completo Restic è il backup primario; il JSON sul PC è la seconda
   via. Per allegati usare anche l'esportazione ZIP con allegati.
-- Non mettere Cloudflare Access davanti al dominio Vaultwarden: i client nativi
-  non possono completare un login web interattivo aggiuntivo.
+- Impostare `https://TAILSCALE_FQDN:8469` come URL del server nei client
+  Bitwarden. Tenere Vaultwarden fuori dalle route Cloudflare e da Tailscale Funnel.
 
 ## Homepage e Docker
 

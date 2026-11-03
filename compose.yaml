@@ -10,7 +10,6 @@ services:
     environment:
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:-unused.invalid}
-      VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
       NEXTCLOUD_PUBLIC_DOMAIN: ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
       NAVIDROME_PUBLIC_DOMAIN: ${NAVIDROME_PUBLIC_DOMAIN:?Set NAVIDROME_PUBLIC_DOMAIN in .env}
     volumes:
@@ -72,14 +71,14 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     environment:
-      DOMAIN: https://${VAULTWARDEN_DOMAIN:?Set VAULTWARDEN_DOMAIN in .env}
+      DOMAIN: https://${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env}:8469
       SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
       WEBSOCKET_ENABLED: "true"
       ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:?Set VAULTWARDEN_ADMIN_TOKEN in .env}
     volumes:
       - ${DATA_DIR:?Set DATA_DIR in .env}/vaultwarden:/data
     ports:
-      # Loopback health check used during migration; public clients use Caddy.
+      # HTTPS is provided by Tailscale Serve on port 8469.
       - "127.0.0.1:8080:80/tcp"
     networks:
       - web
@@ -165,7 +164,6 @@ services:
       HOMEPAGE_VAR_TAILSCALE_FQDN: ${TAILSCALE_FQDN}
       HOMEPAGE_VAR_RACK_PI_FQDN: ${RACK_PI_TAILSCALE_FQDN:?Set RACK_PI_TAILSCALE_FQDN in .env}
       HOMEPAGE_VAR_SITE_DOMAIN: ${SITE_1_DOMAIN}
-      HOMEPAGE_VAR_VAULTWARDEN_DOMAIN: ${VAULTWARDEN_DOMAIN}
     volumes:
       - ./config/homepage:/app/config:ro
     tmpfs:

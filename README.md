@@ -27,7 +27,7 @@ soltanto dopo la scelta dell'hardware.
 | Servizio | Accesso | Dati |
 | --- | --- | --- |
 | Sito statico | pubblico, Cloudflare Tunnel | build riproducibile dalla repo del sito |
-| Vaultwarden | pubblico, Cloudflare Tunnel | SSD locale + Restic |
+| Vaultwarden | Tailnet, porta 8469 | SSD locale + Restic |
 | Pi-hole DNS | LAN e Tailnet | SSD locale + Restic |
 | Homepage | Tailnet, porta 443 | configurazione in Git |
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
@@ -57,7 +57,7 @@ soltanto dopo la scelta dell'hardware.
 | Controllo Pi-hole doppio | Tailnet, porta 8456 | nessuna credenziale nel browser |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
-Vaultwarden, le route dei link pubblici Nextcloud e del relativo editor Office, e `/share/*` di
+le route dei link pubblici Nextcloud e del relativo editor Office, e `/share/*` di
 Navidrome; editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
 router deve essere inoltrata.
 
@@ -171,7 +171,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Kapowarr e libreria Fumetti](docs/comics.md)
 - [Komga e lettura su Android](docs/komga.md)
 - [Omnibus: scoperta, richieste e gestione della raccolta](docs/omnibus.md)
-- [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione di base per sito e Vaultwarden
+- [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione dei siti pubblici
 - [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)
 - [Connettore AI: Nextcloud in sola lettura](docs/ai-connectors.md)
 - [Connettori AI: GitHub in sola lettura e DeepL](docs/n8n-github-deepl.md)

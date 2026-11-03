@@ -80,7 +80,7 @@
         container: raspberry-server-caddy-1
     - Vaultwarden:
         icon: vaultwarden.png
-        href: https://{{HOMEPAGE_VAR_VAULTWARDEN_DOMAIN}}
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8469/
         siteMonitor: http://vaultwarden
         description: Password manager pubblico
         server: local

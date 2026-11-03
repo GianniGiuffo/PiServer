@@ -164,12 +164,13 @@ Sul mini PC:
 ```bash
 cd /opt/raspberry-server
 docker compose up -d cloudflared
+sudo ./scripts/configure-tailscale-serve.sh
 sudo systemctl enable --now core-stack.service
 docker compose logs --tail=100 cloudflared
 ```
 
-Provare `https://tommasofrancescon.it` e
-`https://vault.tommasofrancescon.it` da rete mobile. Accedere a Vaultwarden,
+Provare `https://tommasofrancescon.it` da rete mobile. Con Tailscale connesso,
+accedere a Vaultwarden su `https://TAILSCALE_FQDN:8469/`,
 confrontare alcuni elementi con l'esportazione JSON, sincronizzare un client,
 creare e cancellare un elemento di prova e controllare il secondo fattore.
 
