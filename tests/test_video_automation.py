@@ -17,8 +17,8 @@ class VideoAutomationStackTests(unittest.TestCase):
         expected = (
             "RADARR_IMAGE=lscr.io/linuxserver/radarr:version-6.4.4.10685",
             "SONARR_IMAGE=lscr.io/linuxserver/sonarr:version-4.0.20.3014",
-            "PROWLARR_IMAGE=lscr.io/linuxserver/prowlarr:version-2.6.5.5623",
-            "QBITTORRENT_IMAGE=lscr.io/linuxserver/qbittorrent:5.2.4_v2.0.15-ls480",
+            "PROWLARR_IMAGE=lscr.io/linuxserver/prowlarr:version-2.7.0.5723",
+            "QBITTORRENT_IMAGE=lscr.io/linuxserver/qbittorrent:5.3.0_v2.1.2-ls486",
         )
         for image in expected:
             self.assertIn(image, env)

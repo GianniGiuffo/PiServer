@@ -9,7 +9,7 @@ gestisce direttamente le richieste: non le inoltra a Kapowarr.
 
 - UI: `https://TAILSCALE_FQDN:8468/`, solo tramite Tailscale Serve verso
   `127.0.0.1:3003`. Nessuna esposizione LAN, Cloudflare Tunnel o Funnel.
-- `omnibus`: interfaccia Next.js e API, versione `v1.4.9` fissata per digest.
+- `omnibus`: interfaccia Next.js e API, versione `v1.4.10` fissata per digest.
 - `omnibus-engine`: motore Rust della stessa versione, senza porte host,
   su una rete dedicata raggiungibile dall'app.
 - `omnibus-redis`: coda BullMQ persistente, senza porte host, su una rete
