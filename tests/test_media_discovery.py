@@ -14,7 +14,7 @@ class MediaDiscoveryStackTests(unittest.TestCase):
     def test_images_are_pinned_to_reviewed_stable_releases(self) -> None:
         env = self.read(".env.example")
         self.assertIn("JELLYFIN_IMAGE=jellyfin/jellyfin:12.2", env)
-        self.assertIn("SEERR_IMAGE=ghcr.io/seerr-team/seerr:v3.5.0", env)
+        self.assertIn("SEERR_IMAGE=ghcr.io/seerr-team/seerr:v3.5.1", env)
         self.assertNotIn("SEERR_IMAGE=ghcr.io/seerr-team/seerr:latest", env)
 
     def test_seerr_is_persistent_hardened_and_loopback_only(self) -> None:
