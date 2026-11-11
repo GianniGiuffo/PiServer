@@ -40,6 +40,75 @@ docker compose exec penpot-backend python3 manage.py create-profile -n admin -e 
 Per impostare una nuova password di un account esistente, usare
 `docker compose exec penpot-backend python3 manage.py update-profile -e EMAIL`.
 
+## Collaboratori esterni
+
+La stessa istanza accetta due percorsi. Tu continui a usare
+`https://TAILSCALE_FQDN:8470/`. Gli invitati aprono
+`https://penpot.tommasofrancescon.it` nel browser, passano Cloudflare Access
+con il codice inviato all'email autorizzata e accedono al proprio account
+Penpot. Il sottodominio serve l'intera sessione di lavoro, compresi asset e
+WebSocket. Il frontend usa l'origine del browser per le API e i WebSocket.
+
+1. Sul mini PC impostare nel `.env`:
+
+   ```dotenv
+   PENPOT_PUBLIC_DOMAIN=penpot.tommasofrancescon.it
+   ```
+
+   Applicare la configurazione dalla directory del repository:
+
+   ```bash
+   docker compose config --quiet
+   docker compose up -d --no-deps caddy penpot-backend penpot-exporter penpot-frontend
+   ```
+
+2. In **Cloudflare Zero Trust**, aprire **Integrations → Identity providers**
+   e verificare che **One-time PIN** sia disponibile. In **Access controls →
+   Applications → Add an application**, scegliere **Self-hosted** e aggiungere
+   il public hostname `penpot.tommasofrancescon.it` senza indicare un path.
+   Selezionare **One-time PIN** come metodo di accesso e creare una policy
+   **Allow** con **Include → Emails**, elencando i singoli indirizzi degli
+   invitati. Aggiungere anche il proprio indirizzo se si vuole provare
+   l'ingresso esterno. Gli indirizzi fuori elenco sono negati.
+
+3. Dopo aver salvato l'app Access, aprire **Networking → Tunnels** e
+   selezionare il tunnel esistente del mini PC. In **Routes → Add route →
+   Published application** compilare:
+
+   | Campo | Valore |
+   | --- | --- |
+   | Hostname | `penpot.tommasofrancescon.it` |
+   | Path | vuoto |
+   | Service type | HTTP |
+   | Origin | `caddy:8089` |
+   | Additional application settings → Access → Protect with Access | attivo, applicazione Penpot |
+
+   Se richiesti, indicare il team Zero Trust e l'AUD dell'app Penpot. L'AUD
+   è nella configurazione dell'app Access. Con DNS gestito da Cloudflare
+   la route crea il record del sottodominio. La porta 8089 appartiene a
+   Caddy nella rete Docker. [Guida Cloudflare](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
+
+4. Da Tailscale creare un team che contenga solo il file da condividere e
+   invitare l'indirizzo autorizzato come **Editor**. Le registrazioni
+   pubbliche restano chiuse. Con SMTP disattivato, usare **Team →
+   Invitations → Copy link** dal sottodominio per ottenere subito l'URL
+   esterno. Se si copia il link dalla scheda aperta su Tailscale,
+   sostituire la sola origine (schema, host e porta) con
+   `https://penpot.tommasofrancescon.it`, conservando il resto del link.
+   Inviare il link al destinatario tramite un canale privato.
+
+5. Da fuori Tailscale e in una finestra privata verificare che l'URL
+   mostri Access e che un indirizzo fuori elenco non entri. Provare poi
+   invito, login e modifica simultanea con un Editor autorizzato. L'Editor
+   deve vedere il team dedicato e i suoi file. Per revocare l'accesso,
+   rimuovere l'Editor dal team Penpot e l'email dalla policy Access, quindi
+   revocare la sessione Access se è ancora attiva.
+
+Conservare le impostazioni Cloudflare di Access e della route nel pannello
+Cloudflare. Per disattivare l'ingresso esterno, rimuovere prima la route
+pubblicata. Togliere poi `PENPOT_PUBLIC_DOMAIN` da `.env` e ricreare i
+quattro servizi indicati sopra per tornare agli inviti con URL Tailscale.
+
 ## Monitoraggio
 
 In Uptime Kuma su `rack-pi`, aggiungere un monitor **HTTP(s)** chiamato
@@ -61,7 +130,7 @@ Scaricare e ricreare solo i cinque container Penpot e verificare `/readyz`.
 
 Il backup Restic `pi-server` salva il dump logico in `STAGING_DIR/penpot/penpot.dump`,
 gli oggetti persistenti in `STAGING_DIR/penpot/assets`, il `.env` con i segreti,
-il Compose e lo script delle route Tailscale. Il backend resta fermo durante
+il Compose, il Caddyfile e lo script delle route Tailscale. Il backend resta fermo durante
 il dump e la copia locale degli asset. La directory di staging viene rimossa
 dopo il backup. Lo staging richiede spazio per una copia degli asset sul SSD.
 Valkey usa memoria e contiene notifiche e job di esportazione in corso.

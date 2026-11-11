@@ -84,6 +84,18 @@ http://:80 {
 	respond 404
 }
 
+# Dedicated Docker-only origin for the Cloudflare route protected by Access.
+# The private Tailscale route reaches the frontend independently of this vhost.
+http://{$PENPOT_PUBLIC_DOMAIN}:8089 {
+	import security_access_log
+	reverse_proxy penpot-frontend:8080 {
+		header_up X-Forwarded-Proto https
+		header_up -Cf-Access-Jwt-Assertion
+		header_down Cache-Control "private, no-store"
+	}
+	header -Server
+}
+
 # The Tailnet-facing Nextcloud proxy keeps the full application private. Only
 # calls which create or read shares are presented to Nextcloud with the public
 # hostname, so copied links use NEXTCLOUD_PUBLIC_DOMAIN even though the user is

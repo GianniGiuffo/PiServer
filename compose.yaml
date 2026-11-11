@@ -12,6 +12,7 @@ services:
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:-unused.invalid}
       NEXTCLOUD_PUBLIC_DOMAIN: ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
       NAVIDROME_PUBLIC_DOMAIN: ${NAVIDROME_PUBLIC_DOMAIN:?Set NAVIDROME_PUBLIC_DOMAIN in .env}
+      PENPOT_PUBLIC_DOMAIN: ${PENPOT_PUBLIC_DOMAIN:-penpot.invalid}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
@@ -28,6 +29,7 @@ services:
       # Caddy reaches Nextcloud only through its existing restricted frontend
       # network. Databases and the AI connector remain isolated.
       - nextcloud-access
+      - penpot-ingress
     security_opt:
       - no-new-privileges:true
 
@@ -274,7 +276,9 @@ services:
       - penpot-backend
       - penpot-exporter
     environment:
-      PENPOT_PUBLIC_URI: https://${TAILSCALE_FQDN}:8470
+      # Penpot 2.19.1 uses window.location.origin when the frontend URI is
+      # unset. Keep API and WebSocket traffic on the host the browser opened.
+      PENPOT_HSTS_VALUE: max-age=31536000
       PENPOT_FLAGS: disable-registration disable-mcp disable-admin-console
     volumes:
       - ${DATA_DIR}/penpot/assets:/opt/data/assets:ro
@@ -283,6 +287,7 @@ services:
     networks:
       - penpot
       - monitoring
+      - penpot-ingress
     security_opt:
       - no-new-privileges:true
 
@@ -296,7 +301,7 @@ services:
       penpot-valkey:
         condition: service_healthy
     environment:
-      PENPOT_PUBLIC_URI: https://${TAILSCALE_FQDN}:8470
+      PENPOT_PUBLIC_URI: https://${PENPOT_PUBLIC_DOMAIN:-${TAILSCALE_FQDN}:8470}
       PENPOT_FLAGS: enable-prepl-server enable-secure-session-cookies disable-registration disable-smtp disable-mcp disable-admin-console
       PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env}
       PENPOT_DATABASE_URI: postgresql://penpot-postgres/penpot
@@ -320,7 +325,7 @@ services:
       penpot-valkey:
         condition: service_healthy
     environment:
-      PENPOT_PUBLIC_URI: https://${TAILSCALE_FQDN}:8470
+      PENPOT_PUBLIC_URI: https://${PENPOT_PUBLIC_DOMAIN:-${TAILSCALE_FQDN}:8470}
       PENPOT_INTERNAL_URI: http://penpot-frontend:8080
       PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY}
       PENPOT_REDIS_URI: redis://penpot-valkey/0
@@ -391,5 +396,7 @@ networks:
   web:
   nextcloud-access:
   penpot:
+  penpot-ingress:
+    internal: true
   monitoring:
     internal: true

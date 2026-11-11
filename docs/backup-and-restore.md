@@ -16,8 +16,7 @@ Ogni notte `scripts/backup.sh` crea uno snapshot Restic cifrato contenente:
 - directory completa di Vaultwarden;
 - Pi-hole e Caddy;
 - database e impostazioni Uptime Kuma;
-- Penpot sul mini PC, con dump PostgreSQL, asset e oggetti dei progetti, `.env` e configurazione di avvio. Per il ripristino vedere [Penpot](penpot.md#ripristino);
-- Penpot sul mini PC, con dump PostgreSQL, asset e oggetti dei progetti, `.env` e configurazione di avvio. Per il ripristino vedere [Penpot](penpot.md#ripristino);
+- Penpot sul mini PC, con dump PostgreSQL, asset e oggetti dei progetti, `.env`, Compose, Caddyfile e route Tailscale. Per il ripristino vedere [Penpot](penpot.md#ripristino);
 - database/configurazione Jellyfin, esclusi log, cache, metadata generati e
   transcodifiche;
 - database e configurazione Seerr;

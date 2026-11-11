@@ -434,7 +434,11 @@ BACKUP_PATHS=(
   "/etc/raspberry-server"
 )
 if [[ ${PENPOT_STAGED} == true ]]; then
-  BACKUP_PATHS+=("${REPO_DIR}/compose.yaml" "${SCRIPT_DIR}/configure-tailscale-serve.sh")
+  BACKUP_PATHS+=(
+    "${REPO_DIR}/compose.yaml"
+    "${REPO_DIR}/Caddyfile"
+    "${SCRIPT_DIR}/configure-tailscale-serve.sh"
+  )
 fi
 
 # Cockpit is installed on the host; keep its local auth/proxy/socket settings.
