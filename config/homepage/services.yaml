@@ -122,6 +122,13 @@
         description: Modifica documenti in Nextcloud
         server: local
         container: raspberry-server-onlyoffice-1
+    - Penpot:
+        icon: penpot.png
+        href: https://{{HOMEPAGE_VAR_TAILSCALE_FQDN}}:8470/
+        siteMonitor: http://penpot-frontend:8080/readyz
+        description: Design e prototipi
+        server: local
+        container: raspberry-server-penpot-frontend-1
 
 - Media:
     - Jellyfin:

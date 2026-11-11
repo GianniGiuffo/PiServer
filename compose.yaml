@@ -267,6 +267,106 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  penpot-frontend:
+    image: ${PENPOT_FRONTEND_IMAGE:?Set PENPOT_FRONTEND_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      - penpot-backend
+      - penpot-exporter
+    environment:
+      PENPOT_PUBLIC_URI: https://${TAILSCALE_FQDN}:8470
+      PENPOT_FLAGS: disable-registration disable-mcp disable-admin-console
+    volumes:
+      - ${DATA_DIR}/penpot/assets:/opt/data/assets:ro
+    ports:
+      - "127.0.0.1:9001:8080/tcp"
+    networks:
+      - penpot
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-backend:
+    image: ${PENPOT_BACKEND_IMAGE:?Set PENPOT_BACKEND_IMAGE in .env}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    depends_on:
+      penpot-postgres:
+        condition: service_healthy
+      penpot-valkey:
+        condition: service_healthy
+    environment:
+      PENPOT_PUBLIC_URI: https://${TAILSCALE_FQDN}:8470
+      PENPOT_FLAGS: enable-prepl-server enable-secure-session-cookies disable-registration disable-smtp disable-mcp disable-admin-console
+      PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env}
+      PENPOT_DATABASE_URI: postgresql://penpot-postgres/penpot
+      PENPOT_DATABASE_USERNAME: penpot
+      PENPOT_DATABASE_PASSWORD: ${PENPOT_DB_PASSWORD:?Set PENPOT_DB_PASSWORD in .env}
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+      PENPOT_OBJECTS_STORAGE_BACKEND: fs
+      PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+      PENPOT_TELEMETRY_ENABLED: "false"
+    volumes:
+      - ${DATA_DIR}/penpot/assets:/opt/data/assets
+    networks:
+      - penpot
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-exporter:
+    image: ${PENPOT_EXPORTER_IMAGE:?Set PENPOT_EXPORTER_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      penpot-valkey:
+        condition: service_healthy
+    environment:
+      PENPOT_PUBLIC_URI: https://${TAILSCALE_FQDN}:8470
+      PENPOT_INTERNAL_URI: http://penpot-frontend:8080
+      PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY}
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+    networks:
+      - penpot
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-postgres:
+    image: ${PENPOT_POSTGRES_IMAGE:?Set PENPOT_POSTGRES_IMAGE in .env}
+    restart: unless-stopped
+    stop_signal: SIGINT
+    environment:
+      POSTGRES_DB: penpot
+      POSTGRES_USER: penpot
+      POSTGRES_PASSWORD: ${PENPOT_DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - ${DATA_DIR}/penpot/postgres:/var/lib/postgresql/data
+    networks:
+      - penpot
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "penpot", "-d", "penpot"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-valkey:
+    image: ${PENPOT_VALKEY_IMAGE:?Set PENPOT_VALKEY_IMAGE in .env}
+    restart: unless-stopped
+    # WebSocket notifications and in-flight export jobs are transient.
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    tmpfs:
+      - /data
+    networks:
+      - penpot
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+
   uptime-kuma:
     image: ${UPTIME_KUMA_IMAGE:?Set UPTIME_KUMA_IMAGE in .env}
     restart: unless-stopped
@@ -290,5 +390,6 @@ services:
 networks:
   web:
   nextcloud-access:
+  penpot:
   monitoring:
     internal: true
