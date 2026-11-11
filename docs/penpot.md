@@ -48,6 +48,9 @@ La stessa istanza accetta due percorsi. Tu continui a usare
 con il codice inviato all'email autorizzata e accedono al proprio account
 Penpot. Il sottodominio serve l'intera sessione di lavoro, compresi asset e
 WebSocket. Il frontend usa l'origine del browser per le API e i WebSocket.
+Cloudflare verifica l'indirizzo email con il codice di accesso. Penpot
+richiede un invito valido per creare un account e salta la propria verifica
+email perché SMTP è disattivato. Inviare ogni invito solo al destinatario.
 
 1. Sul mini PC impostare nel `.env`:
 
@@ -90,7 +93,9 @@ WebSocket. Il frontend usa l'origine del browser per le API e i WebSocket.
 
 4. Da Tailscale creare un team che contenga solo il file da condividere e
    invitare l'indirizzo autorizzato come **Editor**. Le registrazioni
-   pubbliche restano chiuse. Con SMTP disattivato, usare **Team →
+   pubbliche restano chiuse. Per un account già attivo Penpot può
+   aggiungere direttamente la persona al team. Per un nuovo account
+   usare **Team →
    Invitations → Copy link** dal sottodominio per ottenere subito l'URL
    esterno. Se si copia il link dalla scheda aperta su Tailscale,
    sostituire la sola origine (schema, host e porta) con
