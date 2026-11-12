@@ -32,9 +32,9 @@ forwarding, UPnP o Funnel.
    il DNS all'IP del mini PC. Non mettere Cloudflare Access davanti all'intero
    hostname: anche gli ospiti devono poter aprire i link. Conservare
    `CF-Connecting-IP` ed evitare Worker o trasformazioni che alterano l'IP client.
-4. Impostare [Bypass cache](https://developers.cloudflare.com/cache/how-to/cache-rules/create-dashboard/)
-   su tutto l'hostname (`http.host eq "cloud.tommasofrancescon.it"`) e verificare
-   che nessuna altra regola imponga la cache. Forzare HTTP → HTTPS per l'hostname.
+4. Caddy forza HTTPS per il solo hostname Nextcloud e invia `no-store` anche
+   a Cloudflare. Se la zona ha regole che impongono la cache, escludere
+   `cloud.tommasofrancescon.it` con [Bypass cache](https://developers.cloudflare.com/cache/how-to/cache-rules/create-dashboard/).
    Mantenere le protezioni WAF del piano e verificare che app e WebDAV non
    ricevano challenge interattive.
 

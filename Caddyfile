@@ -109,6 +109,7 @@ http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
 	import security_access_log
 	header {
 		>Cache-Control "private, no-store"
+		>Cloudflare-CDN-Cache-Control "no-store"
 		>Strict-Transport-Security "max-age=15552000"
 		-Server
 	}
@@ -120,6 +121,7 @@ http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
 		header_regexp CF-Connecting-IP ^[0-9A-Fa-f:.]+$
 	}
 	@office path /office /office/*
+	@unencrypted not header X-Forwarded-Proto https
 	@public_enabled expression `"{$NEXTCLOUD_PUBLIC_ENABLED:false}" == "true"`
 	@dav_discovery path /.well-known/caldav /.well-known/carddav
 	@office_callbacks path_regexp officeCallbacks ^/(?:index\.php/)?apps/onlyoffice/(?:download|empty|track)/?$
@@ -137,6 +139,7 @@ http://{$NEXTCLOUD_PUBLIC_DOMAIN} {
 	}
 
 	handle @tunnel {
+		redir @unencrypted https://{$NEXTCLOUD_PUBLIC_DOMAIN}{uri} 308
 		handle @office {
 			handle @office_assets {
 				import onlyoffice_public_proxy

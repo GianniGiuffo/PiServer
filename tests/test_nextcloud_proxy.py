@@ -92,7 +92,9 @@ class NextcloudProxyTests(unittest.TestCase):
         connection = http.client.HTTPConnection("127.0.0.1", port or self.public_port,
                                                 timeout=3)
         try:
-            connection.request(method, path, headers={"Host": "cloud.example.test", **headers})
+            connection.request(method, path, headers={
+                "Host": "cloud.example.test", "X-Forwarded-Proto": "https", **headers,
+            })
             response = connection.getresponse()
             return response.status, response.headers, response.read()
         finally:
@@ -103,11 +105,12 @@ class NextcloudProxyTests(unittest.TestCase):
         edge = {"CF-Connecting-IP": "2001:db8::50"}
         for method, path in (("GET", "/login"), ("GET", "/s/existing"), ("PROPFIND", "/remote.php/dav/")):
             status, headers, body = self.request(path, method=method, **edge, **{
-                "X-Forwarded-For": "192.0.2.123", "X-Forwarded-Proto": "http",
+                "X-Forwarded-For": "192.0.2.123",
                 "X-Forwarded-Host": "spoof.example.test", "X-Real-IP": "192.0.2.123",
             })
             self.assertEqual(status, 200)
             self.assertEqual(headers["Cache-Control"], "private, no-store")
+            self.assertEqual(headers["Cloudflare-CDN-Cache-Control"], "no-store")
             self.assertIn("max-age=", headers["Strict-Transport-Security"])
             forwarded = json.loads(body)
             self.assertEqual((forwarded["method"], forwarded["path"]), (method, path))
@@ -118,6 +121,8 @@ class NextcloudProxyTests(unittest.TestCase):
             self.assertNotIn("x-real-ip", sent)
         self.assertEqual(self.request("/login")[0], 404)
         self.assertEqual(self.request("/login", **{"CF-Connecting-IP": "192.0.2.1, 192.0.2.2"})[0], 404)
+        status, headers, _ = self.request("/login", **edge, **{"X-Forwarded-Proto": "http"})
+        self.assertEqual((status, headers["Location"]), (308, "https://cloud.example.test/login"))
         status, headers, _ = self.request("/.well-known/caldav", **edge)
         self.assertEqual((status, headers["Location"]), (301, "/remote.php/dav/"))
         self.assertEqual(self.request("/office/healthcheck", **edge)[0], 404)
