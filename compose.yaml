@@ -11,7 +11,9 @@ services:
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:-unused.invalid}
       NEXTCLOUD_PUBLIC_DOMAIN: ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
+      NEXTCLOUD_PUBLIC_ENABLED: ${NEXTCLOUD_PUBLIC_ENABLED:-false}
       NAVIDROME_PUBLIC_DOMAIN: ${NAVIDROME_PUBLIC_DOMAIN:?Set NAVIDROME_PUBLIC_DOMAIN in .env}
+      PENPOT_PUBLIC_DOMAIN: ${PENPOT_PUBLIC_DOMAIN:-penpot.invalid}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ${DATA_DIR:?Set DATA_DIR in .env}/caddy/data:/data
@@ -20,14 +22,18 @@ services:
     ports:
       # Private Hugo pages are published only through Tailscale Serve.
       - "127.0.0.1:8083:8083/tcp"
-      # Full Nextcloud UI for Tailscale Serve; the public vhost remains
-      # independently restricted to tokenized share routes in Caddy.
+      # Independent Nextcloud access for Tailscale Serve.
       - "127.0.0.1:18084:8084/tcp"
     networks:
-      - web
-      # Caddy reaches Nextcloud only through its existing restricted frontend
-      # network. Databases and the AI connector remain isolated.
-      - nextcloud-access
+      web:
+      # ONLYOFFICE uses the shared frontend; Nextcloud trusts only Caddy's
+      # fixed IP on the dedicated proxy network.
+      nextcloud-access:
+      penpot-ingress:
+      tunnel-ingress:
+        ipv4_address: 10.203.253.3
+      nextcloud-proxy:
+        ipv4_address: 10.203.253.10
     security_opt:
       - no-new-privileges:true
 
@@ -39,7 +45,8 @@ services:
     depends_on:
       - caddy
     networks:
-      - web
+      tunnel-ingress:
+        ipv4_address: 10.203.253.2
     security_opt:
       - no-new-privileges:true
 
@@ -267,6 +274,117 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  penpot-frontend:
+    image: ${PENPOT_FRONTEND_IMAGE:?Set PENPOT_FRONTEND_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      - penpot-backend
+      - penpot-exporter
+    environment:
+      # Penpot 2.19.1 uses window.location.origin when the frontend URI is
+      # unset. Keep API and WebSocket traffic on the host the browser opened.
+      PENPOT_HSTS_VALUE: max-age=31536000
+      PENPOT_FLAGS: enable-login-with-password disable-registration enable-email-verification disable-mcp disable-admin-console
+    volumes:
+      - ${DATA_DIR}/penpot/assets:/opt/data/assets:ro
+    ports:
+      - "127.0.0.1:9001:8080/tcp"
+    networks:
+      - penpot
+      - monitoring
+      - penpot-ingress
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-backend:
+    image: ${PENPOT_BACKEND_IMAGE:?Set PENPOT_BACKEND_IMAGE in .env}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    depends_on:
+      penpot-postgres:
+        condition: service_healthy
+      penpot-valkey:
+        condition: service_healthy
+    environment:
+      PENPOT_PUBLIC_URI: https://${PENPOT_PUBLIC_DOMAIN:-${TAILSCALE_FQDN}:8470}
+      PENPOT_FLAGS: enable-prepl-server enable-secure-session-cookies enable-login-with-password disable-registration enable-email-verification ${PENPOT_SMTP_FLAG:-disable-smtp} disable-mcp disable-admin-console
+      PENPOT_SMTP_HOST: smtp-relay.brevo.com
+      PENPOT_SMTP_PORT: "587"
+      PENPOT_SMTP_TLS: "true"
+      PENPOT_SMTP_SSL: "false"
+      PENPOT_SMTP_USERNAME:
+      PENPOT_SMTP_PASSWORD:
+      PENPOT_SMTP_DEFAULT_FROM:
+      PENPOT_SMTP_DEFAULT_REPLY_TO:
+      PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env}
+      PENPOT_DATABASE_URI: postgresql://penpot-postgres/penpot
+      PENPOT_DATABASE_USERNAME: penpot
+      PENPOT_DATABASE_PASSWORD: ${PENPOT_DB_PASSWORD:?Set PENPOT_DB_PASSWORD in .env}
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+      PENPOT_OBJECTS_STORAGE_BACKEND: fs
+      PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+      PENPOT_TELEMETRY_ENABLED: "false"
+    volumes:
+      - ${DATA_DIR}/penpot/assets:/opt/data/assets
+    networks:
+      - penpot
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-exporter:
+    image: ${PENPOT_EXPORTER_IMAGE:?Set PENPOT_EXPORTER_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      penpot-valkey:
+        condition: service_healthy
+    environment:
+      PENPOT_PUBLIC_URI: https://${PENPOT_PUBLIC_DOMAIN:-${TAILSCALE_FQDN}:8470}
+      PENPOT_INTERNAL_URI: http://penpot-frontend:8080
+      PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY}
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+    networks:
+      - penpot
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-postgres:
+    image: ${PENPOT_POSTGRES_IMAGE:?Set PENPOT_POSTGRES_IMAGE in .env}
+    restart: unless-stopped
+    stop_signal: SIGINT
+    environment:
+      POSTGRES_DB: penpot
+      POSTGRES_USER: penpot
+      POSTGRES_PASSWORD: ${PENPOT_DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - ${DATA_DIR}/penpot/postgres:/var/lib/postgresql/data
+    networks:
+      - penpot
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "penpot", "-d", "penpot"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+
+  penpot-valkey:
+    image: ${PENPOT_VALKEY_IMAGE:?Set PENPOT_VALKEY_IMAGE in .env}
+    restart: unless-stopped
+    # WebSocket notifications and in-flight export jobs are transient.
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    tmpfs:
+      - /data
+    networks:
+      - penpot
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+
   uptime-kuma:
     image: ${UPTIME_KUMA_IMAGE:?Set UPTIME_KUMA_IMAGE in .env}
     restart: unless-stopped
@@ -289,6 +407,18 @@ services:
 
 networks:
   web:
+  tunnel-ingress:
+    ipam:
+      config:
+        - subnet: 10.203.253.0/29
+  nextcloud-proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.203.253.8/29
   nextcloud-access:
+  penpot:
+  penpot-ingress:
+    internal: true
   monitoring:
     internal: true

@@ -125,11 +125,20 @@ UPTIME_STOPPED=false
 VAULTWARDEN_STOPPED=false
 PIHOLE_STOPPED=false
 STIRLING_STOPPED=false
+PENPOT_RESUME=false
+PENPOT_STAGED=false
+PENPOT_STAGE=${STAGING_DIR}/penpot
 BACKUP_COMPLETED=false
 
 cleanup() {
   local exit_status=$?
   local media_can_restart=true
+  if [[ ${PENPOT_RESUME} == true ]]; then
+    "${BASE[@]}" start penpot-backend || echo "WARNING: Penpot needs a manual restart." >&2
+  fi
+  if [[ ${PENPOT_STAGED} == true ]]; then
+    rm -rf -- "${PENPOT_STAGE}" || echo "WARNING: failed to clean Penpot staging." >&2
+  fi
   if [[ ${NEXTCLOUD_MAINTENANCE} == true ||
         ${IMMICH_STOPPED} == true ||
         ${JELLYFIN_STOPPED} == true ||
@@ -242,6 +251,25 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+# Keep the logical database and the filesystem objects at the same point in
+# time. Resume the backend before the network transfer or other backup work.
+if [[ -d ${DATA_DIR}/penpot ]]; then
+  PENPOT_STAGED=true
+  install -d -m 0700 "${PENPOT_STAGE}" "${PENPOT_STAGE}/assets"
+  if is_running BASE penpot-backend; then
+    PENPOT_RESUME=true
+    "${BASE[@]}" stop penpot-backend
+  fi
+  "${BASE[@]}" exec -T penpot-postgres pg_dump -Fc -U penpot -d penpot \
+    > "${PENPOT_STAGE}/penpot.dump"
+  rsync -aHAX --numeric-ids --delete -- \
+    "${DATA_DIR}/penpot/assets/" "${PENPOT_STAGE}/assets/"
+  if [[ ${PENPOT_RESUME} == true ]]; then
+    "${BASE[@]}" start penpot-backend
+    PENPOT_RESUME=false
+  fi
+fi
 
 # SQL databases are dumped after their application writer is quiesced. Raw
 # PostgreSQL directories are never copied while running.
@@ -405,6 +433,13 @@ BACKUP_PATHS=(
   "${STAGING_DIR}"
   "/etc/raspberry-server"
 )
+if [[ ${PENPOT_STAGED} == true ]]; then
+  BACKUP_PATHS+=(
+    "${REPO_DIR}/compose.yaml"
+    "${REPO_DIR}/Caddyfile"
+    "${SCRIPT_DIR}/configure-tailscale-serve.sh"
+  )
+fi
 
 # Cockpit is installed on the host; keep its local auth/proxy/socket settings.
 for cockpit_config in \

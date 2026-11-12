@@ -41,6 +41,19 @@
   ],
   "packageRules": [
     {
+      "matchDepTypes": ["PENPOT_FRONTEND_IMAGE", "PENPOT_BACKEND_IMAGE", "PENPOT_EXPORTER_IMAGE"],
+      "groupName": "Penpot",
+      "prBodyNotes": ["Mantenere frontend, backend ed exporter sulla stessa release. Prima del deploy manuale verificare uno snapshot con database e asset e consultare le note di rilascio Penpot."]
+    },
+    {
+      "matchDepTypes": ["PENPOT_POSTGRES_IMAGE"],
+      "allowedVersions": "/^15$/"
+    },
+    {
+      "matchDepTypes": ["PENPOT_VALKEY_IMAGE"],
+      "allowedVersions": "/^8\\.1$/"
+    },
+    {
       "matchDatasources": [
         "docker"
       ],

@@ -446,6 +446,7 @@ Aggiungere almeno:
 
 - ping mini PC LAN e Tailscale;
 - Homepage, Pi-hole, Immich, Vaultwarden e Uptime Kuma del mini PC;
+- Penpot del mini PC con monitor HTTP(s) su `https://MINIPC_TAILSCALE_FQDN:8470/readyz`;
 - Push monitor **Backup rack**;
 - Push monitor **Manutenzione Restic**.
 

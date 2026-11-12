@@ -24,6 +24,10 @@ di interpretare le notifiche come aggiornamenti della produzione.
   Il bot cambia solo il riferimento dell'immagine, mai i moduli locali.
 - Le immagini database Immich richiedono il controllo del Compose ufficiale
   e delle estensioni insieme alla versione del server.
+- Penpot raggruppa frontend, backend ed exporter in una PR. Verificare che le
+  tre immagini puntino alla stessa release. PostgreSQL 15 e Valkey 8.1
+  ricevono proposte di aggiornamento del digest sui rispettivi tag. Per backup
+  e aggiornamento manuale vedere [Penpot](penpot.md#aggiornamenti).
 - `pinDigests` propone di fissare il digest iniziale anche per `latest` e
   `nightly`. Dopo il merge nel riferimento Git, le nuove build di quei tag
   generano PR di aggiornamento digest. Il primo pin non Ã¨ una nuova release.

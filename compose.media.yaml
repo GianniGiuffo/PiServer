@@ -67,10 +67,14 @@ services:
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:?Set NEXTCLOUD_ADMIN_USER in .env}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set NEXTCLOUD_ADMIN_PASSWORD in .env}
       NEXTCLOUD_TRUSTED_DOMAINS: ${TAILSCALE_FQDN:?Set TAILSCALE_FQDN in .env} ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
-      TRUSTED_PROXIES: 172.16.0.0/12
+      # Apache must retain the peer IP so Nextcloud can verify Caddy before
+      # trusting the client IP header. The rest of Docker is not trusted.
+      APACHE_DISABLE_REWRITE_IP: "1"
+      TRUSTED_PROXIES: 10.203.253.10
+      FORWARDED_FOR_HEADERS: HTTP_X_FORWARDED_FOR
       OVERWRITEPROTOCOL: https
       # Do not force overwritehost: each browser path keeps its own hostname,
-      # so Tailnet access and the public share hostname can coexist.
+      # so Tailnet access and the public hostname can coexist.
       OVERWRITECLIURL: https://${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
       PHP_MEMORY_LIMIT: 768M
       PHP_UPLOAD_LIMIT: 16G
@@ -80,8 +84,11 @@ services:
     networks:
       # Separate from the generic web network so n8n cannot bypass the
       # read-only connector. Homepage and Uptime Kuma retain monitor access.
-      - nextcloud-access
-      - nextcloud-internal
+      nextcloud-access:
+      nextcloud-internal:
+      nextcloud-proxy:
+        aliases:
+          - nextcloud-origin
     security_opt:
       - no-new-privileges:true
 

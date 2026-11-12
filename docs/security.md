@@ -14,7 +14,7 @@ dell'indagine sui log, i nuovi access log Caddy e la restrizione NFS a Tailscale
 | Homepage | Tailscale Serve `443` | no |
 | area privata sito | Tailscale Serve `8443` | no |
 | Pi-hole dashboard | Tailscale Serve `8444` | no |
-| Nextcloud | Tailscale Serve `8445`; dominio pubblico filtrato dal tunnel | solo link pubblici e relativi asset |
+| Nextcloud | Tailscale Serve `8445`; Cloudflare Tunnel → Caddy | sì, dopo l’attivazione; login nativo |
 | Jellyfin | Tailscale Serve `8446` | no |
 | Seerr | Tailscale Serve `8457`, backend solo loopback | no |
 | Radarr | Tailscale Serve `8458`, backend solo loopback | no |
@@ -22,7 +22,7 @@ dell'indagine sui log, i nuovi access log Caddy e la restrizione NFS a Tailscale
 | Prowlarr | Tailscale Serve `8460`, backend solo loopback | no |
 | qBittorrent Web UI | Tailscale Serve `8461`, backend solo loopback | no |
 | Stirling PDF | Tailscale Serve `8463`, backend `127.0.0.1:8087` | no |
-| ONLYOFFICE Docs | Tailscale Serve `8464`, backend `127.0.0.1:8088`; tunnel su `/office/` | solo editor dei file condivisi |
+| ONLYOFFICE Docs | Tailscale Serve `8464`, backend `127.0.0.1:8088`; tunnel su `/office/` | solo route browser dell’editor |
 | Immich | Tailscale Serve `8447` | no |
 | Uptime Kuma | Tailscale Serve `8448` | no |
 | editor n8n | Tailscale Serve `8449` | no |
@@ -71,15 +71,13 @@ o apertura sul router. La comunicazione Office
 con Nextcloud usa la rete Docker `nextcloud-access`; l'accesso a indirizzi
 privati è consentito nel solo connettore ONLYOFFICE e nel Document Server,
 senza abilitare globalmente `allow_local_remote_servers` in Nextcloud.
-Le condivisioni Nextcloud possono aprire ONLYOFFICE senza Tailscale attraverso
-`https://NEXTCLOUD_PUBLIC_DOMAIN/office/`. Caddy pubblica solo asset dell'editor,
-sessioni di coediting e cache con URL firmati, oltre alla pagina tokenizzata
-`/apps/onlyoffice/s/<token>` e all'API di configurazione con `shareToken`.
-Nextcloud verifica appartenenza del file, permessi, password e validità del link;
-ONLYOFFICE verifica il JWT. Callback e download server-to-server restano sulla
-rete Docker con `StorageUrl=http://nextcloud/`. Login, API utente, editor privato
-per ID numerico, welcome/demo, healthcheck, info, internal, conversioni e comandi
-server restano esclusi dal proxy pubblico. Nessuna porta o regola NAT nuova.
+Nextcloud serve login e API sul proprio dominio una volta attivato.
+Nextcloud verifica identità, permessi sul file, validità del link ed eventuale
+password. Sotto `/office/`, Caddy inoltra al Document Server soltanto risorse
+browser, sessioni di coediting e cache con URL firmati. Le API di gestione,
+conversione e demo del Document Server restano escluse; ONLYOFFICE verifica
+il JWT. Callback e download server-to-server usano Docker con
+`StorageUrl=http://nextcloud/`.
 `shareapi_allow_public_upload` resta disattivato: i link ai singoli file possono
 avere READ+UPDATE, mentre gli upload pubblici via DAV restano bloccati.
 Il possesso di un link modificabile consente di modificare quel file; impostare
@@ -198,12 +196,21 @@ credenziale bearer e va revocato se viene inoltrato alla persona sbagliata.
 Navidrome non supporta password per singolo link; usare Nextcloud quando la
 password è necessaria.
 
-Il dominio pubblico Nextcloud non espone l'applicazione completa. Caddy consente
-soltanto le pagine tokenizzate `/s/*`, gli endpoint pubblici di download,
-anteprima e visualizzazione e gli asset statici necessari; root, login, API
-utente, WebDAV privato e `status.php` rispondono `404`. La UI completa resta su
-Tailscale Serve `8445`. I link senza password sono segreti bearer e restano
-validi finché non vengono revocati.
+## Nextcloud pubblico
+
+L'accesso pubblico alla UI e a WebDAV richiede
+`NEXTCLOUD_PUBLIC_ENABLED=true`. Nextcloud verifica account, 2FA e permessi.
+Un link senza password è una credenziale: chi lo riceve ha accesso fino alla
+revoca o alla scadenza.
+
+Cloudflared e Caddy condividono una rete separata. Caddy accetta il traffico
+del dominio Nextcloud solo dall'IP del connettore e sostituisce
+`X-Forwarded-For` con l'IP comunicato da Cloudflare. Apache mantiene l'IP del
+proxy e Nextcloud si fida solo dell'IP di Caddy sulla rete dedicata. Questo
+permette alla protezione brute-force di usare l'IP reale del client. Caddy
+invia `Cache-Control: private, no-store` e omette URI, query e header dai
+suoi log di accesso; configurare anche Bypass cache in Cloudflare.
+Per attivazione, verifica e rollback: [guida Nextcloud](public-sharing.md).
 
 ## Storage di rete
 

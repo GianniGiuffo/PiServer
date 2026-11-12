@@ -8,3 +8,6 @@
     - Cloudflare:
         - icon: cloudflare.png
           href: https://dash.cloudflare.com/
+    - Brevo:
+        - icon: si-brevo
+          href: https://app.brevo.com/settings/keys/smtp
