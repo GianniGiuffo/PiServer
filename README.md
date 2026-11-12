@@ -34,7 +34,7 @@ soltanto dopo la scelta dell'hardware.
 | Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
 | Stirling PDF | solo Tailnet, porta 8463, login amministratore | config su SSD + Restic, OCR italiano/inglese |
 | ONLYOFFICE Docs | Tailnet 8464 + editor dei link pubblici su `cloud…/office/` | config su SSD + Restic, connettore nel DB Nextcloud |
-| Penpot | Tailnet 8470 + sottodominio per invitati via Cloudflare Access | PostgreSQL e asset su SSD + Restic |
+| Penpot | Tailnet 8470 + sottodominio via Cloudflare Tunnel, account su invito | PostgreSQL e asset su SSD + Restic |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Kapowarr | solo Tailnet, porta 8466 | DB su SSD, fumetti in `/srv/media/Comics`, libreria Jellyfin **Fumetti** |
 | Komga | solo Tailnet, porta 8467 | lettura pagina per pagina di `/srv/media/Comics`; account e progressi su SSD |
@@ -59,8 +59,8 @@ soltanto dopo la scelta dell'hardware.
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
 le route dei link pubblici Nextcloud e del relativo editor Office, e `/share/*` di
-Navidrome. Il sottodominio Penpot per gli invitati è protetto da Cloudflare
-Access. Editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
+Navidrome. Il sottodominio Penpot usa l'autenticazione di Penpot, con inviti
+e verifica email via Brevo. Editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
 router deve essere inoltrata.
 
 ## Tre stack indipendenti

@@ -3,9 +3,9 @@
 Penpot gira nello stack `core` e si apre su `https://TAILSCALE_FQDN:8470/`.
 Tailscale Serve termina HTTPS e inoltra a `127.0.0.1:9001`. Solo il frontend
 pubblica una porta host, su loopback. Le registrazioni sono chiuse e il login
-usa email e password. SMTP non è configurato, quindi il reset via email non è
-disponibile. La scheda **Penpot** è in **File e documenti** sulla Homepage del
-mini PC.
+usa email e password. Brevo consegna inviti, verifica email e recupero
+password quando SMTP è configurato. La scheda **Penpot** è in **File e
+documenti** sulla Homepage del mini PC.
 
 ## Installazione
 
@@ -42,77 +42,67 @@ Per impostare una nuova password di un account esistente, usare
 
 ## Collaboratori esterni
 
-La stessa istanza accetta due percorsi. Tu continui a usare
-`https://TAILSCALE_FQDN:8470/`. Gli invitati aprono
-`https://penpot.tommasofrancescon.it` nel browser, passano Cloudflare Access
-con il codice inviato all'email autorizzata e accedono al proprio account
-Penpot. Il sottodominio serve l'intera sessione di lavoro, compresi asset e
-WebSocket. Il frontend usa l'origine del browser per le API e i WebSocket.
-Cloudflare verifica l'indirizzo email con il codice di accesso. Penpot
-richiede un invito valido per creare un account e salta la propria verifica
-email perché SMTP è disattivato. Inviare ogni invito solo al destinatario.
+Gli invitati usano `https://penpot.tommasofrancescon.it` tramite Cloudflare
+Tunnel e accedono a Penpot con email e password. La stessa istanza si apre
+direttamente in Tailscale su `https://TAILSCALE_FQDN:8470/`. Penpot consente
+di registrarsi solo tramite un invito valido e verifica l'indirizzo dei
+nuovi account via Brevo.
 
-1. Sul mini PC impostare nel `.env`:
+1. In Brevo aprire **Settings → Senders, Domains, IPs → Domains**.
+   Aggiungere e autenticare `tommasofrancescon.it` con i record DNS
+   mostrati da Brevo. Se il dominio ha già un record DMARC, usare il
+   record esistente e aggiornarlo secondo le indicazioni di Brevo.
+   In **Senders** creare il mittente, per esempio
+   `penpot@tommasofrancescon.it`, e completare l'eventuale verifica.
+   [Autenticare il dominio in Brevo](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC)
+2. In **Settings → SMTP & API → SMTP** copiare il **Login** e generare
+   una **chiave SMTP** dedicata a Penpot. Inserire i valori nel
+   `.env` del mini PC con permessi `0600`.
 
    ```dotenv
    PENPOT_PUBLIC_DOMAIN=penpot.tommasofrancescon.it
+   PENPOT_SMTP_FLAG=enable-smtp
+   PENPOT_SMTP_USERNAME=LOGIN_SMTP_BREVO
+   PENPOT_SMTP_PASSWORD='CHIAVE_SMTP_BREVO'
+   PENPOT_SMTP_DEFAULT_FROM=penpot@tommasofrancescon.it
+   PENPOT_SMTP_DEFAULT_REPLY_TO=penpot@tommasofrancescon.it
    ```
 
-   Applicare la configurazione dalla directory del repository:
+   Usare il mittente registrato in Brevo. Il campo `REPLY_TO` è facoltativo.
+   Il Compose usa `smtp-relay.brevo.com:587` con STARTTLS. Applicare la
+   configurazione dal repository sul mini PC. [Configurazione SMTP Brevo](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP)
 
    ```bash
    docker compose config --quiet
    docker compose up -d --no-deps caddy penpot-backend penpot-exporter penpot-frontend
+   curl -fsS http://127.0.0.1:9001/readyz
    ```
 
-2. In **Cloudflare Zero Trust**, aprire **Integrations → Identity providers**
-   e verificare che **One-time PIN** sia disponibile. In **Access controls →
-   Applications → Add an application**, scegliere **Self-hosted** e aggiungere
-   il public hostname `penpot.tommasofrancescon.it` senza indicare un path.
-   Selezionare **One-time PIN** come metodo di accesso e creare una policy
-   **Allow** con **Include → Emails**, elencando i singoli indirizzi degli
-   invitati. Aggiungere anche il proprio indirizzo se si vuole provare
-   l'ingresso esterno. Gli indirizzi fuori elenco sono negati.
+3. In Penpot, dal team che contiene il file da condividere, usare
+   **Invite to team → Editor → Send invitation**. Penpot spedisce via
+   Brevo un link con il sottodominio pubblico anche quando l'invito
+   parte dalla scheda Tailscale. Per il collaudo usare un proprio indirizzo
+   che non ha ancora un account Penpot, controllare che arrivi il link
+   e verificare che il nuovo account richieda la conferma via email.
+   Per una migrazione, lasciare attivo Cloudflare Access durante questa
+   prova e usare un indirizzo di test già autorizzato in Access.
+4. In Cloudflare aprire **Networking → Tunnels → tunnel del mini PC →
+   Routes**. Sulla route `penpot.tommasofrancescon.it`, lasciare il percorso
+   vuoto e il servizio su `http://caddy:8089`. In **Additional application
+   settings → Access** disattivare **Protect with Access** e salvare la
+   route. In **Access controls → Applications** rimuovere l'app Access
+   dedicata a Penpot o togliere l'hostname Penpot da quell'app se copre
+   anche altri servizi. Mantenere la route pubblicata e il suo record DNS.
+   [Parametri Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/#access)
+5. Da una finestra privata fuori Tailscale aprire il sottodominio.
+   Deve comparire il login Penpot. Ripetere la prova con un nuovo invitato
+   e verificare che, dopo la conferma email, acceda solo ai team di cui fa
+   parte. Per revocare un accesso, annullare l'invito in attesa o
+   rimuovere il membro dal team.
 
-3. Dopo aver salvato l'app Access, aprire **Networking → Tunnels** e
-   selezionare il tunnel esistente del mini PC. In **Routes → Add route →
-   Published application** compilare:
-
-   | Campo | Valore |
-   | --- | --- |
-   | Hostname | `penpot.tommasofrancescon.it` |
-   | Path | vuoto |
-   | Service type | HTTP |
-   | Origin | `caddy:8089` |
-   | Additional application settings → Access → Protect with Access | attivo, applicazione Penpot |
-
-   Se richiesti, indicare il team Zero Trust e l'AUD dell'app Penpot. L'AUD
-   è nella configurazione dell'app Access. Con DNS gestito da Cloudflare
-   la route crea il record del sottodominio. La porta 8089 appartiene a
-   Caddy nella rete Docker. [Guida Cloudflare](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
-
-4. Da Tailscale creare un team che contenga solo il file da condividere e
-   invitare l'indirizzo autorizzato come **Editor**. Le registrazioni
-   pubbliche restano chiuse. Per un account già attivo Penpot può
-   aggiungere direttamente la persona al team. Per un nuovo account
-   usare **Team →
-   Invitations → Copy link** dal sottodominio per ottenere subito l'URL
-   esterno. Se si copia il link dalla scheda aperta su Tailscale,
-   sostituire la sola origine (schema, host e porta) con
-   `https://penpot.tommasofrancescon.it`, conservando il resto del link.
-   Inviare il link al destinatario tramite un canale privato.
-
-5. Da fuori Tailscale e in una finestra privata verificare che l'URL
-   mostri Access e che un indirizzo fuori elenco non entri. Provare poi
-   invito, login e modifica simultanea con un Editor autorizzato. L'Editor
-   deve vedere il team dedicato e i suoi file. Per revocare l'accesso,
-   rimuovere l'Editor dal team Penpot e l'email dalla policy Access, quindi
-   revocare la sessione Access se è ancora attiva.
-
-Conservare le impostazioni Cloudflare di Access e della route nel pannello
-Cloudflare. Per disattivare l'ingresso esterno, rimuovere prima la route
-pubblicata. Togliere poi `PENPOT_PUBLIC_DOMAIN` da `.env` e ricreare i
-quattro servizi indicati sopra per tornare agli inviti con URL Tailscale.
+Per disattivare l'ingresso esterno, rimuovere la route pubblicata. Togliere
+poi `PENPOT_PUBLIC_DOMAIN` da `.env` e ricreare i quattro servizi indicati
+sopra per tornare agli inviti con URL Tailscale.
 
 ## Monitoraggio
 

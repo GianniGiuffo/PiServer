@@ -84,7 +84,7 @@ http://:80 {
 	respond 404
 }
 
-# Dedicated Docker-only origin for the Cloudflare route protected by Access.
+# Dedicated Docker-only origin for the Cloudflare Tunnel route.
 # The private Tailscale route reaches the frontend independently of this vhost.
 http://{$PENPOT_PUBLIC_DOMAIN}:8089 {
 	import security_access_log

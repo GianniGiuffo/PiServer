@@ -279,7 +279,7 @@ services:
       # Penpot 2.19.1 uses window.location.origin when the frontend URI is
       # unset. Keep API and WebSocket traffic on the host the browser opened.
       PENPOT_HSTS_VALUE: max-age=31536000
-      PENPOT_FLAGS: enable-login-with-password disable-registration disable-email-verification disable-mcp disable-admin-console
+      PENPOT_FLAGS: enable-login-with-password disable-registration enable-email-verification disable-mcp disable-admin-console
     volumes:
       - ${DATA_DIR}/penpot/assets:/opt/data/assets:ro
     ports:
@@ -302,9 +302,15 @@ services:
         condition: service_healthy
     environment:
       PENPOT_PUBLIC_URI: https://${PENPOT_PUBLIC_DOMAIN:-${TAILSCALE_FQDN}:8470}
-      # Cloudflare Access verifies email for external users. A valid team
-      # invitation is still required to register, and SMTP is disabled.
-      PENPOT_FLAGS: enable-prepl-server enable-secure-session-cookies enable-login-with-password disable-registration disable-email-verification disable-smtp disable-mcp disable-admin-console
+      PENPOT_FLAGS: enable-prepl-server enable-secure-session-cookies enable-login-with-password disable-registration enable-email-verification ${PENPOT_SMTP_FLAG:-disable-smtp} disable-mcp disable-admin-console
+      PENPOT_SMTP_HOST: smtp-relay.brevo.com
+      PENPOT_SMTP_PORT: "587"
+      PENPOT_SMTP_TLS: "true"
+      PENPOT_SMTP_SSL: "false"
+      PENPOT_SMTP_USERNAME:
+      PENPOT_SMTP_PASSWORD:
+      PENPOT_SMTP_DEFAULT_FROM:
+      PENPOT_SMTP_DEFAULT_REPLY_TO:
       PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env}
       PENPOT_DATABASE_URI: postgresql://penpot-postgres/penpot
       PENPOT_DATABASE_USERNAME: penpot

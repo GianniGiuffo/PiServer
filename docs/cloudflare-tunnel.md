@@ -63,7 +63,7 @@ In Cloudflare aprire **Networking** > **Tunnels** > `pi-server` > **Routes** >
 | Public hostname | Service URL |
 | --- | --- |
 | `tommasofrancescon.it` | `http://caddy:80` |
-| `penpot.tommasofrancescon.it` | `http://caddy:8089`, [dopo aver configurato Cloudflare Access](penpot.md#collaboratori-esterni) |
+| `penpot.tommasofrancescon.it` | `http://caddy:8089`, [dopo aver verificato inviti e SMTP](penpot.md#collaboratori-esterni) |
 
 Per un secondo sito aggiungere una route dopo aver impostato `SITE_2_DOMAIN`.
 Vaultwarden usa Tailscale Serve sulla porta `8469`. Rimuovere l'eventuale
