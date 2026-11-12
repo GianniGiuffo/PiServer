@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify public editor assets and rejection of private routes without credentials."""
+"""Verify public Nextcloud and the restricted Office proxy without credentials."""
 import argparse
 import json
 from pathlib import Path
@@ -19,39 +19,54 @@ def check_public_office(hostname):
                                    data=b'{}' if method in ('POST','PUT') else None)
         try:
             with urllib.request.urlopen(req, timeout=20) as response:
-                return response.status, response.read()
+                if not response.geturl().startswith(origin + '/'):
+                    raise RuntimeError(f'Unexpected redirect off the public HTTPS hostname: {path}')
+                result = response.status, response.headers, response.read()
         except urllib.error.HTTPError as error:
-            return error.code, error.read()
+            result = error.code, error.headers, error.read()
+        if result[1].get('CF-Cache-Status', '').upper() == 'HIT':
+            raise RuntimeError(f'Cloudflare served a cached response for {path}')
+        return result
+
+    status, headers, body = request('/status.php')
+    state = json.loads(body) if status == 200 else {}
+    if not state.get('installed') or state.get('maintenance') or state.get('needsDbUpgrade'):
+        raise RuntimeError(f'Nextcloud is unavailable or requires maintenance: HTTP {status}')
+    if 'no-store' not in headers.get('Cache-Control', '').lower():
+        raise RuntimeError('Nextcloud response is missing Cache-Control: no-store')
+    if not headers.get('Strict-Transport-Security'):
+        raise RuntimeError('Nextcloud response is missing HSTS')
+    status, _, body = request('/login')
+    if status != 200 or b'id="login"' not in body:
+        raise RuntimeError(f'Nextcloud login form is unavailable: HTTP {status}')
+    status, headers, _ = request('/remote.php/dav/', 'PROPFIND')
+    if status != 401 or not headers.get('WWW-Authenticate'):
+        raise RuntimeError(f'Anonymous WebDAV did not require authentication: HTTP {status}')
+
     for path in ['/office/web-apps/apps/api/documents/api.js',
                  '/custom_apps/onlyoffice/js/onlyoffice-main.mjs',
                  '/custom_apps/onlyoffice/templates/loader.html']:
-        status, body=request(path)
+        status, _, body=request(path)
         if status!=200 or not body:
             raise RuntimeError(f'Editor asset failed: {path}, HTTP {status}')
-    private=['/', '/login', '/index.php/login', '/status.php', '/apps/files/',
-             '/settings/admin', '/remote.php/dav/', '/apps/onlyoffice/123',
-             '/ocs/v2.php/apps/onlyoffice/api/v1/config/123',
-             '/office/', '/office/welcome/', '/office/example/',
+    private=['/office', '/office/', '/office/welcome/', '/office/example/',
              '/office/healthcheck', '/office/info/info.json',
              '/office/internal/cluster/inactive', '/office/ConvertService.ashx',
              '/office/coauthoring/CommandService.ashx',
              '/office/9.3.1-test/internal/cluster/inactive',
              '/office/9.3.1-test/info/info.json']
     for path in private:
-        status, _=request(path)
+        status, _, _=request(path)
         if status!=404:
             raise RuntimeError(f'Private route is exposed: {path}, HTTP {status}')
-    for path,method in [('/apps/onlyoffice/ajax/new','POST'),
-                        ('/apps/onlyoffice/track','POST'),
-                        ('/public.php/dav/files/invalid/file.docx','PUT'),
-                        ('/office/web-apps/apps/api/documents/api.js','POST')]:
-        status,_=request(path,method)
-        if status!=404:
-            raise RuntimeError(f'Unexpected public method: {method} {path}, HTTP {status}')
-    status,_=request('/office/cache/files/invalid/output.docx')
+    for path in ('/office/web-apps/apps/api/documents/api.js', '/index.php/apps/onlyoffice/track'):
+        status, _, _ = request(path, 'POST')
+        if status != 404:
+            raise RuntimeError(f'Unexpected POST to {path}: HTTP {status}')
+    status, _, _ = request('/office/cache/files/invalid/output.docx')
     if status!=403:
         raise RuntimeError(f'Unsigned cached document must be refused, HTTP {status}')
-    status,body=request('/ocs/v2.php/apps/onlyoffice/api/v1/config/123?shareToken=invalid')
+    status, _, body = request('/ocs/v2.php/apps/onlyoffice/api/v1/config/123?shareToken=invalid&format=json')
     if status==200:
         payload=json.loads(body)
         data=payload.get('ocs',{}).get('data',payload)
@@ -59,7 +74,7 @@ def check_public_office(hostname):
             raise RuntimeError('Invalid share returned a document configuration')
     elif status not in (401,403,404,412):
         raise RuntimeError(f'Unexpected invalid-share status: {status}')
-    print('Public editor assets available; private routes, public writes, unsigned files and invalid shares refused.')
+    print('Public login and editor are available; anonymous WebDAV, internal Office routes, unsigned files and invalid shares are refused.')
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

@@ -63,12 +63,14 @@ In Cloudflare aprire **Networking** > **Tunnels** > `pi-server` > **Routes** >
 | Public hostname | Service URL |
 | --- | --- |
 | `tommasofrancescon.it` | `http://caddy:80` |
+| `cloud.tommasofrancescon.it` | `http://caddy:80`, [seguendo la procedura Nextcloud](public-sharing.md) |
+| `music.tommasofrancescon.it` | `http://caddy:80`, [solo condivisioni Navidrome](public-sharing.md#navidrome) |
 | `penpot.tommasofrancescon.it` | `http://caddy:8089`, [dopo aver verificato inviti e SMTP](penpot.md#collaboratori-esterni) |
 
 Per un secondo sito aggiungere una route dopo aver impostato `SITE_2_DOMAIN`.
 Vaultwarden usa Tailscale Serve sulla porta `8469`. Rimuovere l'eventuale
 route del vecchio hostname dal tunnel e il relativo record DNS pubblico.
-Non pubblicare Homepage, Nextcloud, Immich,
+Non pubblicare Homepage, Immich,
 Jellyfin, Pi-hole, Uptime Kuma, l'editor n8n o la chat n8n. Gli endpoint n8n
 restano raggiungibili esclusivamente tramite Tailscale.
 

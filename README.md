@@ -31,9 +31,9 @@ soltanto dopo la scelta dell'hardware.
 | Pi-hole DNS | LAN e Tailnet | SSD locale + Restic |
 | Homepage | Tailnet, porta 443 | configurazione in Git |
 | Uptime Kuma | Tailnet, porta 8448 | SSD locale + Restic |
-| Nextcloud | UI privata Tailnet 8445 + soli link pubblici via tunnel | DB/config su SSD, file su `/srv/media` |
+| Nextcloud | Login Nextcloud su `cloud.tommasofrancescon.it` via tunnel, dopo l'attivazione; fallback Tailnet 8445 | DB/config su SSD, file su `/srv/media` |
 | Stirling PDF | solo Tailnet, porta 8463, login amministratore | config su SSD + Restic, OCR italiano/inglese |
-| ONLYOFFICE Docs | Tailnet 8464 + editor dei link pubblici su `cloud…/office/` | config su SSD + Restic, connettore nel DB Nextcloud |
+| ONLYOFFICE Docs | Tailnet 8464 + risorse browser dell'editor su `cloud…/office/` | config su SSD + Restic, connettore nel DB Nextcloud |
 | Penpot | Tailnet 8470 + sottodominio via Cloudflare Tunnel, account su invito | PostgreSQL e asset su SSD + Restic |
 | Jellyfin | Tailnet, porta 8446 | config su SSD, media su `/srv/media` |
 | Kapowarr | solo Tailnet, porta 8466 | DB su SSD, fumetti in `/srv/media/Comics`, libreria Jellyfin **Fumetti** |
@@ -58,8 +58,9 @@ soltanto dopo la scelta dell'hardware.
 | Controllo Pi-hole doppio | Tailnet, porta 8456 | nessuna credenziale nel browser |
 
 Tailscale è installato sull'host, non in Docker. Cloudflare espone il sito,
-le route dei link pubblici Nextcloud e del relativo editor Office, e `/share/*` di
-Navidrome. Il sottodominio Penpot usa l'autenticazione di Penpot, con inviti
+Nextcloud con il suo login e le condivisioni native dopo
+[l'attivazione](docs/public-sharing.md), e `/share/*` di Navidrome.
+Il sottodominio Penpot usa l'autenticazione di Penpot, con inviti
 e verifica email via Brevo. Editor, webhook e chat n8n restano nella Tailnet. Nessuna porta del
 router deve essere inoltrata.
 
@@ -175,7 +176,7 @@ retention separati. Lo storico esistente viene migrato senza reinizializzarlo.
 - [Komga e lettura su Android](docs/komga.md)
 - [Omnibus: scoperta, richieste e gestione della raccolta](docs/omnibus.md)
 - [Cloudflare Tunnel](docs/cloudflare-tunnel.md) — configurazione dei siti pubblici
-- [Condivisioni pubbliche Nextcloud e Navidrome](docs/public-sharing.md)
+- [Nextcloud pubblico e condivisioni Navidrome](docs/public-sharing.md)
 - [Connettore AI: Nextcloud in sola lettura](docs/ai-connectors.md)
 - [Connettori AI: GitHub in sola lettura e DeepL](docs/n8n-github-deepl.md)
 - [Cloud gaming privato con Switch, Sunshine e Tailscale](docs/cloud-gaming.md)

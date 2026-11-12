@@ -11,6 +11,7 @@ services:
       SITE_1_DOMAIN: ${SITE_1_DOMAIN:?Set SITE_1_DOMAIN in .env}
       SITE_2_DOMAIN: ${SITE_2_DOMAIN:-unused.invalid}
       NEXTCLOUD_PUBLIC_DOMAIN: ${NEXTCLOUD_PUBLIC_DOMAIN:?Set NEXTCLOUD_PUBLIC_DOMAIN in .env}
+      NEXTCLOUD_PUBLIC_ENABLED: ${NEXTCLOUD_PUBLIC_ENABLED:-false}
       NAVIDROME_PUBLIC_DOMAIN: ${NAVIDROME_PUBLIC_DOMAIN:?Set NAVIDROME_PUBLIC_DOMAIN in .env}
       PENPOT_PUBLIC_DOMAIN: ${PENPOT_PUBLIC_DOMAIN:-penpot.invalid}
     volumes:
@@ -21,15 +22,17 @@ services:
     ports:
       # Private Hugo pages are published only through Tailscale Serve.
       - "127.0.0.1:8083:8083/tcp"
-      # Full Nextcloud UI for Tailscale Serve; the public vhost remains
-      # independently restricted to tokenized share routes in Caddy.
+      # Independent Nextcloud access for Tailscale Serve.
       - "127.0.0.1:18084:8084/tcp"
     networks:
-      - web
-      # Caddy reaches Nextcloud only through its existing restricted frontend
-      # network. Databases and the AI connector remain isolated.
-      - nextcloud-access
-      - penpot-ingress
+      web:
+      # ONLYOFFICE uses the shared frontend; Nextcloud trusts only Caddy's
+      # fixed IP on the dedicated proxy network.
+      nextcloud-access:
+      penpot-ingress:
+      tunnel-ingress:
+      nextcloud-proxy:
+        ipv4_address: 10.203.253.10
     security_opt:
       - no-new-privileges:true
 
@@ -41,7 +44,8 @@ services:
     depends_on:
       - caddy
     networks:
-      - web
+      tunnel-ingress:
+        ipv4_address: 10.203.253.2
     security_opt:
       - no-new-privileges:true
 
@@ -402,6 +406,15 @@ services:
 
 networks:
   web:
+  tunnel-ingress:
+    ipam:
+      config:
+        - subnet: 10.203.253.0/29
+  nextcloud-proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.203.253.8/29
   nextcloud-access:
   penpot:
   penpot-ingress:

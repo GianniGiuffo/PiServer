@@ -13,9 +13,9 @@ strumenti. La Homepage di `rack-pi` non viene modificata.
 Stirling è accessibile solo tramite Tailscale Serve e richiede il login.
 ONLYOFFICE mantiene il backend su loopback e usa anche il tunnel Cloudflare
 esistente, limitato alle route dell'editor su `NEXTCLOUD_PUBLIC_DOMAIN/office/`.
-Nessuna porta aperta sul router e nessun Funnel. Gli utenti autenticati usano
-Nextcloud nella Tailnet; gli ospiti usano il token, i permessi e l'eventuale
-password della singola condivisione pubblica.
+Gli utenti autenticati aprono Nextcloud dalla Tailnet o, dopo l'attivazione,
+su `https://cloud.tommasofrancescon.it`; gli ospiti usano il token, i permessi
+e l'eventuale password della singola condivisione pubblica.
 La card ONLYOFFICE apre la pagina File Nextcloud: aprire o creare un `.docx`,
 `.xlsx` o `.pptx` per avviare l'editor. L'URL 8464 serve l'editor e la pagina
 di stato, non un gestore autonomo dei documenti.

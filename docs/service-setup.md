@@ -181,8 +181,10 @@ limiti di risorse e verifiche sono in [documents.md](documents.md).
 Homepage raccoglie Nextcloud, Stirling PDF e ONLYOFFICE in **File e documenti**;
 la card ONLYOFFICE apre i file Nextcloud, dove si usa l'editor.
 
-Per i link pubblici con password facoltativa e senza scadenza obbligatoria,
-seguire [public-sharing.md](public-sharing.md). Non aprire porte sul router.
+Per usare Nextcloud senza VPN, seguire [la guida all'attivazione](public-sharing.md).
+Gli account esistenti funzionano anche su `https://cloud.tommasofrancescon.it`,
+dove si possono copiare i link nativi di condivisione. La Tailnet resta
+disponibile per l'accesso di riserva.
 
 ## Jellyfin
 

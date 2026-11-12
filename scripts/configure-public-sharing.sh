@@ -5,7 +5,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 STACK_ENV=${REPO_DIR}/.env
 
-# Read only the two non-secret hostnames; never source the credential-bearing
+# Read only the non-secret hostnames; never source the credential-bearing
 # Compose environment file into the shell.
 # shellcheck source=read-stack-path.sh
 source "${SCRIPT_DIR}/read-stack-path.sh"
@@ -16,7 +16,7 @@ if [[ ! -r ${STACK_ENV} ]]; then
 fi
 
 NEXTCLOUD_PUBLIC_DOMAIN=$(read_stack_value "${STACK_ENV}" NEXTCLOUD_PUBLIC_DOMAIN)
-NAVIDROME_PUBLIC_DOMAIN=$(read_stack_value "${STACK_ENV}" NAVIDROME_PUBLIC_DOMAIN)
+TAILSCALE_FQDN=$(read_stack_value "${STACK_ENV}" TAILSCALE_FQDN)
 
 validate_hostname() {
   local name=${1:?hostname is required}
@@ -30,7 +30,7 @@ validate_hostname() {
 }
 
 validate_hostname NEXTCLOUD_PUBLIC_DOMAIN "${NEXTCLOUD_PUBLIC_DOMAIN}"
-validate_hostname NAVIDROME_PUBLIC_DOMAIN "${NAVIDROME_PUBLIC_DOMAIN}"
+validate_hostname TAILSCALE_FQDN "${TAILSCALE_FQDN}"
 
 COMPOSE=(
   docker compose --project-directory "${REPO_DIR}"
@@ -38,71 +38,75 @@ COMPOSE=(
   -f "${REPO_DIR}/compose.media.yaml"
 )
 OCC=("${COMPOSE[@]}" exec -T --user www-data nextcloud php occ)
-LOCAL_APP_DIR=${REPO_DIR}/config/nextcloud-apps/public_share_domain
-CONTAINER_APP_DIR=/var/www/html/custom_apps/public_share_domain
 
 "${COMPOSE[@]}" config --quiet
 
-if ! "${COMPOSE[@]}" ps --services --status running | grep -qx nextcloud; then
+running=$("${COMPOSE[@]}" ps --services --status running)
+if ! grep -qx nextcloud <<<"${running}"; then
   echo "Nextcloud is not running; start media-stack.service first." >&2
+  exit 1
+fi
+if ! grep -qx caddy <<<"${running}"; then
+  echo "Caddy is not running; start core-stack.service first." >&2
+  exit 1
+fi
+
+"${COMPOSE[@]}" exec -T caddy caddy validate \
+  --config /etc/caddy/Caddyfile --adapter caddyfile
+
+# Fail before changing application settings if the running container still
+# uses the old trust settings or if a local config fragment overrides them.
+if [[ $("${OCC[@]}" config:system:get trusted_proxies) != "10.203.253.10" ||
+      $("${OCC[@]}" config:system:get forwarded_for_headers) != "HTTP_X_FORWARDED_FOR" ||
+      $("${OCC[@]}" config:system:get overwriteprotocol) != "https" ||
+      $("${COMPOSE[@]}" exec -T nextcloud printenv APACHE_DISABLE_REWRITE_IP) != "1" ]]; then
+  echo "Unexpected Nextcloud proxy settings. Recreate Nextcloud and verify its effective configuration." >&2
   exit 1
 fi
 
 # A historical OVERWRITEHOST forced every generated URL back to the Tailnet.
 # Remove it so public and private browser hostnames can coexist.
-if "${OCC[@]}" config:system:get overwritehost >/dev/null 2>&1; then
+overwrite_host=$("${OCC[@]}" config:system:get overwritehost --default-value='')
+if [[ -n ${overwrite_host} ]]; then
   "${OCC[@]}" config:system:delete overwritehost
+  if [[ -n $("${OCC[@]}" config:system:get overwritehost --default-value='') ]]; then
+    echo "A Nextcloud config fragment still overrides the hostname. Remove it before publishing." >&2
+    exit 1
+  fi
 fi
 
-mapfile -t current_domains < <("${OCC[@]}" config:system:get trusted_domains)
-domain_present=false
-for current_domain in "${current_domains[@]}"; do
-  if [[ ${current_domain} == "${NEXTCLOUD_PUBLIC_DOMAIN}" ]]; then
-    domain_present=true
-    break
+for domain in "${TAILSCALE_FQDN}" "${NEXTCLOUD_PUBLIC_DOMAIN}"; do
+  domains=$("${OCC[@]}" config:system:get trusted_domains --output=json)
+  if ! jq -e --arg domain "${domain}" 'any(.[]; . == $domain)' <<<"${domains}" >/dev/null; then
+    # PHP may encode sparse numeric indexes as an object. Append after the
+    # highest index so an existing internal domain is never overwritten.
+    index=$(jq -er 'if type == "array" then length else (keys | map(tonumber) | max // -1) + 1 end' <<<"${domains}")
+    "${OCC[@]}" config:system:set trusted_domains "${index}" --value="${domain}"
   fi
 done
-
-if [[ ${domain_present} == false ]]; then
-  "${OCC[@]}" config:system:set trusted_domains "${#current_domains[@]}" \
-    --value="${NEXTCLOUD_PUBLIC_DOMAIN}"
-fi
 
 "${OCC[@]}" config:system:set overwrite.cli.url \
   --value="https://${NEXTCLOUD_PUBLIC_DOMAIN}"
 "${OCC[@]}" config:system:set auth.bruteforce.protection.enabled \
   --type=boolean --value=true
+"${OCC[@]}" config:system:set auth.bruteforce.protection.testing \
+  --type=boolean --value=false
+"${OCC[@]}" config:system:set ratelimit.protection.enabled \
+  --type=boolean --value=true
 
-# The Files UI intentionally builds copied links from window.location rather
-# than using the public URL returned by the OCS API. Install the bundled local
-# app into the persistent Nextcloud volume, then enable it. Copying instead of
-# bind-mounting keeps the official image's startup permission repair intact.
-"${COMPOSE[@]}" exec -T --user root nextcloud \
-  mkdir -p "${CONTAINER_APP_DIR}"
-"${COMPOSE[@]}" cp "${LOCAL_APP_DIR}/." "nextcloud:${CONTAINER_APP_DIR}"
-"${COMPOSE[@]}" exec -T --user root nextcloud \
-  chown -R www-data:www-data "${CONTAINER_APP_DIR}"
-"${OCC[@]}" app:enable public_share_domain
-
-# Password and expiry stay selectable per link; anonymous uploads are not part
-# of this deployment's download-only sharing model.
-"${OCC[@]}" config:app:set core shareapi_enforce_links_password --value=no
-"${OCC[@]}" config:app:set core shareapi_default_expire_date --value=no
-"${OCC[@]}" config:app:set core shareapi_enforce_expire_date --value=no
-"${OCC[@]}" config:app:set core shareapi_allow_public_upload --value=no
-
-if "${COMPOSE[@]}" ps --services --status running | grep -qx caddy; then
-  "${COMPOSE[@]}" exec -T caddy caddy validate \
-    --config /etc/caddy/Caddyfile --adapter caddyfile
+# Disable the old clipboard override if it was installed. Leave its files
+# on existing servers for rollback and leave share tokens and policies intact.
+apps=$("${OCC[@]}" app:list --output=json)
+legacy_enabled=$(jq -r '(.enabled // {}) | has("public_share_domain")' <<<"${apps}")
+if [[ ${legacy_enabled} == true ]]; then
+  "${OCC[@]}" app:disable public_share_domain
 fi
 
+# Anonymous folder uploads remain disabled.
+"${OCC[@]}" config:app:set core shareapi_allow_public_upload --value=no
+
 cat <<EOF
-Public sharing application settings are ready.
-
-Nextcloud: https://${NEXTCLOUD_PUBLIC_DOMAIN}
-Navidrome shares: https://${NAVIDROME_PUBLIC_DOMAIN}/share/...
-
-Add both hostnames to the existing Cloudflare Tunnel as Published applications
-pointing to http://caddy:80, then run the external-network checks documented in
-docs/public-sharing.md.
+Nextcloud is prepared for https://${NEXTCLOUD_PUBLIC_DOMAIN}.
+Follow docs/public-sharing.md to check MFA and Cloudflare rules, enable the
+public hostname and run the external checks.
 EOF
