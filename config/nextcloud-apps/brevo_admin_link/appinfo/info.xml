@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<info>
+    <id>brevo_admin_link</id>
+    <name>Brevo Admin Link</name>
+    <summary>Link to Brevo SMTP settings in Nextcloud administration</summary>
+    <description>Adds an administrator-only shortcut to the Brevo SMTP dashboard.</description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author>PiServer</author>
+    <namespace>BrevoAdminLink</namespace>
+    <category>tools</category>
+    <dependencies>
+        <nextcloud min-version="33" max-version="33"/>
+    </dependencies>
+    <settings>
+        <admin>OCA\BrevoAdminLink\Settings\Brevo</admin>
+        <admin-section>OCA\BrevoAdminLink\Settings\Brevo</admin-section>
+    </settings>
+</info>
