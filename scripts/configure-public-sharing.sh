@@ -102,6 +102,12 @@ if [[ ${legacy_enabled} == true ]]; then
   "${OCC[@]}" app:disable public_share_domain
 fi
 
+# Accounts are provisioned by the administrator, never by anonymous visitors.
+registration_enabled=$(jq -r '(.enabled // {}) | has("registration")' <<<"${apps}")
+if [[ ${registration_enabled} == true ]]; then
+  "${OCC[@]}" app:disable registration
+fi
+
 # Anonymous folder uploads remain disabled.
 "${OCC[@]}" config:app:set core shareapi_allow_public_upload --value=no
 

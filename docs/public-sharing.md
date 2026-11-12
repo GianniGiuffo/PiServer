@@ -19,7 +19,8 @@ forwarding, UPnP o Funnel.
    Nextcloud e delle app, e accesso amministrativo via Tailnet. Accertarsi che
    le nuove reti Docker `10.203.253.0/29` e `10.203.253.8/29` non si
    sovrappongano alla LAN, alle VPN o ad altre reti Docker.
-2. Verificare che la registrazione libera sia disattivata. Configurare la
+2. Lasciare disattivata l'app **Registration**. L'amministratore crea gli
+   account dalla pagina **Utenti** di Nextcloud. Configurare la
    [2FA di Nextcloud](https://docs.nextcloud.com/server/stable/admin_manual/configuration_user/two_factor-auth.html)
    per gli account, a partire da tutti gli amministratori, salvare i codici
    di recupero e provare secondo fattore e client ufficiali prima di rendere
@@ -64,7 +65,8 @@ bash scripts/configure-public-sharing.sh
 
 Lo script verifica Caddy e le impostazioni effettive del proxy, aggiunge gli
 hostname mancanti e imposta l'URL pubblico per job e notifiche. Disattiva
-`public_share_domain` e conserva account, token, password e scadenze dei link.
+`public_share_domain` e `registration` se attive. Conserva account, token,
+password e scadenze dei link.
 Gli upload anonimi restano disabilitati. ONLYOFFICE conserva il JWT e le
 callback su Docker; `/office/` ammette solo le route necessarie al browser.
 

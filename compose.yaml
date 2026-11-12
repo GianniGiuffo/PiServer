@@ -31,6 +31,7 @@ services:
       nextcloud-access:
       penpot-ingress:
       tunnel-ingress:
+        ipv4_address: 10.203.253.3
       nextcloud-proxy:
         ipv4_address: 10.203.253.10
     security_opt:
